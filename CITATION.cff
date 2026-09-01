@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "corestone: ONE LINE saying what this evolves, and of what"
+abstract: >-
+  A sentence or two: what the model computes, by what method, and what
+  question it was built to answer.
+type: software
+authors:
+  - family-names: Wickert
+    given-names: Andrew D.
+    orcid: "https://orcid.org/0000-0002-9545-3365"
+license: GPL-3.0-or-later
+repository-code: "https://github.com/MNiMORPH/corestone"
+keywords:
+  - earth science
+  - geomorphology
+  - numerical modeling

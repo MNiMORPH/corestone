@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "corestone"
+dynamic = ["version"]
+description = "ONE LINE: what this model evolves, and of what"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "GPL-3.0-or-later"
+license-files = ["LICEN[CS]E*"]
+authors = [{ name = "Andrew D. Wickert", email = "awickert@umn.edu" }]
+keywords = [
+  "earth science",
+  "geomorphology",
+  "numerical modeling",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+# src-layout: the single ``corestone`` package lives under src/.
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["corestone*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "corestone._version.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[project.urls]
+Repository = "https://github.com/MNiMORPH/corestone"
+Issues = "https://github.com/MNiMORPH/corestone/issues"
+
+# Pyright's defaults fight the __init__ state manifest -- every attribute
+# declared as None and populated later is inferred as None, then flagged at
+# every use. Switching that family off leaves the checks that find real
+# defects: possibly-unbound names, bad overrides, call errors. Annotating the
+# manifest (``self.z: np.ndarray | None = None``) would let them come back on.
+[tool.pyright]
+include = ["src"]
+typeCheckingMode = "standard"
+reportOptionalSubscript = "none"
+reportOptionalIterable = "none"
+reportOptionalOperand = "none"
+reportOptionalMemberAccess = "none"
+reportOptionalCall = "none"
+reportArgumentType = "none"
+reportAttributeAccessIssue = "none"
+reportOperatorIssue = "none"
