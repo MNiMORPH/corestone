@@ -1,0 +1,147 @@
+# 02 -- Teaching scope
+
+## The pivot
+
+Design 01 and the literature review behind it were aimed at a research model:
+variably saturated Richards flow with fracture-matrix capillary exchange,
+multicomponent speciation, oxygen transport, cohesion mechanics. This model is
+for **teaching, delivered as an `artesian` browser demo for visualisation and
+equation learning**. Most of that machinery is not simplified away here -- it is
+the wrong model for the purpose, and it is recorded in design 01 and below so
+that it stays visible as a direction rather than quietly vanishing.
+
+## The one idea
+
+Weathering is a race between how fast water delivers fresh fluid and how fast
+rock dissolves into it. The payload -- the misconception the model exists to
+correct -- is that **a corestone is not tougher rock**. Same granite, same
+minerals, same temperature. It survives because the water never reached it, or
+reached it already saturated.
+
+## The model, entire
+
+Normalised concentration `c = C/C_eq` removes the need to assert a solubility.
+Integrating the rate over a cell of height `dx` is then exact:
+
+```
+dc/dz = (1 - c) / L_eq        ->   c_out = 1 + (c_in - 1) * exp(-dx / L_eq)
+```
+
+with the **equilibration length**
+
+```
+L_eq = q * C_eq / (k(T) * A)          k(T) = k_ref * exp[-(Ea/R)(1/T - 1/T_ref)]
+```
+
+the distance water travels before it is saturated. This is the whole model in
+one number, and it is the quantity to put on screen: corestones are the rock
+further from a joint than `L_eq`.
+
+Two solid phases. One dissolves; quartz does not. **The inert fraction is a
+constant, not a state variable**, so the second phase costs one scalar: when the
+soluble phase is gone, 30% of the original solid remains as loose grains. That
+is the difference between grus and a cavity, and it is why the model can claim
+grus at all -- a single soluble phase can only make a smooth dissolution front.
+
+Flow is steady gravity-driven descent: one sweep from surface to base, each cell
+handing its water to the three cells below split by their conductance. Gravity
+makes the grid a DAG ordered by depth, so there is no pressure solve. It is a
+flow-accumulation algorithm, which is a useful bridge for students who have seen
+one on a topographic surface.
+
+## Probe B
+
+`prototypes/probe_b_weathering.py`.
+
+```
+Weathering through time at T = 285 K:
+   kyr   grus %  corestone %   mean X
+    20      5.4         86.7    0.060
+   100     29.3         60.8    0.295
+   500     64.3         16.3    0.657
+  1000     71.8         10.2    0.746
+```
+
+**The claim holds.** Corestones emerge from the affinity term alone: at 100 kyr
+the median distance-to-joint of corestone cells is 0.40 m against 0.00 m for
+grus cells. Nothing but `(1 - c)` and the plumbing produced that.
+
+**The timescale is right, and it is geological.** A visible profile needs 10^5
+to 10^6 years; the front advances at roughly 15 m/Myr, which is the observed
+order for granite. A demo that runs 20 kyr shows a skin and teaches nothing.
+
+### The demonstration
+
+```
+ T [K]  L_eq [m]   grus %  corestone %
+   275     1.256     28.4         52.1
+   285     0.500     29.3         60.8
+   295     0.212     29.2         65.5
+   305     0.095     29.2         67.5
+```
+
+A 30 K rise multiplies the rate constant by more than ten. **Grus changes by
+0.8 percentage points, and corestone survival goes UP by 15.** Hotter water
+saturates sooner, `L_eq` shrinks, and the work concentrates at the joints
+instead of spreading. Warm does not mean weathered. That single slider move is
+the lesson, and it inoculates against the commonest misconception in the field.
+
+Then raising the rainfall slider *does* speed it up, and the mechanism clicks:
+the limit was water supply, not chemistry.
+
+## Numerics
+
+Grid-independent to within the width of the result:
+
+```
+   dx   cells  grus %   mean X       dt cap    wall s
+ 0.20    7500    28.4    0.291         50 yr     1.49
+ 0.40    1900    29.2    0.295        200 yr     0.32
+ 0.50    1200    29.6    0.299        500 yr     0.28
+```
+
+**The 50-year step ceiling was mine, chosen arbitrarily, and it was the entire
+performance bottleneck** -- the rate-based limiter never bound. Raising it to
+500 years is 5.5x faster and changes the answer in the fourth significant
+figure (0.2946 -> 0.2950). Settled at `dx = 0.40 m`, `DT_MAX_YR = 500`:
+**0.28 s per 100 kyr**, interactive under Pyodide.
+
+One diagnostic limitation, not a model limitation: the "fraction within L_eq of
+a joint" column is meaningless once `L_eq < dx`, because the distance transform
+cannot resolve it -- which is why 295 K and 305 K both report 30.5%. The model
+itself is fine there; the per-cell integration handles `L_eq << dx` exactly
+(`c_out -> 1`, the water saturates within the cell).
+
+## Parameters
+
+**None of these are measured.** They are placeholders producing the right orders
+of magnitude, and the table exists so that no number in this model can be
+mistaken for a result.
+
+| parameter | value | note |
+| --- | --- | --- |
+| domain, `dx` | 20 x 15 m, 0.40 m | grid-independence checked |
+| infiltration | 0.30 m/yr | plausible recharge |
+| `L_EQ_REF` | 0.50 m at 285 K | **calibration choice**, not a measurement |
+| `E_A` | 60 kJ/mol | feldspar-ish; **unverified**, needs Palandri & Kharaka (2004) |
+| `TAU` = M0/C_eq | 6700 | saturated water volumes per rock volume |
+| `X_GRUS`, `X_CORE` | 0.50, 0.05 | classification thresholds, chosen here |
+| `F_INERT` | 0.30 | quartz fraction |
+| K fracture : matrix | 1000 : 1 | routing conductance contrast |
+
+## Deliberately deferred
+
+Unsaturated flow and pore-water saturation (the largest cut -- and the largest
+scientific loss, since fracture-versus-matrix partitioning under partial
+saturation is a real and unresolved control); aperture evolution and the
+channelization feedback; multi-species transport, oxygen, and biotite
+oxidation; cohesion mechanics as a solver rather than a threshold; permeability
+feedback from porosity change.
+
+## Open
+
+- `E_A` should be read from Palandri & Kharaka rather than assumed.
+- The `artesian` front end: two panels side by side -- the affinity field
+  `(1 - c)` and the rock -- so the equation is seen rather than narrated.
+- Whether students should be able to reseed the joint network, or whether a
+  fixed network keeps the lesson cleaner.
