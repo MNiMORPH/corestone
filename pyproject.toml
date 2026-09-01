@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "corestone"
 dynamic = ["version"]
-description = "ONE LINE: what this model evolves, and of what"
+description = "Fracture-controlled chemical weathering of granite in a 2D cross section: corestones in grus"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "GPL-3.0-or-later"
@@ -14,6 +14,11 @@ authors = [{ name = "Andrew D. Wickert", email = "awickert@umn.edu" }]
 keywords = [
   "earth science",
   "geomorphology",
+  "critical zone",
+  "chemical weathering",
+  "granite",
+  "fractures",
+  "reactive transport",
   "numerical modeling",
 ]
 classifiers = [
@@ -21,6 +26,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
   "numpy",

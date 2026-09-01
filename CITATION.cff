@@ -1,9 +1,14 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "corestone: ONE LINE saying what this evolves, and of what"
+title: "corestone: fracture-controlled chemical weathering of granite"
 abstract: >-
-  A sentence or two: what the model computes, by what method, and what
-  question it was built to answer.
+  Evolves a two-dimensional vertical cross section of jointed granite as
+  infiltrating water dissolves it along a seeded fracture network. Mineral
+  dissolution follows an Arrhenius rate constant modulated by the chemical
+  affinity of the pore fluid, so weathering rate depends on how far the water
+  is from saturation as well as on temperature. The differential reactivity of
+  plagioclase, biotite and K-feldspar disaggregates the rock into grus where
+  water reaches it, leaving unaltered corestones where it does not.
 type: software
 authors:
   - family-names: Wickert
@@ -12,6 +17,9 @@ authors:
 license: GPL-3.0-or-later
 repository-code: "https://github.com/MNiMORPH/corestone"
 keywords:
-  - earth science
-  - geomorphology
+  - chemical weathering
+  - granite
+  - critical zone
+  - fractures
+  - reactive transport
   - numerical modeling
