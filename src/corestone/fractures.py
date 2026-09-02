@@ -140,17 +140,50 @@ def uniform_grid_shape(width, depth, dx, spacing):
     return nz, nx
 
 
-def orthogonal_grid(spacing=1.5, density=1.0):
+def orthogonal_grid(spacing=1.5, density=1.0, rotation=0.0):
     """
-    A perfectly regular vertical/horizontal joint grid.
+    A perfectly regular orthogonal joint grid, optionally rotated.
 
     No orientation scatter and no spacing variability: every joint exactly
     vertical or exactly horizontal, evenly spaced, so the blocks are identical
     squares of side ``spacing``. The clearest object to teach from, and the
     case whose fracture intensity has an exact answer, P21 = 2 / spacing.
+
+    ``rotation`` turns the whole pair, keeping them perpendicular: 0 gives
+    vertical joints cut by horizontal ones, 45 gives a diamond lattice at
+    +45/-45.
+
+    A rotated set only tiles a periodic domain exactly when its period ALONG X,
+    ``spacing / |n_x|``, divides the width in whole cells. At 45 degrees that
+    period is ``spacing * sqrt(2)``, so a spacing of 1.5 m needs a width that
+    is a multiple of 2.121 m -- which is not a whole number of 5 cm cells.
+    :func:`rotated_grid_shape` picks a spacing and width that do work.
     """
-    return conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=spacing,
+    return conjugate_sets(dip_primary=90.0 - rotation,
+                          dip_secondary=-rotation, spacing=spacing,
                           kappa=None, spacing_sigma=0.0, density=density)
+
+
+def rotated_grid_shape(width, depth, dx, x_period, rotation=45.0):
+    """
+    Cell counts and joint spacing for a rotated grid that still tiles.
+
+    ``x_period`` is the along-x repeat distance, which must be a whole number
+    of cells; the joint spacing that produces it is ``x_period * |n_x|``. At
+    45 degrees, an x-period of 2.0 m at dx = 0.05 m means 40 cells and a joint
+    spacing of 1.414 m.
+
+    Returns ``(nz, nx, spacing)``.
+    """
+    per = x_period / dx
+    if abs(per - round(per)) > 1e-9:
+        raise ValueError("x_period must be a whole number of cells; "
+                         "x_period/dx = %.4f" % per)
+    per = int(round(per))
+    nx = max(int(np.floor(width / dx / per)), 1) * per
+    nz = max(int(np.floor(depth / dx / per)), 1) * per + 1
+    n_x = abs(np.sin(np.deg2rad(90.0 - rotation)))
+    return nz, nx, x_period * n_x
 
 
 #: The default granite case. PLACEHOLDER SPACING -- replace with field values.
@@ -369,12 +402,23 @@ class FractureNetwork(object):
             # This is exactly uniform only when the domain is a whole number of
             # spacings. When it is not, the final block is short -- so choose
             # ``n * spacing / dx + 1`` cells across (see ``uniform_grid_shape``).
-            wraps = self.periodic_x and abs(np.dot(n0, [1.0, 0.0])) > 0.5
+            # A set wraps if its normal has any component along x. The period
+            # along that normal is lx * |n_x|, NOT lx: only for joints whose
+            # normal lies along x (that is, vertical joints) are the two the
+            # same. Assuming lx here put the wrong number of joints on any
+            # rotated set.
+            # The closing-edge special case applies ONLY when the normal lies
+            # along x -- vertical joints -- where the first and last joint are
+            # the same joint seen from both walls. For any other orientation
+            # the extremes of the normal range are different physical joints
+            # (they are corners of the domain), and the domain extent along
+            # the normal is LARGER than the x-period: at 45 degrees on a 4 m
+            # section the extent is 5.66 m against a period of 2.83 m. Counting
+            # from the period there left out half the joints.
+            n_x = abs(float(n0[0]))
+            wraps = self.periodic_x and n_x > 1.0 - 1e-9
             if wraps:
-                # The period is the full domain width, not the span between
-                # cell centres, and the far wall IS the near wall -- so there
-                # is no joint on the closing edge to place.
-                n = max(int(round(self.lx / js.spacing)), 1)
+                n = max(int(round(self.lx * n_x / js.spacing)), 1)
                 offsets = t_c.min() + np.arange(n) * js.spacing
             else:
                 span = t_c.max() - t_c.min()
@@ -481,10 +525,21 @@ class FractureNetwork(object):
 
             dix, diz = np.diff(ix), np.diff(iz)
             for k in np.nonzero((dix != 0) | (diz != 0))[0]:
+                # A DIAGONAL step needs a connected route, not two stubs. The
+                # grid has no diagonal link, so the trace has to turn a corner:
+                # go down first, then across, through the intermediate cell.
+                # Marking the outgoing down-link and the outgoing across-link
+                # from the SAME cell instead leaves the next trace cell
+                # unreachable from either, so a joint at any angle off the axes
+                # was a chain of disconnected stubs. Measured at 45 degrees: the
+                # joints carried 2x the matrix flux instead of ~1000x.
                 if diz[k] != 0:
                     self.link_v[min(iz[k], iz[k + 1]), ix[k]] = True
                 if dix[k] != 0:
-                    self.link_h[iz[k], min(ix[k], ix[k + 1])] = True
+                    row = iz[k + 1] if diz[k] != 0 else iz[k]
+                    self.link_h[row, min(ix[k], ix[k + 1])] = True
+                    if diz[k] != 0:
+                        self.cell[iz[k + 1], ix[k]] = True   # the corner cell
 
         # The wrap link is fractured where a joint reaches both walls, which
         # for a periodic tiling means the sub-horizontal set.
