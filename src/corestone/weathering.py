@@ -373,11 +373,36 @@ class Weathering(object):
         reaction term on the right.
 
         Cost. Only the diagonal changes between steps, so the LU factorisation
-        is cached and reused as a preconditioner: back-substitution is about
-        eighty times cheaper than refactorising. It degrades as the mineral is
-        consumed and the diagonal drifts away from where it was built -- 1
-        Krylov iteration at M = 1, 11 at M = 0.4, 39 at M = 0.01 -- so it is
-        refreshed when the iteration count says so, which is self-tuning.
+        is cached and reused as a preconditioner: at 22,650 cells a
+        back-substitution is 2.7 ms against 170 ms to refactorise.
+
+        WHY IT IS REFRESHED, corrected. This docstring used to say the
+        preconditioner is rebuilt when the iteration count says so, and called
+        that self-tuning. It is not what happens. Raising
+        ``max_krylov_iterations`` from 15 to a million changes nothing at all:
+        the same 15 factorisations, the same answer to the last bit. Every
+        refresh but the first is triggered by ``info = -10`` -- a BiCGSTAB
+        BREAKDOWN, after two iterations, on 14 of 108 steps at dx = 0.02. The
+        algorithm divides by a quantity that has gone to zero, which happens
+        here because the preconditioner is very good rather than because it is
+        stale. The cap is a backstop that has never fired at its current value.
+
+        Lowering the cap so that it DOES fire is worth about 15 %, and that is
+        an untaken decision rather than an oversight: it is a tuned number,
+        the optimum moves between 4 and 5 from case to case, and it buys
+        little. Measured, min of three alternating runs, against cap = 15:
+
+            cap     app 3 m   fine 3 m   45 deg   wide
+              4       x1.28      x0.86    x1.09   x1.38
+              5       x1.28      x1.14    x1.04   x1.15
+              8       x1.17      x0.87    x0.94   x1.04
+
+        Defect correction -- ``x <- x + LU^-1 (b - A x)``, which cannot break
+        down and needs one back-substitution per iteration instead of two --
+        was implemented and measured, and it is a WASH: x1.06, x0.97, x1.17 on
+        the three cases, alternated in one process. It is not here because it
+        was not better, and the 3.2x that first appeared to favour it was
+        machine load drifting between sequential runs, not the solver.
         """
         dx = self.dx
         A = self._step_matrix(r)
