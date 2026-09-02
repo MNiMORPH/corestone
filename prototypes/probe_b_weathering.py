@@ -121,7 +121,7 @@ def weather(fn, years, T=T_REF, report=True):
         M = np.clip(M - rate * step, 0.0, 1.0)
         t += step
 
-    return 1.0 - M, q
+    return 1.0 - M, q, c_in
 
 
 fn = FractureNetwork(NZ, NX, DX).seed(rng=np.random.default_rng(12345))
@@ -135,7 +135,7 @@ print()
 print("Weathering through time at T = 285 K:")
 print(f"{'kyr':>6} {'grus %':>8} {'corestone %':>12} {'mean X':>8}")
 for kyr in (20, 100, 500, 1000):
-    X, _ = weather(fn, years=kyr * 1e3)
+    X, _, _ = weather(fn, years=kyr * 1e3)
     print(f"{kyr:6d} {(X > X_GRUS).mean()*100:8.1f} "
           f"{(X < X_CORE).mean()*100:12.1f} {X.mean():8.3f}")
 
@@ -146,7 +146,7 @@ print("the joints. More rock survives as corestone, not less.")
 print(f"{'T [K]':>6} {'L_eq [m]':>9} {'grus %':>8} {'corestone %':>12} "
       f"{'within L_eq %':>14}")
 for T in (275.0, 285.0, 295.0, 305.0):
-    X, q = weather(fn, years=100000.0, T=T)
+    X, q, _ = weather(fn, years=100000.0, T=T)
     L = equilibration_length(T)
     grus = (X > X_GRUS).mean() * 100
     core = (X < X_CORE).mean() * 100
@@ -154,7 +154,7 @@ for T in (275.0, 285.0, 295.0, 305.0):
     print(f"{T:6.0f} {L:9.3f} {grus:8.1f} {core:12.1f} {near:14.1f}")
 
 print()
-X, q = weather(fn, years=100000.0, T=T_REF)
+X, q, c = weather(fn, years=100000.0, T=T_REF)
 print(f"At T = {T_REF:.0f} K after 100 kyr:")
 print(f"  mean dissolved fraction of the soluble phase: {X.mean():.3f}")
 print(f"  grus (X > {X_GRUS}) is {(X > X_GRUS).mean()*100:.1f} % of the domain; "
