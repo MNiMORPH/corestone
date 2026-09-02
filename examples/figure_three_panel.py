@@ -40,9 +40,9 @@ model = Weathering(net).run(years=KYR * 1e3)
 X = model.dissolved_fraction
 q = model.q
 affinity = model.affinity
-L_eq = model.equilibration_length
-# Quote L_eq for FRESH rock. It also scales as 1/M, so in cells that have
-# given up their soluble phase it runs to the M floor and means nothing.
+L_eq = model.saturation_length
+# Quote the saturation length for FRESH rock: it scales with the local flux,
+# so a joint and the matrix differ by orders of magnitude.
 L_fresh = L_eq * model.q / (model.infiltration * model.dx)
 L_joint = np.median(L_fresh[net.cell])
 L_matrix = np.median(L_fresh[~net.cell])
@@ -120,14 +120,14 @@ im = ax.imshow(affinity, extent=EXT, origin="upper", cmap="Greens",
                vmin=0, vmax=1, interpolation="nearest")
 joints(ax, color="#0b3d20")
 dress(ax, "2   The equation, made visible",
-      "Dark green is fresh water with capacity left. Pale is water already\n"
-      "saturated. The matrix saturates within one cell; only the joints, where\n"
-      "the water moves fast enough to outrun the reaction, stay undersaturated.")
+      "Dark green is fresh water with capacity left. Diffusion carries solute\n"
+      "out of the blocks toward the flushed joints, so the interiors stay\n"
+      "undersaturated and weather inward instead of sitting at saturation.")
 bar(im, cbax[1], r"affinity term  $1 - C/C_{eq}$")
 # L_eq is LOCAL: it scales with the flux, so it differs by two orders of
 # magnitude between a joint and the matrix. Quoting one number would mislead.
 ax.text(0.982, 0.045,
-        "$L_{eq}$ = %.2f m at mean infiltration\n"
+        "saturation length %.2f m at mean infiltration\n"
         "locally %.3f m in the matrix, %.1f m in a joint" % (L_eq, L_matrix, L_joint),
         transform=ax.transAxes, ha="right", va="bottom", fontsize=9.5,
         color=INK, linespacing=1.4,
@@ -143,8 +143,9 @@ ax.contour(np.linspace(DX / 2, LX - DX / 2, NX),
            X, levels=[model.x_grus], colors="#7a2e00", linewidths=1.4, zorder=4)
 joints(ax, color="#3a1c00", lw=0.8, alpha=0.42)
 dress(ax, "3   Corestones in grus",
-      "Rock further from a joint than $L_{eq}$ is never reached by\n"
-      "undersaturated water. Not tougher granite – unvisited granite.")
+      "Blocks weather inward from every face, and fastest at the corners,\n"
+      "which shed solute to two joints instead of one. That is the rounding –\n"
+      "no oxidation and no fracture mechanics required.")
 bar(im, cbax[2], "fraction of the soluble phase dissolved")
 
 # Label a corestone genuinely surrounded by grus, and a grus patch, keeping the
@@ -157,7 +158,7 @@ core = np.unravel_index(
     np.argmax(np.where(model.is_corestone & half, enclosed, -1.0)), X.shape)
 gi = np.unravel_index(
     np.argmax(np.where(model.is_grus & ~half, enclosed, -1.0)), X.shape)
-for (iz, ix), label, off in ((core, "corestone", 4.2), (gi, "grus", -3.4)):
+for (iz, ix), label, off in ((core, "corestone", -3.0), (gi, "grus", -3.4)):
     x0, z0 = ix * DX + DX / 2, iz * DX + DX / 2
     ax.annotate(label, xy=(x0, z0),
                 xytext=(np.clip(x0, 2.2, LX - 2.2),
@@ -173,7 +174,7 @@ ax.legend(handles=[Line2D([0], [0], color="#3a1c00", lw=1.0,
                           ls=(0, (3.5, 2.2)), label="joint, abutting"),
                    Line2D([0], [0], color="#7a2e00", lw=1.4,
                           label="grus threshold, X = %.1f" % model.x_grus)],
-          loc="lower left", fontsize=8.5, frameon=True, framealpha=0.93,
+          loc="lower right", fontsize=8.5, frameon=True, framealpha=0.93,
           edgecolor="#d9d9d9", labelcolor=INK)
 
 # ---- header and captions, placed from the final axes geometry ----------------
@@ -188,7 +189,7 @@ fig.text(0.045, 0.915,
 
 p2 = axes[1].get_position()
 fig.text(p2.x0 + p2.width / 2, 0.845,
-         r"$R \;=\; k(T)\,A\,\left(1 - C/C_{eq}\right)$",
+         r"$\nabla\!\cdot\!(q c) - \nabla\!\cdot\!(D\,\nabla c) \;=\; r\,(1 - c)$",
          fontsize=17, color="#0b3d20", ha="center", va="center")
 
 for ax, caption in CAPTIONS:

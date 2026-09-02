@@ -1,0 +1,259 @@
+"""
+One transcription test per equation stated in the source.
+
+These are not new physics. Each equation is copied out of the docstring where
+it is claimed and required to hold against the model's own arrays, evaluated
+independently of the solver that produced them. That is exactly the act --
+reading the prose and the code side by side, once -- that was skipped when
+``L_eq = q C_eq / (kA)`` sat in a docstring above code that computed a constant
+with no ``q`` in it at all, for six revisions of the file, invisible to a suite
+of thirty passing tests because every one of them checked an aggregate.
+
+Two warnings from writing them, both worth keeping:
+
+* It is easy to transcribe the equation *wrongly* and get a test that fails on
+  correct code. That happened twice out of ten while these were first written
+  (confusing psi with H; reproducing the very cancellation being hunted). Both
+  failed loudly within a minute, which is the right failure mode -- but if one
+  of these fails, suspect the transcription before the model.
+* A global balance is not a per-cell check. Summing the rows of the transport
+  matrix telescopes and is satisfied for *any* concentration field, so it is
+  blind to an error inside the operator. Where it matters, check per cell.
+
+Companion: ``test_equation_coverage.py`` fails if an equation appears in a
+docstring without a test registered here.
+"""
+
+import numpy as np
+import pytest
+
+from corestone import (FractureNetwork, Weathering, orthogonal_grid,
+                       periodic_grid_shape)
+
+
+def _model(dx=0.10, spacing=1.5, width=12.0, depth=9.0):
+    nz, nx = periodic_grid_shape(width, depth, dx, spacing)
+    net = FractureNetwork(nz, nx, dx, periodic_x=True).seed(
+        sets=orthogonal_grid(spacing), rng=np.random.default_rng(12345))
+    return Weathering(net).initialize()
+
+
+# ---------------------------------------------------------------- rate law
+
+def test_the_dissolution_rate_per_unit_volume_does_not_depend_on_the_flux():
+    """
+        R = k(T) * A * (1 - C / C_eq)
+
+    The rate per unit volume is a property of the rock. It may not depend on
+    how fast water moves past it. This is the invariant the original bug broke:
+    holding the saturation length uniform made dissolution proportional to the
+    local flux, weighting a joint against the matrix by a factor of ~3000.
+
+    The reaction coefficient r = kA/C_eq is now the primary quantity, and the
+    flux cancels explicitly rather than inside an exponent, so this is a direct
+    check: r must be uniform across cells that differ in flux by 1000x.
+    """
+    m = _model()
+    r = m.reaction_coefficient
+    # The flux distribution is bimodal, so select by structure, not quantile.
+    fast, slow = m.network.cell, ~m.network.cell
+    assert fast.any() and slow.any()
+    assert np.median(m.q[fast]) > 100.0 * np.median(m.q[slow])   # real contrast
+    assert np.ptp(r) / r.mean() < 1e-12                     # yet r is uniform
+
+
+def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base():
+    """
+        d(M/M0)/dt = - r (1 - c) / tau
+
+    No solute enters at the surface, so in steady transport everything
+    dissolved must leave through the base. Checked against the export, not
+    against a restatement of the same expression.
+    """
+    m = _model()
+    r = m.reaction_coefficient
+    c = m.solve_solute(r)
+    produced = (r * (1.0 - c) * m.dx * m.dx).sum()
+    exported = (m.q_out_base * c[-1, :]).sum()
+    assert produced == pytest.approx(exported, rel=1e-9)
+
+    rate = r * (1.0 - c) / m.tau
+    assert rate.shape == m.M.shape
+    assert (rate >= 0.0).all()
+
+
+# ------------------------------------------------------- saturation length
+
+def test_the_saturation_length_is_proportional_to_the_local_flux():
+    """
+        saturation_length = q * C_eq / (k(T) * A)
+
+    Proportional to q. Fast water in a joint travels far before it saturates;
+    slow water in the matrix saturates almost at once.
+    """
+    m = _model()
+    L = m.local_saturation_length()
+    ratio = L / (m.q / m.dx)
+    assert np.ptp(ratio) / ratio.mean() < 1e-12
+
+
+def test_the_saturation_length_scales_as_C_eq_over_k_not_as_one_over_k():
+    """
+        saturation_length = q * C_eq / (k(T) * A)
+
+    Both k and C_eq depend on temperature, so the exponent is (E_a - dH_r),
+    not E_a. Treating C_eq as constant was the second half of the temperature
+    dependence, and in the transport-limited regime it is the half that
+    dominates.
+    """
+    m = _model()
+    R, T_ref = m.R_gas, m.T_ref
+    for T in (275.0, 295.0, 315.0):
+        m.set_temperature(T)
+        want = m.L_ref * np.exp(-((m.delta_H_r - m.E_a) / R)
+                                * (1.0 / T - 1.0 / T_ref))
+        assert m.saturation_length == pytest.approx(want, rel=1e-12)
+        # and it is NOT the E_a-only form, unless dH_r is zero
+        naive = m.L_ref * np.exp((m.E_a / R) * (1.0 / T - 1.0 / T_ref))
+        if T != T_ref and m.delta_H_r != 0.0:
+            assert m.saturation_length != pytest.approx(naive, rel=1e-6)
+
+
+def test_tau_falls_as_solubility_rises():
+    """
+    ``tau = M0 / C_eq`` is the second place C_eq enters: a warmer, more soluble
+    fluid carries more away per unit volume. Held constant, the model had no
+    solubility response at all.
+    """
+    m = _model()
+    m.set_temperature(m.T_ref)
+    base = m.tau
+    m.set_temperature(m.T_ref + 20.0)
+    assert m.tau < base
+    assert m.tau == pytest.approx(m.tau_ref / m.solubility_factor, rel=1e-12)
+
+
+# ------------------------------------------------------------- flow, Darcy
+
+def test_the_head_field_satisfies_the_darcy_equation_cell_by_cell():
+    """
+        div( K grad H ) = 0,  H = psi - d   (d is depth, positive down)
+
+    Per cell, not globally: a global balance telescopes and would pass for a
+    head field that is wrong in the interior. Sources are the surface
+    infiltration and the base drainage; everything else must close.
+    """
+    m = _model()
+    nz, nx = m.nz, m.nx
+    div = np.zeros((nz, nx))
+    div[:-1, :] += m.q_v
+    div[1:, :] -= m.q_v
+    div[:, :-1] += m.q_h
+    div[:, 1:] -= m.q_h
+    if m.network.periodic_x:
+        div[:, -1] += m.q_wrap
+        div[:, 0] -= m.q_wrap
+    div[0, :] -= m.infiltration * m.dx          # source in at the surface
+    div[-1, :] += m.q_out_base                  # sink out at the base
+    scale = m.infiltration * m.dx
+    assert np.abs(div).max() / scale < 1e-9
+
+
+# ---------------------------------------------------- transport and solute
+
+def test_the_transport_coefficient_is_molecular_plus_dispersive():
+    """
+        D = D_molecular / tortuosity + dispersivity * |v|
+
+    Two terms. The second is hydrodynamic dispersion; at these fluxes the
+    Reynolds number is about 3e-5, so it is not turbulence, and it is pore and
+    aperture geometry that sets the dispersivity.
+    """
+    m = _model()
+    D_v, D_h = m.transport_coefficients()
+    net = m.network
+    want_v = np.where(net.link_v, m.D_molecular, m.D_molecular / m.tortuosity) \
+        + m.dispersivity * np.abs(m.q_v) / m.dx
+    assert np.allclose(D_v, want_v, rtol=1e-12)
+    # both terms actually matter somewhere
+    assert (m.dispersivity * np.abs(m.q_v) / m.dx).max() > m.D_molecular
+    assert (m.dispersivity * np.abs(m.q_v) / m.dx).min() < m.D_molecular / m.tortuosity
+
+
+def test_the_solved_concentration_satisfies_the_stated_cell_balance():
+    """
+        sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j) + r dx^2 c_i
+            = r dx^2
+
+    Assembled here from the model's own fluxes, independently of the sparse
+    matrix the solver builds, and checked PER CELL.
+    """
+    m = _model()
+    r = m.reaction_coefficient
+    c = m.solve_solute(r)
+    nz, nx, dx = m.nz, m.nx, m.dx
+    D_v, D_h = m.transport_coefficients()
+    res = r * dx * dx * (c - 1.0)                       # reaction + source
+
+    def flux(a_slice, b_slice, f, D):
+        ca, cb = c[a_slice], c[b_slice]
+        adv = np.where(f > 0, f * ca, f * cb)           # upwind
+        return adv + D * (ca - cb)
+
+    fv = flux((slice(0, -1), slice(None)), (slice(1, None), slice(None)),
+              m.q_v, D_v)
+    res[:-1, :] += fv
+    res[1:, :] -= fv
+    fh = flux((slice(None), slice(0, -1)), (slice(None), slice(1, None)),
+              m.q_h, D_h)
+    res[:, :-1] += fh
+    res[:, 1:] -= fh
+    if m.network.periodic_x:
+        Dw = np.where(m.network.link_wrap, m.D_molecular,
+                      m.D_molecular / m.tortuosity) \
+            + m.dispersivity * np.abs(m.q_wrap) / dx
+        fw = np.where(m.q_wrap > 0, m.q_wrap * c[:, -1], m.q_wrap * c[:, 0]) \
+            + Dw * (c[:, -1] - c[:, 0])
+        res[:, -1] += fw
+        res[:, 0] -= fw
+    res[-1, :] += m.q_out_base * c[-1, :]
+
+    scale = (r * dx * dx).max()
+    assert np.abs(res).max() / scale < 1e-8
+
+
+def test_diffusion_is_what_lets_a_block_weather_inward():
+    """
+    Not a transcription but the reason the diffusive term is there. With pure
+    advection a block interior saturates and stays at c = 1 for ever, so rock
+    off a flow path never weathers and the model is binary. Turning the
+    transport coefficients off must reproduce that, and turning them on must
+    not.
+    """
+    m = _model()
+    r = m.reaction_coefficient
+    with_diff = m.solve_solute(r)
+    m.D_molecular = 0.0
+    m.dispersivity = 0.0
+    without = m.solve_solute(r)
+    assert ((1.0 - without) > 1e-6).mean() < 0.5
+    assert ((1.0 - with_diff) > 1e-6).mean() > 0.99
+
+
+def test_corners_stay_further_from_saturation_than_faces():
+    """
+    The geometric route to spheroidal rounding, and it comes free with
+    diffusion: a corner sheds solute to two joint faces and a face to one, so
+    at equal distance from the nearest joint a corner is further from
+    saturation and therefore weathers faster.
+    """
+    m = _model()
+    c = m.solve_solute(m.reaction_coefficient)
+    u = 1.0 - c
+    jc = np.nonzero(m.network.link_v[m.nz // 2, :])[0]
+    jr = np.nonzero(m.network.link_h.mean(axis=1) > 0.5)[0]
+    c0, r0, r1 = jc[1], jr[1], jr[2]
+    k = max(int(round(0.2 / m.dx)), 2)
+    face = u[(r0 + r1) // 2, c0 + k]
+    corner = u[r0 + k, c0 + k]
+    assert corner > face

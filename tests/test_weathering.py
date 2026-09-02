@@ -77,36 +77,35 @@ def test_water_enters_fresh_and_saturates_with_depth():
     assert np.allclose(m.affinity, 1.0 - m.c)
 
 
-def test_raising_the_temperature_shortens_the_equilibration_length():
+def test_raising_the_temperature_shortens_the_saturation_length():
     """
     The counterintuitive core of the model: a hotter system does LESS
     weathering per metre of flow path, because the water saturates sooner.
     """
     m = _model()
     m.set_temperature(275.0)
-    cold = m.equilibration_length
+    cold = m.saturation_length
     m.set_temperature(305.0)
-    hot = m.equilibration_length
+    hot = m.saturation_length
     assert hot < cold
-    assert m.equilibration_length > 0.0
+    assert m.saturation_length > 0.0
 
 
-def test_temperature_barely_matters_because_transport_limits_it():
+def test_temperature_acts_through_solubility_not_the_rate_constant():
     """
-    Shortening the equilibration length 28-fold changes the total weathering by
-    under a tenth. Once L_eq is far shorter than the joint spacing, the water
-    saturates within a cell of the joint whatever the rate constant, so the
-    rock dissolved is set by how much water arrives and how much it can carry
-    -- not by how fast the rock dissolves. That is the transport-limited
-    (high-Damkohler) regime.
+    Raising the temperature 40 K roughly triples the weathering -- but not for
+    the reason the rate constant suggests.
 
-    This replaces an earlier test asserting that hotter leaves MORE corestone.
-    That held under the gravity cascade, where a shorter L_eq visibly
-    concentrated the weathering at the joints. Under Darcy flow the water is
-    already concentrated at the joints, so the effect is small and not
-    monotonic -- it reverses between 275 and 285 K. The earlier result was
-    partly an artifact of the flow model, and the test failed honestly when the
-    flow was corrected.
+    This model is transport-limited almost everywhere, and there the amount
+    dissolved scales with C_eq, not with k. Holding C_eq constant left the
+    model with a 5 % response over the same range, which was reported as a
+    physical result about Damkohler limits. It was an artefact of a missing
+    term: solubility is temperature dependent too, and it enters twice --
+    the saturation length goes as C_eq/k, and tau = M0/C_eq.
+
+    Warm therefore does mean weathered here, through solubility. The earlier
+    "warm does not mean weathered" story belonged to a model that had no
+    solubility at all.
     """
     cold, hot = _model(), _model()
     cold.set_temperature(275.0)
@@ -114,9 +113,10 @@ def test_temperature_barely_matters_because_transport_limits_it():
     cold.run(years=100e3)
     hot.run(years=100e3)
 
-    assert cold.equilibration_length / hot.equilibration_length > 20.0
-    change = abs(hot.dissolved_fraction.mean() - cold.dissolved_fraction.mean())
-    assert change / cold.dissolved_fraction.mean() < 0.15
+    assert hot.solubility_factor > 3.0 * cold.solubility_factor
+    assert hot.tau < cold.tau                       # more soluble carries more
+    change = (hot.dissolved_fraction.mean() - cold.dissolved_fraction.mean())
+    assert change / cold.dissolved_fraction.mean() > 1.0     # more than double
 
 
 def test_grus_forms_at_the_joints_and_corestones_away_from_them():
