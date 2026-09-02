@@ -67,3 +67,36 @@ def test_every_cell_carries_a_diagonal_entry():
     n = m.nz * m.nx
     assert (A.diagonal() != 0.0).all()
     assert A.getnnz() >= n
+
+
+def test_the_in_place_step_matrix_equals_the_sparse_addition_exactly():
+    """
+    ``_step_matrix`` writes the reaction term into a matrix allocated once,
+    rather than adding ``sp.diags(r dx^2)`` to the transport operator. Same two
+    floats, added in the same order, so this is an equality and not a
+    tolerance -- if it ever needs a tolerance, something else has changed.
+    """
+    m = _model()
+    r = m.reaction_coefficient
+    fast = m._step_matrix(r).tocsc()
+    slow = (m._transport_operator()
+            + sp.diags((r * m.dx * m.dx).ravel())).tocsc()
+    assert (fast - slow).nnz == 0
+    assert np.array_equal(fast.toarray(), slow.toarray())
+
+
+def test_the_step_matrix_is_rebuilt_when_the_transport_coefficients_change():
+    """
+    The reused container is invalidated with the operator it mirrors. A cache
+    that outlived its inputs is a defect this model has already had once --
+    setting ``D_molecular = 0`` silently did nothing -- so the second cache
+    gets the same test as the first.
+    """
+    m = _model()
+    r = m.reaction_coefficient
+    before = m._step_matrix(r).copy()
+    m.D_molecular = 0.0
+    m.dispersivity = 0.0
+    after = m._step_matrix(r)
+    assert (before - after).nnz > 0
+    assert after.shape == before.shape
