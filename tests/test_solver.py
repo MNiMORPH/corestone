@@ -8,6 +8,8 @@ thing it relies on, and with a test that it still gives the same answer as the
 plain method it replaced.
 """
 
+import inspect
+
 import numpy as np
 import pytest
 import scipy.sparse as sp
@@ -244,3 +246,31 @@ def test_a_step_shortened_to_land_on_the_target_does_not_shrink_the_next_one():
     step = m.update(dt_limit=tiny)                # capped hard by the caller
     assert step == tiny
     assert m._dt > 100.0 * tiny                   # the control is not fooled
+
+
+def test_the_iterative_tolerance_is_named_the_way_this_scipy_names_it():
+    """
+    SciPy called it ``tol`` until 1.12, ``rtol`` from 1.12, and removed ``tol``
+    in 1.14. Pyodide ships 1.14. A hardcoded ``tol=`` therefore worked on the
+    workstation (SciPy 1.11) and raised TypeError in the browser -- inside a
+    web worker, where the traceback never reached the page console, so the demo
+    simply refused to advance and said nothing.
+
+    Two assertions, because either alone would have missed it: the name the
+    module resolved is one this SciPy actually accepts, and a real solve gets
+    past the first step, which is where the iterative path is first taken.
+    """
+    import scipy.sparse.linalg as spl
+    from corestone.weathering import _RTOL
+
+    assert _RTOL in inspect.signature(spl.bicgstab).parameters
+
+    A = sp.eye(8, format="csc") * 2.0
+    b = np.ones(8)
+    x, info = spl.bicgstab(A, b, atol=0.0, **{_RTOL: 1e-10})
+    assert info == 0 and np.allclose(x, 0.5)
+
+    m = _model()
+    m.update()                                 # first step: direct
+    m.update()                                 # second: the iterative path
+    assert m.t > 0.0

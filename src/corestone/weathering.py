@@ -59,9 +59,20 @@ in the design document, and no number from this module should be used as a
 result.
 """
 
+import inspect
+
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
+
+#: What SciPy calls the relative tolerance of an iterative solve. It was ``tol``
+#: until 1.12, ``rtol`` from 1.12, and ``tol`` was REMOVED in 1.14. Pyodide
+#: ships 1.14, so a hardcoded ``tol=`` runs fine against an older SciPy on a
+#: workstation and raises TypeError in the browser -- and since the model runs
+#: inside a web worker there, the traceback never reaches the page console. The
+#: demo simply refused to advance, silently. Resolved once, from the signature.
+_RTOL = ("rtol" if "rtol" in inspect.signature(spl.bicgstab).parameters
+         else "tol")
 
 #: Seconds in a Julian year. Time is seconds internally; years appear only at
 #: the input and output edges, and this is where the conversion is named.
@@ -449,8 +460,9 @@ class Weathering(object):
             n_it = [0]
             P = spl.LinearOperator(A.shape, matvec=self._lu.solve)
             x, info = spl.bicgstab(
-                A, b, x0=self._x, M=P, atol=0.0, tol=self.krylov_tol,
-                callback=lambda xk: n_it.__setitem__(0, n_it[0] + 1))
+                A, b, x0=self._x, M=P, atol=0.0,
+                callback=lambda xk: n_it.__setitem__(0, n_it[0] + 1),
+                **{_RTOL: self.krylov_tol})
             if info != 0 or n_it[0] > self.max_krylov_iterations:
                 x = direct()                       # preconditioner has gone stale
         # Kept unclipped, and kept whether or not it was clipped on the way
