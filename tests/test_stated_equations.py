@@ -27,7 +27,7 @@ docstring without a test registered here.
 import numpy as np
 import pytest
 
-from corestone import (FractureNetwork, Weathering, orthogonal_grid,
+from corestone import (FractureNetwork, Weathering, YEAR, orthogonal_grid,
                        periodic_grid_shape)
 
 
@@ -80,6 +80,60 @@ def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base():
     rate = r * (1.0 - c) / m.tau
     assert rate.shape == m.M.shape
     assert (rate >= 0.0).all()
+
+
+def test_the_rock_is_integrated_exactly_over_a_step_with_c_held():
+    """
+        M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - c) / tau
+
+    The content of "exactly" is that the answer does not depend on how the
+    step is chopped up. With ``c`` held -- which is what the model does within
+    a step -- taking one step of dt and ten steps of dt/10 must give the same
+    M to roundoff. Forward Euler cannot do this: subdividing changes its
+    answer, which is precisely the error it makes.
+
+    Checked as that invariance rather than by re-typing the exponential, so
+    that the test cannot pass by reproducing a mistake in the code.
+    """
+    m = _model()
+    frozen = m.solve_solute(m.reaction_coefficient)
+    m.solve_solute = lambda r: frozen              # hold c, as a step does
+
+    dt = 4000.0 * YEAR
+    m.dx_max = np.inf                              # let the step be the step
+    one = _model()
+    one.solve_solute = lambda r: frozen
+    one.dx_max = np.inf
+    one.update(dt=dt)
+
+    many = _model()
+    many.solve_solute = lambda r: frozen
+    many.dx_max = np.inf
+    for _ in range(10):
+        many.update(dt=dt / 10.0)
+
+    assert np.abs(one.M - many.M).max() < 1e-14
+    assert one.M.min() > 0.0                       # an exponential cannot hit 0
+    # and the rock did move, so the agreement is not agreement about nothing
+    assert (1.0 - one.M).max() > 0.01
+
+
+def test_forward_euler_would_fail_the_invariance_the_exponential_passes():
+    """
+    The companion that gives the test above its teeth. If subdividing the step
+    were harmless for any integrator, the check would be vacuous. Euler is
+    written out here and required to disagree with itself.
+    """
+    m = _model()
+    frozen = m.solve_solute(m.reaction_coefficient)
+    lam = m.specific_reaction_coefficient * (1.0 - frozen) / m.tau
+    dt = 4000.0 * YEAR
+
+    one = np.ones((m.nz, m.nx)) * (1.0 - lam * dt)
+    many = np.ones((m.nz, m.nx))
+    for _ in range(10):
+        many = many * (1.0 - lam * dt / 10.0)
+    assert np.abs(one - many).max() > 1e-6
 
 
 # ------------------------------------------------------- saturation length
