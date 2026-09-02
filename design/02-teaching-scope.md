@@ -143,5 +143,9 @@ feedback from porosity change.
 - `E_A` should be read from Palandri & Kharaka rather than assumed.
 - The `artesian` front end: two panels side by side -- the affinity field
   `(1 - c)` and the rock -- so the equation is seen rather than narrated.
-- Whether students should be able to reseed the joint network, or whether a
-  fixed network keeps the lesson cleaner.
+- Students both move sliders **and** reseed the joint network (decided
+  2026-09-02). Reseeding is itself a lesson: the same physics on a different
+  network gives a different corestone field, which is the point -- the pattern
+  is plumbing, not mineralogy.
+- Sliders: temperature, rainfall, joint spacing, elapsed time. Temperature is
+  the counterintuitive one and should be reachable first.
