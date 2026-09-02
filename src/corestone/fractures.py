@@ -195,6 +195,26 @@ def tiling_angles(nx, max_index=None):
     return [out[k] for k in sorted(out)]
 
 
+def tiling_spacings(lx, a, b, low, high, count=8):
+    """
+    Every tiling spacing at one lattice angle, coarsest first.
+
+    The interactive demos need the whole snapped set to fill a slider, not the
+    single nearest value :func:`tiling_spacing` returns. ``low`` and ``high``
+    bound which of them are offered and have no defaults on purpose: what
+    counts as a sensible joint spacing depends on the section being shown, and
+    it is the caller's decision rather than this function's.
+    """
+    import math
+    h = math.hypot(a, b)
+    out = []
+    for k in range(1, count + 1):
+        s = tiling_spacing(lx, a, b, lx / (k * h))
+        if low <= s <= high and not any(abs(s - v) < 1e-9 for v in out):
+            out.append(s)
+    return sorted(out, reverse=True) or [lx / h]
+
+
 def tiling_spacing(lx, a, b, target):
     """
     The tiling joint spacing nearest ``target`` for the lattice angle (a, b).

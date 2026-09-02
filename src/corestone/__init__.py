@@ -35,13 +35,13 @@ from ._version import __version__
 from .fractures import (FractureNetwork, JointSet, conjugate_sets,
                         orthogonal_grid, uniform_grid_shape,
                         periodic_grid_shape, rotated_grid_shape,
-                        tiling_angles, tiling_spacing,
+                        tiling_angles, tiling_spacing, tiling_spacings,
                         GRANITE_SETS)
 from .weathering import Weathering, YEAR
 
 __all__ = ["__version__", "FractureNetwork", "JointSet",
            "conjugate_sets", "orthogonal_grid", "uniform_grid_shape",
            "periodic_grid_shape", "rotated_grid_shape",
-           "tiling_angles", "tiling_spacing",
+           "tiling_angles", "tiling_spacing", "tiling_spacings",
            "GRANITE_SETS",
            "Weathering", "YEAR"]
