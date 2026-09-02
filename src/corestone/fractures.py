@@ -94,6 +94,25 @@ def conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=1.5,
     ]
 
 
+def uniform_grid_shape(width, depth, dx, spacing):
+    """
+    Cell counts that let a regular joint set tile the domain exactly.
+
+    A joint sits on each wall and every block between them is a full spacing
+    across, which needs ``n * spacing / dx + 1`` cells along each axis. The odd
+    ``+ 1`` also makes the count odd whenever the spacing is an even number of
+    cells, which is what lets the pattern rasterise mirror-symmetrically -- see
+    :meth:`FractureNetwork._rasterize`.
+
+    Returns ``(nz, nx)`` for the largest such domain no larger than the size
+    asked for.
+    """
+    per = spacing / dx
+    nx = int(np.floor(width / dx / per)) * int(round(per)) + 1
+    nz = int(np.floor(depth / dx / per)) * int(round(per)) + 1
+    return nz, nx
+
+
 def orthogonal_grid(spacing=1.5, density=1.0):
     """
     A perfectly regular vertical/horizontal joint grid.
@@ -236,24 +255,31 @@ class FractureNetwork(object):
         """
         d0 = _unit(js.dip_deg)
         n0 = np.array([-d0[1], d0[0]])
-        box = np.array([[0.0, 0.0], [self.lx, 0.0],
-                        [0.0, self.lz], [self.lx, self.lz]])
+        # For a regular set the joints must land on the first and last CELLS,
+        # not on the domain edges: a joint placed at x = lx rasterises one
+        # column past the end and is clipped, which loses it and breaks the
+        # mirror symmetry. Span the cell-centre box instead.
+        h = 0.5 * self.dx if (js.spacing_sigma == 0.0 and js.kappa is None) \
+            else 0.0
+        box = np.array([[h, h], [self.lx - h, h],
+                        [h, self.lz - h], [self.lx - h, self.lz - h]])
         t_c, s_c = box @ n0, box @ d0
 
         regular = js.spacing_sigma == 0.0 and js.kappa is None
         mid = 0.5 * (s_c.min() + s_c.max()) * d0
 
         if regular:
-            # CENTRE the pattern. Stepping from one edge until the domain runs
-            # out leaves the whole remainder on the far side: at 1.5 m spacing
-            # across 20 m the margins came out 1.25 m and 0.75 m, and the flow
-            # and weathering inherited that asymmetry from the geometry.
-            # The domain is not generally a whole number of spacings, so the
-            # margins cannot equal half a spacing -- but they can be equal.
+            # Joints run right out to the walls: the first and last sit ON the
+            # boundary, so every block in between is a full spacing across and
+            # the edge blocks are no different from the interior ones. Nothing
+            # is left over and there is no margin to make symmetric.
+            #
+            # This is exactly uniform only when the domain is a whole number of
+            # spacings. When it is not, the final block is short -- so choose
+            # ``n * spacing / dx + 1`` cells across (see ``uniform_grid_shape``).
             span = t_c.max() - t_c.min()
-            n = max(int(round(span / js.spacing)), 1)
-            margin = 0.5 * (span - (n - 1) * js.spacing)
-            offsets = t_c.min() + margin + np.arange(n) * js.spacing
+            n = max(int(np.floor(span / js.spacing + 1e-9)), 0)
+            offsets = t_c.min() + np.arange(n + 1) * js.spacing
             return [(mid + t * n0, d0) for t in offsets]
 
         out, t = [], t_c.min()

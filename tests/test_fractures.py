@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from corestone import (FractureNetwork, JointSet, conjugate_sets,
-                       orthogonal_grid, GRANITE_SETS)
+                       orthogonal_grid, uniform_grid_shape, GRANITE_SETS)
 
 NZ, NX, DX = 75, 100, 0.20
 
@@ -181,18 +181,20 @@ def test_the_orthogonal_grid_does_not_depend_on_the_generator():
     assert len(a.segments) == len(b.segments)
 
 
-def test_a_centred_regular_grid_is_left_right_symmetric():
+def test_a_regular_grid_is_uniform_right_out_to_the_walls():
     """
-    Stepping the pattern from one edge until the domain runs out leaves the
-    whole remainder on the far side -- at 1.5 m spacing across 20 m the margins
-    came out 1.25 m and 0.75 m, and the flow inherited that asymmetry from the
-    geometry. The pattern is centred instead.
-
-    The raster is only exactly mirror-symmetric when the cell count is ODD; see
-    FractureNetwork._rasterize.
+    A joint sits on the first and last cell, and every block between them is a
+    full spacing across -- no odd strip at the edges. An earlier version
+    stepped from one edge until the domain ran out and piled the whole
+    remainder on the far side: at 1.5 m spacing across 20 m the margins came
+    out 1.25 m and 0.75 m, and the flow inherited that asymmetry.
     """
-    n = FractureNetwork(300, 401, 0.05).seed(sets=orthogonal_grid(1.5),
-                                             rng=np.random.default_rng(1))
+    nz, nx = uniform_grid_shape(20.0, 15.0, 0.05, 1.5)
+    n = FractureNetwork(nz, nx, 0.05).seed(sets=orthogonal_grid(1.5),
+                                           rng=np.random.default_rng(1))
     xs = np.array(sorted({round(p0[0], 6) for p0, _ in n.segments_of("J1")}))
-    assert xs.min() == pytest.approx(n.lx - xs.max())
+    assert np.allclose(np.diff(xs), 1.5)              # uniform spacing
+    assert xs.min() == pytest.approx(0.5 * n.dx)      # a joint on each wall
+    assert xs.max() == pytest.approx(n.lx - 0.5 * n.dx)
     assert np.array_equal(n.cell, n.cell[:, ::-1])
+    assert np.array_equal(n.cell, n.cell[::-1, :])

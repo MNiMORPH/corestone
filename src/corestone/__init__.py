@@ -32,9 +32,11 @@ vertical coordinate is depth, positive downward.
 
 from ._version import __version__
 from .fractures import (FractureNetwork, JointSet, conjugate_sets,
-                        orthogonal_grid, GRANITE_SETS)
+                        orthogonal_grid, uniform_grid_shape,
+                        GRANITE_SETS)
 from .weathering import Weathering, YEAR
 
 __all__ = ["__version__", "FractureNetwork", "JointSet",
-           "conjugate_sets", "orthogonal_grid", "GRANITE_SETS",
+           "conjugate_sets", "orthogonal_grid", "uniform_grid_shape",
+           "GRANITE_SETS",
            "Weathering", "YEAR"]
