@@ -1,8 +1,8 @@
 # Frame -- read this first
 
 The read-first frame for this repo, per `~/.claude/COMPACTION_PLAYBOOK.md`.
-Keep it current to HEAD. After a compaction, read this **before** acting, and
-verify every structural claim below against git and disk before trusting it.
+After a compaction, read this **before** acting, and verify every structural
+claim below against git and disk before trusting it. Current to `f65b81e`.
 
 ## (a) Origin -- why this model exists
 
@@ -12,83 +12,119 @@ corrects -- **a corestone is not tougher rock**. Same granite, same minerals,
 same temperature; it survives because the water never reached it, or reached it
 already saturated.
 
-Intended delivery is an interactive browser demo built with
-[artesian](https://github.com/MNiMORPH/artesian), which constrains the model
-hard: it must run under Pyodide, so numpy and scipy only, nothing compiled, and
-fast enough to move a slider.
+Delivery is an interactive browser demo built with
+[artesian](https://github.com/MNiMORPH/artesian), which constrains the model:
+it must run under Pyodide, so numpy and scipy only, nothing compiled, and fast
+enough to press Run. **Verified, not assumed:** `artesian check numpy scipy
+matplotlib` reports all three bundled by Pyodide.
 
 ## (b) Plan and trajectory -- as the next action
 
-1. **Next**: the artesian front end: sliders for temperature, rainfall, joint
-   spacing and elapsed time, plus reseeding the network. Two panels -- the
-   affinity field `(1 - c)` beside the rock -- so the equation is seen rather
-   than narrated.
-2. Read `E_A` out of Palandri & Kharaka (2004) rather than assuming 60 kJ/mol.
-
-Open decision left with the author: the abutting-set `density`. 1.0 gives clean
-well-bounded blocks and is the current default; low density gives realistic
-Y-dominated outcrop topology with less well-bounded blocks. See design 03.
+1. **Next: `artesian build` the demo.** `examples/app.py` exists and runs
+   locally; it has never been compiled. That is the real test of whether a
+   scipy sparse solve behaves under Pyodide.
+2. **Re-measure the stale design documents** (see the warning in (e) -- this is
+   not optional bookkeeping, they contain numbers that are now wrong).
+3. `f_inert` is set, claimed in the README and `design/02` as the second solid
+   phase, and **never used**. Implement it or delete the claim.
+4. `P21` carries a systematic +8 % bias from counting wall joints at full
+   length; `test_a_full_orthogonal_grid_has_the_analytic_intensity` hides it
+   behind `rel=0.15`.
+5. Read `E_a` and `delta_H_r` out of Palandri & Kharaka rather than assuming.
 
 ## (c) Key current data and objects
 
-- `src/corestone/fractures.py` -- seeds the joint network.
-- `src/corestone/weathering.py` -- **the model**. Verified to reproduce the
-  prototype bit-for-bit (max|diff| = 0 on flux, concentration and dissolved
-  fraction) when it was promoted out of `prototypes/`.
-- `prototypes/probe_a_fracture_seeder.py` -- distance-to-fracture measurement.
-- `prototypes/probe_b_weathering.py` -- the timing and temperature tables;
-  now imports the package rather than carrying its own copy.
-- `prototypes/probe_c_topology.py` -- fractopo validation. Needs an environment
-  with fractopo; it is not a dependency.
-- `examples/figure_three_panel.py` / `.png` -- the three-panel figure.
-- `design/01`, `02`, `03` -- fracture seeding; teaching scope; throughgoing
-  joints.
+Branch `master`, HEAD `f65b81e`, **17 commits unpushed**, working tree clean.
+
+- `src/corestone/fractures.py` -- the joint network. Seeded via `seed()`, or
+  supplied wholesale via `from_masks()`. `tiling_angles()` / `tiling_spacing()`
+  give the orientations and spacings that tile a periodic width.
+- `src/corestone/weathering.py` -- **the model**. Steady Darcy flow solved once;
+  steady advection-diffusion-reaction for the solute, one sparse solve per step
+  with the LU cached and reused as a preconditioner.
+- `examples/app.py` -- the four-slider demo. `panel serve examples/app.py`.
+- `examples/figure_three_panel.py` -- the figure, parameterised:
+  `--width --depth --dx --spacing --kyr --rotation --xperiod --out`.
+- `prototypes/probe_[a-e]_*.py` -- the evidence behind each design decision.
+- `tests/test_stated_equations.py` + `test_equation_coverage.py` -- the
+  transcription tests and the ledger that stops an equation entering a
+  docstring without a check. **These exist because a docstring drifted from its
+  code for six revisions.**
+
+60 tests, ~100 s.
 
 ## (d) Guardrails and irreversibility state
 
-Public repository: `github.com/MNiMORPH/corestone`. Pushing publishes.
-Tags, releases, version bumps and closing issues each need their own explicit
-authorisation.
+`github.com/MNiMORPH/corestone` is **public**; pushing publishes. 17 commits
+are local only. Tags, releases, version bumps and closing issues each need
+explicit authorisation in the current message.
+
+Two pushes exist in the reflog: `0a57fcd` (mine, authorised) and `18cb016`
+(not from my session -- Andy's).
 
 ## (e) Results, each with the method that verified it
 
-- Corestones emerge from the affinity term alone. At 100 kyr the median
-  distance-to-joint of corestone cells is 0.40 m against 0.00 m for grus cells
-  (`probe_b`).
-- Raising temperature 30 K multiplies the rate constant more than tenfold, yet
-  grus changes by 0.8 percentage points while corestone survival *rises* by 15
-  -- hotter water saturates sooner and the work concentrates at the joints
-  (`probe_b`).
-- The generator reproduces the analytic intensity of an orthogonal grid,
-  P21 = 2/S = 1.33 against 1.28 measured (test).
-- The network has zero I nodes and 2.00 connections per branch by fractopo's
-  Sanderson & Nixon classification (`probe_c`) -- though `spans=1` guarantees
-  I=0 by construction, so this confirms intent rather than discovering it.
-- Results are grid-independent: grus 28.4 / 29.2 / 29.6 % at dx = 0.20 / 0.40 /
-  0.50 m.
+**WARNING -- designs 02 to 06 contain numbers measured before three corrections
+and are not to be trusted without re-measurement.** In order: `a505892` made the
+saturation length scale with flux; `c0d7749` added diffusion and the `C_eq`
+temperature term and replaced the whole transport operator; `7cbd0a7` made
+non-axis-aligned joints conduct at all. Any figure or number in a design
+document predating those is stale. The prose reasoning survives; the numbers do
+not.
+
+Current and verified:
+
+- Solute is conserved to 1e-15 at every domain size and resolution checked
+  (`test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base`).
+- Water is conserved to ~1e-10 per cell, checked per cell rather than globally,
+  because a global balance telescopes and is blind to interior error.
+- Diffusion takes the fraction of the domain that is undersaturated from 8.7 %
+  to 100 %, and corners sit 41 % further from saturation than faces at equal
+  distance -- the rounding, with no oxidation and no fracture mechanics.
+- Temperature acts through **solubility**, not the rate constant: 275->315 K
+  moves mean dissolved fraction 189 %, monotone. The model is transport-limited
+  almost everywhere, and there the amount dissolved scales with `C_eq`.
+- 100 kyr at dx = 0.10 on 29,445 cells: 12.3 s, one factorisation. The app's
+  3 x 3 m section at dx = 0.05 runs 200 kyr in 1.6 s.
+- Snapped orientations leave the seam within 13 % of the interior.
 
 ## (f) Negative results, and why not
 
-- **No existing fracture-network generator was usable.** Eight examined and
-  tabulated in design 03. fractopo analyses but does not generate; FracSim2D is
-  Python 2 with Windows-only compiled extensions; ADFNE is MATLAB; HatchFrac is
-  C++; dfnWorks is 3D. Pyodide rules out compiled code regardless.
+- **No existing fracture-network generator was usable.** Eight examined
+  (design 03). fractopo analyses but does not generate; FracSim2D is Python 2
+  with Windows-only extensions; ADFNE is MATLAB; HatchFrac C++; dfnWorks 3D.
+  Pyodide rules out compiled code regardless.
 - **Free segments from a power-law length distribution do not make a network.**
-  The joints came out shorter than the gaps between them and nothing linked up.
-- **Connectivity is the wrong measure for corestones.** Removing fractured links
-  can never disconnect anything, because a joint is a conduit and rock is
-  continuous across it. The measure is distance from the network.
-- **Full saturation is the wrong setting.** Grus and corestones are vadose-zone
-  products; stagnant saturated water equilibrates and stops weathering. The
-  saturated zone sets *where* the front sits, not what does the weathering.
+- **Connectivity is the wrong measure for corestones.** A joint is a conduit;
+  rock is continuous across it. The measure is distance from the network.
+- **Full saturation is the wrong setting.** Grus and corestones are
+  vadose-zone products; stagnant saturated water equilibrates.
+- **No-flow side walls are not neutral.** They manufacture a domain-scale
+  circulation and an 89 % block-to-block spread. The section is periodic in x.
+- **A continuous rotation slider cannot preserve exact tiling** -- only lattice
+  angles do, hence the snapping.
+- **Two mechanisms for the horizontal-joint effect were measured and
+  falsified** before the third (lateral bypass around the matrix, which is
+  where the dissolving happens) was supported.
 
 ## (g) Reproduction
 
 ```sh
-pip install -e ".[test]" && pytest              # 23 tests
-PYTHONPATH=src python3 prototypes/probe_b_weathering.py
-PYTHONPATH=src python3 examples/figure_three_panel.py
-PYTHONPATH=src python3 examples/seed_a_joint_network.py
-# probe_c needs fractopo, which is not a dependency:
+pip install -e ".[test]" && pytest                       # 60 tests, ~100 s
+PYTHONPATH=src python3 examples/figure_three_panel.py    # the 20 m figure
+PYTHONPATH=src python3 examples/figure_three_panel.py \
+    --width 5 --depth 5 --rotation 45 --xperiod 2.0 --kyr 25 \
+    --out examples/figure_45deg.png
+PYTHONPATH=src panel serve examples/app.py --show        # the demo
+artesian check numpy scipy matplotlib                    # browser feasibility
+# probe_c needs fractopo, deliberately not a dependency:
 PYTHONPATH=src <venv-with-fractopo>/bin/python prototypes/probe_c_topology.py
 ```
+
+## The standing lesson
+
+Every real defect this model has had was caught by looking at a picture or by
+reading an equation against its code -- never by an aggregate statistic. The
+`L_eq` bug moved joint-versus-matrix dissolution by a factor of three thousand
+while the mean dissolved fraction changed in the third decimal. Rebuild and
+send the figure after every substantive change.

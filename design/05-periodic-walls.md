@@ -1,5 +1,12 @@
 # 05 -- The side walls were not neutral
 
+> **NUMBERS IN THIS DOCUMENT MAY BE STALE.** They were measured before one or
+> more of: `a505892` (the saturation length made to scale with flux),
+> `c0d7749` (diffusion, the C_eq temperature term, and the replacement of the
+> whole transport operator), and `7cbd0a7` (non-axis-aligned joints made to
+> conduct at all). The reasoning survives; re-measure before quoting a figure.
+> See `FRAME.md` section (e).
+
 ## What was seen
 
 Andy, looking at the figure: *"There is still less flow in the center than on
