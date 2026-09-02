@@ -1,33 +1,46 @@
-"""Draft figure: the plumbing, the chemistry, and what is left.
-
-Run:  PYTHONPATH=src python3 prototypes/figure_draft.py
+#! /usr/bin/python3
 """
+The three-panel figure: the plumbing, the equation, and what is left.
+
+Follows the causal chain rather than showing the answer alone. The middle panel
+is the point of the figure: the affinity term is the only field in the model,
+so putting it on screen is the difference between seeing the equation and being
+told it.
+
+    python3 examples/figure_three_panel.py            # writes the PNG
+    python3 examples/figure_three_panel.py --show     # and opens it
+"""
+import sys
+
 import numpy as np
 import matplotlib
-matplotlib.use("Agg")
+if "--show" not in sys.argv:
+    matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 from scipy.ndimage import uniform_filter
 
-from corestone import GRANITE_SETS
+from corestone import FractureNetwork, Weathering, orthogonal_grid
 
-src = open("prototypes/probe_b_weathering.py").read().split("fn = FractureNetwork")[0]
-M = {}
-exec(compile(src, "probe_b", "exec"), M)
+# ---- what to draw -------------------------------------------------------------
+NZ, NX, DX = 300, 400, 0.05                # 20 x 15 m section at 5 cm
+SPACING = 1.5                              # joint spacing [m]
+KYR = 100.0                                # elapsed time
+OUT = "examples/figure_three_panel.png"
 
-NZ, NX, DX = M["NZ"], M["NX"], M["DX"]
-LX, LZ = NX * DX, NZ * DX
-KYR = 100.0
+net = FractureNetwork(NZ, NX, DX).seed(sets=orthogonal_grid(SPACING),
+                                       rng=np.random.default_rng(12345))
+model = Weathering(net).run(years=KYR * 1e3)
 
-fn_sets = GRANITE_SETS
-fn = M["FractureNetwork"](NZ, NX, DX).seed(sets=fn_sets,
-                                           rng=np.random.default_rng(12345))
-X, q, c = M["weather"](fn, years=KYR * 1e3, T=M["T_REF"])
-L_eq = M["equilibration_length"](M["T_REF"])
+X = model.dissolved_fraction
+q = model.q
+affinity = model.affinity
+L_eq = model.equilibration_length
+LX, LZ = net.lx, net.lz
 
 INK, MUTED = "#1a1a1a", "#6b6b6b"
-EXT = [0.0, LX, LZ, 0.0]                       # depth increases downward
+EXT = [0.0, LX, LZ, 0.0]                   # depth increases downward
 
 fig = plt.figure(figsize=(16.8, 6.9))
 gs = GridSpec(2, 3, height_ratios=[1.0, 0.04], figure=fig,
@@ -43,12 +56,11 @@ CAPTIONS = []
 
 def joints(ax, color="#1a1a1a", lw=0.9, alpha=0.6):
     """
-    Draw the two sets distinguishably. Throughgoing joints are solid and
-    heavier; the abutting set is dashed. Distinguished by dash pattern as well
-    as weight, so the two are not told apart by colour alone.
+    Draw the two sets distinguishably: throughgoing solid and heavier, abutting
+    dashed. Told apart by dash pattern as well as weight, never by colour alone.
     """
-    for (p0, p1), name in zip(fn.segments, fn.segment_set):
-        through = name == fn_sets[0].name
+    for (p0, p1), name in zip(net.segments, net.segment_set):
+        through = name == "J1"
         ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color=color,
                 lw=lw if through else lw * 0.75,
                 alpha=alpha if through else alpha * 0.85,
@@ -95,7 +107,7 @@ bar(im, cbax[0], "water flux, relative to mean infiltration",
 
 # ---- 2: where it can still dissolve ------------------------------------------
 ax = axes[1]
-im = ax.imshow(1.0 - c, extent=EXT, origin="upper", cmap="Greens",
+im = ax.imshow(affinity, extent=EXT, origin="upper", cmap="Greens",
                vmin=0, vmax=1, interpolation="nearest")
 joints(ax, color="#0b3d20")
 dress(ax, "2   The equation, made visible",
@@ -111,10 +123,9 @@ ax.text(0.982, 0.045, "$L_{eq}$ = %.2f m" % L_eq,
 ax = axes[2]
 im = ax.imshow(X, extent=EXT, origin="upper", cmap="Oranges", vmin=0, vmax=1,
                interpolation="nearest")
-xg = np.linspace(DX / 2, LX - DX / 2, NX)
-zg = np.linspace(DX / 2, LZ - DX / 2, NZ)
-ax.contour(xg, zg, X, levels=[M["X_GRUS"]], colors="#7a2e00", linewidths=1.4,
-           zorder=4)
+ax.contour(np.linspace(DX / 2, LX - DX / 2, NX),
+           np.linspace(DX / 2, LZ - DX / 2, NZ),
+           X, levels=[model.x_grus], colors="#7a2e00", linewidths=1.4, zorder=4)
 joints(ax, color="#3a1c00", lw=0.8, alpha=0.42)
 dress(ax, "3   Corestones in grus",
       "Rock further from a joint than $L_{eq}$ is never reached by\n"
@@ -123,15 +134,14 @@ bar(im, cbax[2], "fraction of the soluble phase dissolved")
 
 # Label a corestone genuinely surrounded by grus, and a grus patch, keeping the
 # two labels on opposite halves so they cannot collide.
-grus_mask = X > M["X_GRUS"]
-core_mask = X < M["X_CORE"]
-enclosed = uniform_filter(grus_mask.astype(float), size=7)
-half = np.zeros_like(core_mask)
+enclosed = uniform_filter(model.is_grus.astype(float),
+                          size=max(int(round(0.35 / DX)), 3))
+half = np.zeros_like(model.is_corestone)
 half[:, :NX // 2] = True
-core = np.unravel_index(np.argmax(np.where(core_mask & half, enclosed, -1.0)),
-                        X.shape)
-gi = np.unravel_index(np.argmax(np.where(grus_mask & ~half, enclosed, -1.0)),
-                      X.shape)
+core = np.unravel_index(
+    np.argmax(np.where(model.is_corestone & half, enclosed, -1.0)), X.shape)
+gi = np.unravel_index(
+    np.argmax(np.where(model.is_grus & ~half, enclosed, -1.0)), X.shape)
 for (iz, ix), label, off in ((core, "corestone", 4.2), (gi, "grus", -3.4)):
     x0, z0 = ix * DX + DX / 2, iz * DX + DX / 2
     ax.annotate(label, xy=(x0, z0),
@@ -147,7 +157,7 @@ ax.legend(handles=[Line2D([0], [0], color="#3a1c00", lw=1.0,
                    Line2D([0], [0], color="#3a1c00", lw=0.8,
                           ls=(0, (3.5, 2.2)), label="joint, abutting"),
                    Line2D([0], [0], color="#7a2e00", lw=1.4,
-                          label="grus threshold, X = %.1f" % M["X_GRUS"])],
+                          label="grus threshold, X = %.1f" % model.x_grus)],
           loc="lower left", fontsize=8.5, frameon=True, framealpha=0.93,
           edgecolor="#d9d9d9", labelcolor=INK)
 
@@ -155,9 +165,10 @@ ax.legend(handles=[Line2D([0], [0], color="#3a1c00", lw=1.0,
 fig.text(0.045, 0.962, "corestone – fracture-controlled granite weathering",
          fontsize=15.5, color=INK, ha="left", va="top", weight="bold")
 fig.text(0.045, 0.915,
-         "%.0f × %.0f m section, %.0f kyr at %.0f K. Every parameter is a "
-         "placeholder – see design/02-teaching-scope.md."
-         % (LX, LZ, KYR, M["T_REF"]),
+         "%.0f × %.0f m section at %.0f cm, %.0f kyr at %.0f K, joints every "
+         "%.2f m. Every parameter is a placeholder – see "
+         "design/02-teaching-scope.md."
+         % (LX, LZ, DX * 100, KYR, model.T, SPACING),
          fontsize=9.5, color=MUTED, ha="left", va="top")
 
 p2 = axes[1].get_position()
@@ -170,7 +181,9 @@ for ax, caption in CAPTIONS:
     fig.text(pos.x0, 0.118, caption, fontsize=9.5, color=MUTED,
              ha="left", va="top", linespacing=1.55)
 
-fig.savefig("prototypes/figure_draft.png", dpi=170, facecolor="white")
+fig.savefig(OUT, dpi=170, facecolor="white")
 print("grus %.1f %%   corestone %.1f %%   L_eq %.2f m"
-      % (grus_mask.mean() * 100, core_mask.mean() * 100, L_eq))
-print("wrote prototypes/figure_draft.png")
+      % (model.is_grus.mean() * 100, model.is_corestone.mean() * 100, L_eq))
+print("wrote %s" % OUT)
+if "--show" in sys.argv:
+    plt.show()
