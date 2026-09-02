@@ -85,6 +85,43 @@ Every block now weathers identically. Total weathering falls from 4.90 % grus
 to 3.65 %, because the no-flow case was concentrating weathering into the
 near-wall blocks rather than distributing it.
 
+## The horizontal joints, once the walls are gone
+
+They are not decorative any more, and the effect is large and the wrong way
+round from what I expected.
+
+```
+lateral flux, fractured vs intact horizontal links   3146x
+share of ALL lateral flux carried on joints          99.2 %
+total |lateral| / total |vertical|                   0.024
+```
+
+```
+                    grus %   corestone %   mean X
+with horizontal       3.65         90.87  0.04598
+vertical only        10.18         85.17  0.10522
+```
+
+**Removing the horizontal joints more than doubles the total weathering.**
+Adding a whole set of conduits makes the section weather LESS.
+
+Two candidate mechanisms, both measured and both **falsified**:
+
+- *Collectors short-circuiting water into the vertical conduits.* Predicts a
+  larger share of flow down the joints. Measured: 0.972 with and without --
+  identical.
+- *Shorter residence in the matrix, so matrix water saturates less.* Predicts
+  lower matrix concentration. Measured the opposite: mean matrix c is 0.964
+  with horizontal joints against 0.909 without, and the saturated fraction
+  rises from 0.864 to 0.917.
+
+What is established: the flux-weighted exit concentration falls from 0.108 to
+0.032, so the water leaving the base carries three times less solute; and the
+matrix is more saturated, so less dissolving happens there. Both are consistent
+with less total dissolution, but neither explains *why* the horizontal joints
+cause it. **No verified mechanism yet.** It is a real and somewhat surprising
+result and worth chasing on its own.
+
 ## Open
 
 - Vertical remains non-periodic, correctly: the surface and the drainage base
