@@ -237,6 +237,67 @@ class FractureNetwork(object):
         """
         return distance_transform_edt(~self.cell, sampling=self.dx)
 
+    # ---- construction from an arbitrary network
+
+    @classmethod
+    def from_masks(cls, link_v, link_h, dx, periodic_x=False, link_wrap=None,
+                   segments=None, segment_set=None):
+        """
+        Build a network from link masks rather than by seeding one.
+
+        The model reads only ``cell``, ``link_v``, ``link_h``, ``link_wrap``
+        and ``periodic_x`` from a network, so a fracture network here is a data
+        structure and not a particular algorithm. Anything can supply it: a
+        different generator, a traced outcrop photograph, a discrete fracture
+        network from another package, a hand-drawn array.
+
+        ``link_v`` is ``(nz-1, nx)`` and ``link_h`` is ``(nz, nx-1)``: True
+        where the link between those two cells conducts. A cell counts as
+        fractured if any link touching it does.
+
+        The grid must still be a uniform raster of square cells -- ``dx`` is a
+        scalar. Non-uniform or unstructured grids would be a different model.
+
+        ``segments`` is only used for drawing. Leave it out and plots simply
+        will not overlay the joint traces; nothing in the physics needs it.
+        """
+        link_v = np.asarray(link_v, dtype=bool)
+        link_h = np.asarray(link_h, dtype=bool)
+        nz, nx = link_v.shape[0] + 1, link_v.shape[1]
+        if link_h.shape != (nz, nx - 1):
+            raise ValueError(
+                "link_v is (nz-1, nx) = %s, so link_h must be (nz, nx-1) = %s, "
+                "not %s" % (link_v.shape, (nz, nx - 1), link_h.shape))
+
+        net = cls(nz, nx, dx, periodic_x=periodic_x)
+        net.link_v, net.link_h = link_v, link_h
+
+        cell = np.zeros((nz, nx), dtype=bool)
+        cell[:-1, :] |= link_v
+        cell[1:, :] |= link_v
+        cell[:, :-1] |= link_h
+        cell[:, 1:] |= link_h
+        net.cell = cell
+
+        if link_wrap is None:
+            net.link_wrap = (cell[:, 0] & cell[:, -1]) if periodic_x \
+                else np.zeros(nz, dtype=bool)
+        else:
+            net.link_wrap = np.asarray(link_wrap, dtype=bool)
+        if periodic_x:
+            net.cell[:, 0] |= net.link_wrap
+            net.cell[:, -1] |= net.link_wrap
+
+        # Derived, not measured: without traces there is no trace length, so
+        # P21 is estimated from the marked links and should be read as such.
+        net.trace_length = float(link_v.sum() + link_h.sum()) * dx
+        net.segments = [] if segments is None else list(segments)
+        net.segment_set = ([] if segment_set is None
+                           else list(segment_set))
+        if segments is not None and segment_set is None:
+            net.segment_set = ["J1"] * len(net.segments)
+        return net
+
     # ---- seeding
 
     def seed(self, sets=None, rng=None):

@@ -210,3 +210,36 @@ def test_a_periodic_tiling_refuses_a_spacing_that_is_not_whole_cells():
     with pytest.raises(ValueError, match="whole number of cells"):
         periodic_grid_shape(20.0, 15.0, 0.20, 1.5)
     assert periodic_grid_shape(20.0, 15.0, 0.05, 1.5) == (301, 390)
+
+
+def test_a_network_can_be_supplied_instead_of_seeded():
+    """
+    The model reads only cell, link_v, link_h, link_wrap and periodic_x from a
+    network, so anything that can produce those is a valid input -- another
+    generator, a traced outcrop, a hand-drawn array. Checked by building one by
+    hand and running the model on it.
+    """
+    from corestone import Weathering
+    nz, nx, dx = 41, 40, 0.10
+    lv = np.zeros((nz - 1, nx), bool)
+    lh = np.zeros((nz, nx - 1), bool)
+    lv[:, ::10] = True                      # four vertical joints
+    lh[::10, :] = True                      # five horizontal ones
+    net = FractureNetwork.from_masks(lv, lh, dx, periodic_x=True)
+
+    assert net.nz == nz and net.nx == nx and net.dx == dx
+    assert net.cell[:, 0].all()             # a joint column is fractured
+    assert net.p21 > 0.0
+    assert net.segments == []               # no traces: drawing only
+
+    m = Weathering(net).run(years=20e3)
+    assert np.isfinite(m.dissolved_fraction).all()
+    assert (m.dissolved_fraction > 0.0).any()
+    inflow = m.infiltration * dx * nx
+    assert m.q_out_base.sum() == pytest.approx(inflow, rel=1e-8)
+
+
+def test_from_masks_rejects_mismatched_link_shapes():
+    bad_h = np.zeros((10, 10), bool)        # should be (nz, nx-1)
+    with pytest.raises(ValueError, match="link_h must be"):
+        FractureNetwork.from_masks(np.zeros((9, 10), bool), bad_h, 0.1)

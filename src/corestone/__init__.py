@@ -17,7 +17,8 @@ therefore decide where weathering happens.
 
 The pieces:
 
-- :class:`corestone.FractureNetwork` -- seed the joints that carry the water.
+- :class:`corestone.FractureNetwork` -- seed the joints that carry the water,
+  or supply your own with :meth:`~corestone.FractureNetwork.from_masks`.
 - :class:`corestone.JointSet` -- one family of subparallel joints.
 - :func:`corestone.conjugate_sets` -- a throughgoing set and one that
   abuts it, 90 degrees apart by default.
