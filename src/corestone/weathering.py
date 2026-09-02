@@ -428,16 +428,18 @@ class Weathering(object):
         self._x = x
         return np.clip(x, 0.0, 1.0).reshape(self.nz, self.nx)
 
-    def solve_flow(self):
+    def flow_operator(self):
         """
-        Steady Darcy head, and the link fluxes it implies.
+        The conductance matrix for the head, and the right-hand side.
 
-        Finite volume on square cells, so the geometric factor is one: the flux
-        along a link is ``K * (H_i - H_j)`` in m2/s per unit thickness. ``H`` is
-        TOTAL head with elevation already in it -- adding a separate gravity
-        term to the link flux double-counts it and manufactures water.
+        Assembled entirely as triplets, base boundary included. COO sums
+        duplicate entries, so the boundary conductance is simply one more
+        contribution to the diagonal -- there is no need to reach into an
+        assembled matrix and modify a row, which needed a LIL round trip and
+        cost 44 ms of a 180 ms initialize() at 22,650 cells.
 
-        Conductance is static, so this runs once.
+        Returned rather than kept private so that a test can look at it: it is
+        the second matrix ``ORDERING`` claims is structurally symmetric.
         """
         nz, nx, dx = self.nz, self.nx, self.dx
         n = nz * nx
@@ -457,17 +459,14 @@ class Weathering(object):
             kw = np.where(self.network.link_wrap, self.k_fracture,
                           self.k_matrix)
             pairs.append((idx[:, -1], idx[:, 0], kw))
-        for a, b, k in pairs:
-            rows += [a, a, b, b]
-            cols += [a, b, b, a]
+        for a_, b_, k in pairs:
+            rows += [a_, a_, b_, b_]
+            cols += [a_, b_, b_, a_]
             vals += [k, -k, k, -k]
-        A = sp.coo_matrix((np.concatenate(vals),
-                           (np.concatenate(rows), np.concatenate(cols))),
-                          shape=(n, n)).tocsr()
 
         # Infiltration into the top row [m2/s per unit thickness].
-        b = np.zeros(n)
-        b[idx[0, :]] = self.infiltration * dx
+        rhs = np.zeros(n)
+        rhs[idx[0, :]] = self.infiltration * dx
 
         # Base: the drainage boundary, psi = 0, so H = -depth. Applied as a
         # conductance to an external fixed head rather than by overwriting the
@@ -478,11 +477,32 @@ class Weathering(object):
         self._k_base = np.where(self.network.cell[-1, :],
                                 self.k_fracture, self.k_matrix)
         self._h_base = -(nz - 0.5) * dx - 0.5 * dx
-        A = A.tolil()
-        A[idx[-1, :], idx[-1, :]] = A[idx[-1, :], idx[-1, :]] + self._k_base
-        b[idx[-1, :]] += self._k_base * self._h_base
+        rows.append(idx[-1, :]); cols.append(idx[-1, :])
+        vals.append(self._k_base)
+        rhs[idx[-1, :]] += self._k_base * self._h_base
 
-        H = spl.splu(A.tocsc(), permc_spec=ORDERING).solve(b).reshape(nz, nx)
+        A = sp.coo_matrix((np.concatenate(vals),
+                           (np.concatenate(rows), np.concatenate(cols))),
+                          shape=(n, n)).tocsc()
+        return A, rhs
+
+    def solve_flow(self):
+        """
+        Steady Darcy head, and the link fluxes it implies.
+
+        Finite volume on square cells, so the geometric factor is one: the flux
+        along a link is ``K * (H_i - H_j)`` in m2/s per unit thickness. ``H`` is
+        TOTAL head with elevation already in it -- adding a separate gravity
+        term to the link flux double-counts it and manufactures water.
+
+        Conductance is static, so this runs once.
+        """
+        nz, nx, dx = self.nz, self.nx, self.dx
+        kv = np.where(self.network.link_v, self.k_fracture, self.k_matrix)
+        kh = np.where(self.network.link_h, self.k_fracture, self.k_matrix)
+
+        A, b = self.flow_operator()
+        H = spl.splu(A, permc_spec=ORDERING).solve(b).reshape(nz, nx)
         self.H = H
         self.q_v = kv * (H[:-1, :] - H[1:, :])      # positive downward
         self.q_h = kh * (H[:, :-1] - H[:, 1:])      # positive rightward

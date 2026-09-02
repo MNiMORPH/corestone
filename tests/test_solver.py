@@ -137,3 +137,41 @@ def test_the_residual_of_the_returned_field_meets_the_tolerance():
     b = np.broadcast_to(r * m.dx * m.dx, (m.nz, m.nx)).ravel()
     res = np.linalg.norm(b - A @ x.ravel()) / np.linalg.norm(b)
     assert res < 1e-8
+
+
+@pytest.mark.parametrize("periodic", [True, False])
+def test_the_flow_operator_is_structurally_symmetric(periodic):
+    """
+    The second matrix ``ORDERING`` speaks for. This one is symmetric in its
+    values too -- it is a conductance Laplacian, and the base boundary adds to
+    the diagonal only -- so the claim is stronger here than for transport.
+    """
+    A, _ = _model(periodic=periodic).flow_operator()
+    assert _structurally_symmetric(A)
+    assert np.abs((A - A.T).data).max() == 0.0 if (A - A.T).nnz else True
+
+
+def test_the_base_conductance_reaches_the_matrix_through_the_triplets():
+    """
+    The base boundary is assembled as one more triplet and summed by COO,
+    rather than written into an already-built matrix. The diagonal of the last
+    row must therefore exceed what the links alone would put there, by exactly
+    the base conductance.
+    """
+    m = _model()
+    A, rhs = m.flow_operator()
+    d = A.diagonal().reshape(m.nz, m.nx)
+    # links only: rebuild the same row without the base term
+    net = m.network
+    kv = np.where(net.link_v, m.k_fracture, m.k_matrix)
+    kh = np.where(net.link_h, m.k_fracture, m.k_matrix)
+    links = kv[-1, :].copy()                       # from the row above
+    links[:-1] += kh[-1, :]
+    links[1:] += kh[-1, :]
+    if net.periodic_x:
+        kw = np.where(net.link_wrap, m.k_fracture, m.k_matrix)
+        links[-1] += kw[-1]
+        links[0] += kw[-1]
+    assert np.allclose(d[-1, :] - links, m._k_base, rtol=1e-12)
+    assert np.allclose(rhs.reshape(m.nz, m.nx)[-1, :],
+                       m._k_base * m._h_base, rtol=1e-12)
