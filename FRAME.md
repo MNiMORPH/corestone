@@ -2,7 +2,7 @@
 
 The read-first frame for this repo, per `~/.claude/COMPACTION_PLAYBOOK.md`.
 After a compaction, read this **before** acting, and verify every structural
-claim below against git and disk before trusting it. Current to `f65b81e`.
+claim below against git and disk before trusting it. Current to `0c76150`.
 
 ## (a) Origin -- why this model exists
 
@@ -20,9 +20,16 @@ matplotlib` reports all three bundled by Pyodide.
 
 ## (b) Plan and trajectory -- as the next action
 
+0. **Two decisions are waiting on Andy**, both measured and neither
+   implemented -- see (e). The exponential integrator is the larger
+   acceleration available to this model, and it is a parameter change, so it
+   is his call and not a detail.
 1. **Next: `artesian build` the demo.** `examples/app.py` exists and runs
    locally; it has never been compiled. That is the real test of whether a
    scipy sparse solve behaves under Pyodide.
+   `HANDOFF-geomorphonline-demo.md` (untracked, written 2026-09-02 by the
+   session that shipped the GRLP exercise) is the guide for this, and Andy
+   has flagged it as the thing to take up next.
 2. **Re-measure the stale design documents** (see the warning in (e) -- this is
    not optional bookkeeping, they contain numbers that are now wrong).
 3. `f_inert` is set, claimed in the README and `design/02` as the second solid
@@ -34,7 +41,8 @@ matplotlib` reports all three bundled by Pyodide.
 
 ## (c) Key current data and objects
 
-Branch `master`, HEAD `f65b81e`, **17 commits unpushed**, working tree clean.
+Branch `master`, HEAD `0c76150`, **25 commits unpushed**, working tree clean
+apart from the untracked `HANDOFF-geomorphonline-demo.md`.
 
 - `src/corestone/fractures.py` -- the joint network. Seeded via `seed()`, or
   supplied wholesale via `from_masks()`. `tiling_angles()` / `tiling_spacing()`
@@ -50,8 +58,15 @@ Branch `master`, HEAD `f65b81e`, **17 commits unpushed**, working tree clean.
   transcription tests and the ledger that stops an equation entering a
   docstring without a check. **These exist because a docstring drifted from its
   code for six revisions.**
+- `tests/test_solver.py` -- the properties the fast paths rely on. Structural
+  symmetry of both matrices (which is what licenses the ordering), the
+  diagonal being present in the pattern (which is what licenses writing the
+  reaction term in place), and the warm-started field matching a cold direct
+  solve (which is what makes the reused guess a guess and not an
+  approximation).
 
-60 tests, ~100 s.
+74 tests, ~14 s. **The "~100 s" this file used to claim was wrong** -- measured
+at 14.4 s on the pre-speed-up tree, so it was never true, not merely stale.
 
 ## (d) Guardrails and irreversibility state
 
@@ -84,9 +99,38 @@ Current and verified:
 - Temperature acts through **solubility**, not the rate constant: 275->315 K
   moves mean dissolved fraction 189 %, monotone. The model is transport-limited
   almost everywhere, and there the amount dissolved scales with `C_eq`.
-- 100 kyr at dx = 0.10 on 29,445 cells: 12.3 s, one factorisation. The app's
-  3 x 3 m section at dx = 0.05 runs 200 kyr in 1.6 s.
 - Snapped orientations leave the seam within 13 % of the interior.
+
+**Speed, 2026-09-02.** Measured by alternating the old and new trees as
+subprocesses, min of three, so machine load hits both equally -- the first
+attempt at this ran the variants sequentially and produced a 3.2x that was
+load drift and not the solver. Mean `M` agrees to twelve decimals throughout;
+none of it changes an answer.
+
+    case      before    after     ratio
+    3 m app    0.415 s   0.294 s   x1.41
+    3 m dx.02 16.318 s   6.833 s   x2.39
+    45 deg     0.121 s   0.074 s   x1.64
+    12 x 9 m   2.726 s   1.434 s   x1.90
+
+Three changes, in order of what they bought: minimum-degree ordering on
+`A + A.T` instead of SuperLU's COLAMD default (fill halved, `565e0e4`); the
+warm start (`8395d97`); the base boundary and the reaction term both assembled
+without a format round trip (`ed30aca`, `739754b`).
+
+**Two measured proposals, not implemented, awaiting a decision:**
+
+- **The exponential integrator** (`prototypes/probe_f_integrator.py`,
+  `0c76150`). `r` is proportional to `M`, so with `c` held over a step the
+  equation is `dM/dt = -lambda M` and its solution is an exponential. Euler
+  takes the tangent. At equal cost the exponential form is ~6x more accurate;
+  at matched error over 200 kyr it is **18 steps against 107**, the largest
+  single acceleration left. It needs `dt_max` and `dx_max` relaxed, which are
+  parameters, and the error is not monotone in `dx_max`.
+- **The refactorisation cap.** `max_krylov_iterations = 15` has never fired;
+  lowering it to 5 so that it does is worth ~15 %. Left alone because the
+  optimum moves between 4 and 5 case to case. Table in the `solve_solute`
+  docstring.
 
 ## (f) Negative results, and why not
 
@@ -106,6 +150,17 @@ Current and verified:
 - **Two mechanisms for the horizontal-joint effect were measured and
   falsified** before the third (lateral bypass around the matrix, which is
   where the dissolving happens) was supported.
+- **Defect correction does not beat BiCGSTAB here.** `x <- x + LU^-1(b - Ax)`
+  cannot break down and needs one back-substitution per iteration where
+  BiCGSTAB needs two, so it looked certain. Alternated in one process it is a
+  wash: x1.06, x0.97, x1.17. Written, measured, and left on the stash.
+- **The BiCGSTAB breakdowns are not staleness.** All 14 refactorisations over
+  108 steps are `info = -10` after two iterations, which happens because the
+  preconditioner is very good. The iteration cap plays no part: raising it to
+  a million changes nothing.
+- **`spilu` is not worth it as the preconditioner.** Half the build cost of a
+  full `splu`, but the factorisation is reused across many steps, so build
+  cost is not what dominates.
 
 ## (g) Reproduction
 
