@@ -14,19 +14,24 @@ therefore decide where weathering happens, and rock the water never reaches --
 or reaches already saturated -- survives as a corestone.
 
 Working in normalised concentration ``c = C / C_eq`` removes the need to assert
-a solubility, and makes the integral over a cell of height ``dx`` exact:
+a solubility. The scale it sets is the **saturation length**
 
-    dc/dz = (1 - c) / L_eq       ->    c_out = 1 + (c_in - 1) * exp(-dx / L_eq)
+    saturation_length = q * C_eq / (k(T) * A)
 
-with the **equilibration length**
+the e-folding length of the approach to saturation -- *not* a distance at which
+equilibrium is reached, because there is no equilibrium here. ``c`` approaches
+1 asymptotically and never arrives.
 
-    L_eq = q * C_eq / (k(T) * A)
+Solute moves by advection **and by diffusion**:
 
-the distance water travels before it is saturated. That single number carries
-the model: rock further from a joint than ``L_eq`` never sees undersaturated
-water. Raising the temperature *shrinks* ``L_eq``, so hotter water saturates
-sooner and the weathering concentrates at the joints rather than spreading --
-which is why warm does not mean weathered.
+    div(q c) - div(D grad c) = r (1 - c),      r = k A / C_eq
+
+Without the diffusive term, rock off a flow path never weathers at all: a block
+interior saturates and then sits at ``c = 1`` for ever, and the model gives
+joints entirely dissolved beside blocks entirely untouched with nothing in
+between. Diffusive export of solute toward a flushed joint keeps the interior
+undersaturated, which is what forms a weathering rind -- and, because a corner
+sheds solute to two faces and a face to one, what rounds corestones.
 
 Flow is steady Darcy flow, solved for the hydraulic head,
 
@@ -57,7 +62,6 @@ result.
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
-from scipy.linalg import solve_banded
 
 #: Seconds in a Julian year. Time is seconds internally; years appear only at
 #: the input and output edges, and this is where the conversion is named.
@@ -84,19 +88,32 @@ class Weathering(object):
                                           # rock [m/s]        PLACEHOLDER
         self.k_matrix = 1.0e-8            # hydraulic conductivity, intact
                                           # granite [m/s]     PLACEHOLDER
-        self.L_eq_ref = 0.50              # equilibration length at T_ref [m]
+        self.L_ref = 0.50                 # saturation length at T_ref, mean
+                                          # infiltration, fresh rock [m]
         self.T_ref = 285.0                # reference temperature [K]
         self.E_a = 60.0e3                 # activation energy [J/mol]
-                                          # feldspar-ish, UNVERIFIED: this
-                                          # needs Palandri & Kharaka (2004)
+                                          # feldspar-ish, UNVERIFIED: needs
+                                          # Palandri & Kharaka (2004)
+        self.delta_H_r = 25.0e3           # enthalpy of the dissolution
+                                          # reaction [J/mol], van 't Hoff.
+                                          # UNVERIFIED. Only the DIFFERENCE
+                                          # (E_a - delta_H_r) sets the length
+                                          # scale, so the two must not be
+                                          # picked independently.
         self.R_gas = 8.314                # gas constant [J/mol/K]
-        self.tau = 6700.0                 # M0/C_eq: volumes of saturated water
-                                          # per volume of rock to dissolve it
+        self.tau_ref = 6700.0             # M0/C_eq at T_ref: volumes of
+                                          # saturated water per volume of rock
+        self.D_molecular = 1.0e-9         # aqueous diffusivity [m2/s]
+        self.tortuosity = 10.0            # matrix tortuosity [-]
+        self.dispersivity = 0.05          # longitudinal dispersivity [m]
         self.x_grus = 0.50                # soluble fraction lost -> grus
         self.x_core = 0.05                # below this, effectively unaltered
         self.f_inert = 0.30               # quartz: never dissolves, stays sand
-        self.dt_max = 500.0 * YEAR        # step ceiling; see design/02
-        self.dx_max = 0.02                # largest change in M per step
+        self.dt_max = 2000.0 * YEAR       # step ceiling. 500 yr cost 4x the
+        self.dx_max = 0.05                # steps for 0.8 % in the answer, back
+                                          # when a step was cheap; see design/07
+        self.krylov_tol = 1.0e-10         # convergence of the reused solve
+        self.max_krylov_iterations = 15   # past this, refactorise instead
 
         # ---- state
         self.T = self.T_ref               # temperature [K]
@@ -112,6 +129,10 @@ class Weathering(object):
         self._in_above = None             # inflow from the row above
         self._in_left = None              # inflow from the left neighbour
         self._in_right = None             # inflow from the right neighbour
+        self._T = None                    # constant part of the solute operator
+        self._T_key = None                # the values it was built from
+        self._lu = None                   # cached factorisation, reused
+        self.factorisations = 0           # how many times it was rebuilt
 
     # ---- parameter setters (one per parameter; units in the docstring)
 
@@ -123,50 +144,208 @@ class Weathering(object):
         """Recharge at the ground surface [m/s]."""
         self.infiltration = value
 
-    def set_equilibration_length(self, value):
-        """Equilibration length at the reference temperature [m]."""
-        self.L_eq_ref = value
+    def set_saturation_length(self, value):
+        """Saturation length at the reference temperature [m]."""
+        self.L_ref = value
 
     # ---- the physics
 
     @property
-    def equilibration_length(self):
+    def rate_factor(self):
+        """``k(T) / k_ref``, Arrhenius."""
+        return np.exp(-(self.E_a / self.R_gas)
+                      * (1.0 / self.T - 1.0 / self.T_ref))
+
+    @property
+    def solubility_factor(self):
         """
-        How far water travels before it is saturated [m], for water moving at
-        the mean infiltration rate and through fresh rock.
+        ``C_eq(T) / C_eq_ref``, van 't Hoff.
 
-        ``L_eq`` goes as ``1 / k(T)``, so it *shrinks* as the rock gets more
-        reactive: a hotter system does less weathering per metre of flow path,
-        because the water runs out of capacity sooner.
-
-        This is the REFERENCE value. The local one scales with the local flux
-        -- see :meth:`local_equilibration_length`.
+        Solubility is temperature dependent too, and treating it as constant
+        was not a small error: in the transport-limited regime -- which is most
+        of this model -- the amount dissolved scales with ``C_eq`` and not with
+        the rate constant at all, so holding it fixed removed the half of the
+        temperature dependence that dominates.
         """
-        return self.L_eq_ref * np.exp(
-            (self.E_a / self.R_gas) * (1.0 / self.T - 1.0 / self.T_ref))
+        return np.exp(-(self.delta_H_r / self.R_gas)
+                      * (1.0 / self.T - 1.0 / self.T_ref))
 
-    def local_equilibration_length(self):
+    @property
+    def saturation_length(self):
         """
-        The equilibration length cell by cell [m].
+        The e-folding length of the approach to saturation [m], for water at
+        the mean infiltration rate through fresh rock.
 
-            L_eq = q * C_eq / (k(T) * A)
+            saturation_length = q * C_eq / (k(T) * A)
 
-        It is **proportional to the local flux**. Fast water in a joint travels
-        far before it saturates; slow water in the matrix saturates almost at
-        once. It also grows as the soluble mineral is consumed, because the
-        reactive surface area falls with it.
+        **Not** a distance at which equilibrium is reached. There is no
+        equilibrium: ``c`` approaches 1 asymptotically, and after n of these
+        lengths the undersaturation is ``exp(-n)`` of what it was. The system
+        has an asymptote, and the model has a normalisation rather than a
+        thermodynamics -- ``C_eq`` never appears alone.
 
-        Getting this wrong is not a detail. Holding ``L_eq`` uniform makes the
-        per-cell dissolution ``Q * beta * (1 - c)`` scale with ``Q``, so a joint
-        carrying thirty times the flux dissolved thirty times faster per unit
-        volume at the same undersaturation. The rate per unit volume is
-        ``k A (1 - c)`` -- a property of the rock, not of how fast water moves
-        past it. With ``L_eq`` proportional to ``Q`` the ``Q`` cancels and the
-        rate is flux-independent, as it must be.
+        Because it goes as ``C_eq / k``, its temperature dependence is set by
+        ``(E_a - delta_H_r)``, not by ``E_a`` alone.
         """
-        q_ref = self.infiltration * self.dx        # mean through-flux per cell
-        return (self.equilibration_length * np.maximum(self.q, 1e-300) / q_ref
-                / np.maximum(self.M, 1e-6))
+        return self.L_ref * self.solubility_factor / self.rate_factor
+
+    @property
+    def reaction_coefficient(self):
+        """
+        ``r = k A / C_eq`` [1/s]: the rate at which undersaturation is consumed.
+
+        This is the flux-independent form. Since ``r = q / saturation_length``
+        and the saturation length is itself proportional to ``q``, the flux
+        cancels **explicitly** here rather than implicitly inside an exponent.
+        It falls with the soluble mineral remaining, because the reactive
+        surface area does.
+        """
+        r_ref = self.infiltration / self.L_ref
+        return (r_ref * np.maximum(self.M, 0.0)
+                * self.rate_factor / self.solubility_factor)
+
+    @property
+    def tau(self):
+        """
+        ``M0 / C_eq``: volumes of saturated water needed per volume of rock.
+
+        Falls as solubility rises, so a warmer and more soluble fluid carries
+        more away per unit volume. This is the second place ``C_eq`` enters.
+        """
+        return self.tau_ref / self.solubility_factor
+
+    def local_saturation_length(self):
+        """The saturation length cell by cell [m]: ``q / r``."""
+        r = self.reaction_coefficient
+        return (self.q / self.dx) / np.maximum(r, 1e-300)
+
+    def transport_coefficients(self):
+        """
+        Solute transport coefficient on every link [m2/s].
+
+            D = D_molecular / tortuosity  +  dispersivity * |v|
+
+        Molecular diffusion plus hydrodynamic (mechanical) dispersion. The
+        second is sometimes called turbulent diffusion and the operator is the
+        same, but at these fluxes the Reynolds number is around 3e-5 -- laminar
+        by five orders of magnitude. The distinction matters only because it is
+        pore and aperture geometry that sets the dispersivity, not eddies.
+
+        Without this term the model is pure advection, and rock that is not on
+        a flow path never weathers at all: a block interior saturates and then
+        sits at ``c = 1`` for ever. Diffusive export of solute toward a flushed
+        joint is what keeps the interior undersaturated, and is therefore what
+        lets a weathering rind form. It is also the geometric route to
+        spheroidal rounding, since a corner sheds solute to two faces and an
+        edge to one.
+        """
+        dm_v = np.where(self.network.link_v, self.D_molecular,
+                        self.D_molecular / self.tortuosity)
+        dm_h = np.where(self.network.link_h, self.D_molecular,
+                        self.D_molecular / self.tortuosity)
+        return (dm_v + self.dispersivity * np.abs(self.q_v) / self.dx,
+                dm_h + self.dispersivity * np.abs(self.q_h) / self.dx)
+
+    def _transport_operator(self):
+        """
+        The part of the solute operator that never changes: advection,
+        diffusion and the outflow through the base.
+
+        Built once. The flow field is static, so only the reaction term on the
+        diagonal moves from step to step -- which is what makes a cached
+        factorisation worth keeping.
+        """
+        # Cache on the values that built it. A bare `is not None` check made
+        # changing D_molecular or the dispersivity silently do nothing, which a
+        # test caught -- the same shape of defect as a docstring drifting from
+        # its code, and one a cache invites.
+        key = (self.D_molecular, self.tortuosity, self.dispersivity,
+               id(self.q_v), float(np.sum(self.q_v)), float(np.sum(self.q_h)))
+        if self._T is not None and self._T_key == key:
+            return self._T
+        self._lu = None                    # the factorisation went with it
+        nz, nx, dx = self.nz, self.nx, self.dx
+        idx = np.arange(nz * nx).reshape(nz, nx)
+        D_v, D_h = self.transport_coefficients()
+        rows, cols, vals = [], [], []
+
+        def add(i, j, v):
+            rows.append(np.asarray(i).ravel())
+            cols.append(np.asarray(j).ravel())
+            vals.append(np.asarray(v, dtype=float).ravel()
+                        * np.ones(np.asarray(i).size))
+
+        for a_, b_, f in ((idx[:-1, :], idx[1:, :], self.q_v),
+                          (idx[:, :-1], idx[:, 1:], self.q_h)):
+            fwd, rev = np.maximum(f, 0.0), np.maximum(-f, 0.0)
+            add(a_, a_, fwd);  add(b_, a_, -fwd)
+            add(b_, b_, rev);  add(a_, b_, -rev)
+        for a_, b_, D in ((idx[:-1, :], idx[1:, :], D_v),
+                          (idx[:, :-1], idx[:, 1:], D_h)):
+            add(a_, a_, D);  add(a_, b_, -D)
+            add(b_, b_, D);  add(b_, a_, -D)
+        if self.network.periodic_x:
+            fwd = np.maximum(self.q_wrap, 0.0)
+            rev = np.maximum(-self.q_wrap, 0.0)
+            Dw = np.where(self.network.link_wrap, self.D_molecular,
+                          self.D_molecular / self.tortuosity) \
+                 + self.dispersivity * np.abs(self.q_wrap) / dx
+            l, rgt = idx[:, -1], idx[:, 0]
+            add(l, l, fwd + Dw);     add(rgt, l, -(fwd + Dw))
+            add(rgt, rgt, rev + Dw); add(l, rgt, -(rev + Dw))
+        add(idx[-1, :], idx[-1, :], self.q_out_base)
+
+        self._T = sp.coo_matrix(
+            (np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))),
+            shape=(nz * nx, nz * nx)).tocsc()
+        self._T_key = key
+        return self._T
+
+    def solve_solute(self, r):
+        """
+        Steady advection-diffusion-reaction for the normalised concentration.
+
+            sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j)
+                + r dx^2 c_i  =  r dx^2
+
+        One sparse solve for the whole field. Diffusion is not directional, so
+        the row-by-row sweep that pure advection allowed is gone -- and with it
+        the cyclic Sherman-Morrison seam solve and the ``Q * beta * (1 - c)``
+        pickup, which cancelled catastrophically once ``beta`` grew past about
+        1e5. The reaction term here is linear and bounded, so neither hazard
+        remains.
+
+        Water entering at the surface carries ``c = 0``, so it contributes
+        nothing to the inflow sum: undersaturation enters only through the
+        reaction term on the right.
+
+        Cost. Only the diagonal changes between steps, so the LU factorisation
+        is cached and reused as a preconditioner: back-substitution is about
+        eighty times cheaper than refactorising. It degrades as the mineral is
+        consumed and the diagonal drifts away from where it was built -- 1
+        Krylov iteration at M = 1, 11 at M = 0.4, 39 at M = 0.01 -- so it is
+        refreshed when the iteration count says so, which is self-tuning.
+        """
+        dx = self.dx
+        A = (self._transport_operator() + sp.diags((r * dx * dx).ravel())).tocsc()
+        b = np.broadcast_to(r * dx * dx, (self.nz, self.nx)).ravel().copy()
+
+        def direct():
+            self._lu = spl.splu(A)
+            self.factorisations += 1
+            return self._lu.solve(b)
+
+        if self._lu is None:
+            x = direct()
+        else:
+            n_it = [0]
+            P = spl.LinearOperator(A.shape, matvec=self._lu.solve)
+            x, info = spl.bicgstab(
+                A, b, M=P, atol=0.0, tol=self.krylov_tol,
+                callback=lambda xk: n_it.__setitem__(0, n_it[0] + 1))
+            if info != 0 or n_it[0] > self.max_krylov_iterations:
+                x = direct()                       # preconditioner has gone stale
+        return np.clip(x, 0.0, 1.0).reshape(self.nz, self.nx)
 
     def solve_flow(self):
         """
@@ -255,6 +434,10 @@ class Weathering(object):
 
     def initialize(self):
         """Set the rock fresh and route the flow. Run once, before update()."""
+        self._T = None
+        self._T_key = None
+        self._lu = None
+        self.factorisations = 0
         self.M = np.ones((self.nz, self.nx))
         self.c = np.zeros((self.nz, self.nx))
         self.t = 0.0
@@ -265,73 +448,17 @@ class Weathering(object):
         """
         Advance the rock state by one step, and return the step actually taken.
 
-        The solute balance in a cell is steady -- transport is fast compared
-        with the rock -- so what leaves equals what entered plus what dissolved:
+        Solute transport is solved at steady state -- it is fast next to the
+        rock changing -- so there is no storage term and the model carries no
+        porosity, and therefore no residence time.
 
-            Q_i (1 + beta_i) c_i  -  sum(lateral inflow) c_j
-                =  Q_i beta_i  +  (solute arriving from above)
+        What the rock loses is what the water gains:
 
-        where ``Q_i`` is the through-flux and ``beta = expm1(dx / L_eq)``. That
-        choice of beta is not an approximation: substituted into the balance it
-        reproduces the exact exponential ``c_out = 1 + (c_in - 1) exp(-dx/L_eq)``
-        in the one-dimensional case, while keeping the equation linear in the
-        two-dimensional one.
-
-        Vertical flow is everywhere downward, so rows can be swept in order.
-        Within a row, water moving sideways along a joint couples neighbouring
-        cells, which makes each row a tridiagonal system rather than a plain
-        pass -- and that lateral coupling is the whole point of solving for the
-        head instead of routing water downhill by rule.
+            d(M/M0)/dt = - r (1 - c) / tau
         """
-        # L_eq scales with the local flux and with the mineral left; see
-        # local_equilibration_length().
-        L_eq = self.local_equilibration_length()
-        beta = np.where(self.q > 0.0, np.expm1(self.dx / np.maximum(L_eq, 1e-300)),
-                        0.0)
-
-        c = np.zeros((self.nz, self.nx))
-        Q = self.q
-        solute_above = np.zeros(self.nx)
-
-        for iz in range(self.nz):
-            q_i = Q[iz, :]
-            live = q_i > 0.0
-
-            diag = np.where(live, q_i * (1.0 + beta[iz, :]), 1.0)
-            # Coefficients on the left and right neighbours' concentrations.
-            lower = np.where(live, -self._in_left[iz, :], 0.0)
-            upper = np.where(live, -self._in_right[iz, :], 0.0)
-            rhs = np.where(live, q_i * beta[iz, :] + solute_above, 0.0)
-
-            ab = np.zeros((3, self.nx))
-            ab[0, 1:] = upper[:-1]        # superdiagonal
-            ab[1, :] = diag
-            ab[2, :-1] = lower[1:]        # subdiagonal
-
-            if self.network.periodic_x:
-                # The seam makes the row CYCLIC: cell 0 draws on cell nx-1 and
-                # vice versa, which puts entries in the two far corners.
-                # Sherman-Morrison folds them back into a banded solve.
-                # NB: not named beta -- that is the reaction array above.
-                corner_tr = -self._in_left[iz, 0] if live[0] else 0.0
-                corner_bl = -self._in_right[iz, -1] if live[-1] else 0.0
-                gamma = -ab[1, 0]
-                ab[1, 0] -= gamma
-                ab[1, -1] -= corner_tr * corner_bl / gamma
-                u = np.zeros(self.nx); u[0], u[-1] = gamma, corner_tr
-                y = solve_banded((1, 1), ab, rhs)
-                z = solve_banded((1, 1), ab, u)
-                vy = y[0] + corner_bl / gamma * y[-1]
-                vz = z[0] + corner_bl / gamma * z[-1]
-                c[iz, :] = np.clip(y - z * vy / (1.0 + vz), 0.0, 1.0)
-            else:
-                c[iz, :] = np.clip(solve_banded((1, 1), ab, rhs), 0.0, 1.0)
-
-            if iz < self.nz - 1:
-                solute_above = self._in_above[iz + 1, :] * c[iz, :]
-
-        # What the water picked up is what the rock lost, per unit volume.
-        rate = Q * beta * (1.0 - c) / (self.tau * self.dx * self.dx)
+        r = self.reaction_coefficient
+        c = self.solve_solute(r)
+        rate = r * (1.0 - c) / self.tau            # d(M/M0)/dt [1/s]
         step = min(dt if dt is not None else self.dt_max,
                    self.dx_max / max(rate.max(), 1e-30))
         self.M = np.clip(self.M - rate * step, 0.0, 1.0)
