@@ -5,11 +5,13 @@ The seeded joint network puts water where the design says it should.
 import numpy as np
 import pytest
 
-from corestone import FractureNetwork, JointSet, GRANITE_SETS
+from corestone import FractureNetwork, JointSet, conjugate_sets, GRANITE_SETS
+
+NZ, NX, DX = 38, 50, 0.40
 
 
-def _net(seed=12345, sets=None, nz=75, nx=100, dx=0.2):
-    return FractureNetwork(nz, nx, dx).seed(
+def _net(seed=12345, sets=None):
+    return FractureNetwork(NZ, NX, DX).seed(
         sets=sets, rng=np.random.default_rng(seed))
 
 
@@ -34,40 +36,87 @@ def test_distance_is_zero_on_fractures_and_positive_off_them():
     assert d[~n.cell].min() > 0.0
 
 
-def test_a_sheeting_set_brings_the_rock_closer_to_water():
-    """
-    Two steep conjugate sets cannot bound a block in the vertical, at any
-    persistence. Adding a subhorizontal set is what closes it -- the finding in
-    design/01-fracture-seeding.md, pinned here so it cannot silently regress.
-    """
-    steep = [js for js in GRANITE_SETS if abs(js.dip_deg) > 45.0]
-    assert len(steep) == 2
+def test_the_default_pair_is_conjugate_at_ninety_degrees():
+    assert len(GRANITE_SETS) == 2
+    a, b = GRANITE_SETS
+    assert abs((a.dip_deg - b.dip_deg) % 180.0) == pytest.approx(90.0)
+    assert a.is_throughgoing
+    assert b.abuts == a.name
 
-    d_steep = _net(sets=steep).distance_to_fracture()
-    d_all = _net(sets=GRANITE_SETS).distance_to_fracture()
 
-    assert np.median(d_all) < np.median(d_steep)
-    assert np.percentile(d_all, 90) < np.percentile(d_steep, 90)
+def _on_boundary(pt, n, tol=1e-6):
+    return (pt[0] <= tol or pt[0] >= n.lx - tol
+            or pt[1] <= tol or pt[1] >= n.lz - tol)
+
+
+def test_throughgoing_traces_run_boundary_to_boundary():
+    """
+    A primary joint crosses the whole section -- both of its tips are on the
+    domain edge, never in intact rock. That is what makes the network connect:
+    an earlier generator drew both sets as free segments from a power-law
+    length distribution, and the joints came out shorter than the gaps between
+    them, so nothing linked up.
+
+    Note it is boundary-to-boundary, not top-to-bottom: with orientation
+    scatter a near-vertical joint seeded near a side exits through that side.
+    """
+    n = _net(sets=[JointSet("J1", dip_deg=90.0, spacing=1.5)])
+    assert len(n.segments) >= 5
+    for p0, p1 in n.segments:
+        assert _on_boundary(p0, n) and _on_boundary(p1, n)
+
+
+def test_abutting_traces_terminate_on_a_host_joint():
+    """
+    The abutting rule is what turns a scatter of lines into a network: a
+    younger joint stops at an older one, giving a Y node rather than a free
+    tip. Checked here by geometry -- each secondary endpoint should sit on a
+    primary trace, or on the domain edge where it was clipped.
+    """
+    n = _net(sets=conjugate_sets(90.0, 0.0))
+    primary = n.segments_of("J1")
+    assert len(primary) >= 3
+
+    def on_a_primary_or_edge(pt, tol=1e-6):
+        if _on_boundary(pt, n, tol):
+            return True
+        for p0, p1 in primary:
+            d = p1 - p0
+            L2 = d @ d
+            t = np.clip(((pt - p0) @ d) / L2, 0.0, 1.0)
+            if np.hypot(*(p0 + t * d - pt)) < 1e-6:
+                return True
+        return False
+
+    secondary = n.segments_of("J2")
+    assert len(secondary) >= 3
+    for p0, p1 in secondary:
+        assert on_a_primary_or_edge(p0) and on_a_primary_or_edge(p1)
+
+
+def test_a_conjugate_pair_beats_a_single_set():
+    """
+    One set of parallel joints cannot bound a block: it leaves corridors
+    unbroken in its own direction. The conjugate partner is what closes them.
+    """
+    one = [JointSet("J1", dip_deg=90.0, spacing=1.5)]
+    d_one = _net(sets=one).distance_to_fracture()
+    d_two = _net(sets=conjugate_sets(90.0, 0.0, spacing=1.5)).distance_to_fracture()
+    assert np.percentile(d_two, 90) < np.percentile(d_one, 90)
 
 
 def test_closer_spacing_puts_rock_nearer_a_fracture():
-    wide = [JointSet("A", 75., 20., 3.0), JointSet("B", -75., 20., 3.0)]
-    tight = [JointSet("A", 75., 20., 0.75), JointSet("B", -75., 20., 0.75)]
-    assert np.median(_net(sets=tight).distance_to_fracture()) \
-         < np.median(_net(sets=wide).distance_to_fracture())
+    tight = _net(sets=conjugate_sets(90.0, 0.0, spacing=0.8))
+    wide = _net(sets=conjugate_sets(90.0, 0.0, spacing=3.0))
+    assert np.percentile(tight.distance_to_fracture(), 90) \
+         < np.percentile(wide.distance_to_fracture(), 90)
+    assert tight.p21 > wide.p21
 
 
-def test_padding_does_not_leave_the_edges_starved():
-    """
-    Seeding only inside the domain leaves edge cells artificially far from any
-    fracture, because no fracture can be centred just outside it.
-    """
-    n = _net()
-    d = n.distance_to_fracture()
-    edge = np.concatenate([d[0, :], d[-1, :], d[:, 0], d[:, -1]])
-    interior = d[1:-1, 1:-1]
-    # The edge should not be dramatically worse than the interior.
-    assert np.median(edge) < 2.0 * np.median(interior)
+def test_abutting_a_set_that_is_not_there_is_an_error():
+    bad = [JointSet("J2", dip_deg=0.0, spacing=1.5, abuts="nope")]
+    with pytest.raises(ValueError, match="not a throughgoing set"):
+        _net(sets=bad)
 
 
 def test_p21_is_a_sane_intensity():

@@ -7,15 +7,29 @@ Granite weathers where water reaches it, and water reaches it along joints, so
 the joint network decides -- before any chemistry exists -- which rock can
 weather and which cannot. This module builds that network.
 
-Joints are placed by *set*: a family of subparallel fractures with a
-characteristic orientation and spacing. Real granite carries at least three:
-two steep conjugate sets and a subhorizontal sheeting set. Two steep sets alone
-cannot bound a block in the vertical at any persistence -- see
-``design/01-fracture-seeding.md`` for the measurement.
+The generator follows the standard outcrop hierarchy rather than scattering
+free-floating segments:
+
+  - a **primary** set of *throughgoing* joints, each spanning the domain;
+  - a **secondary** set that **abuts** the primary one, each trace running from
+    one primary joint to the next and terminating there.
+
+That abutting rule is what real joint sets do, and it is what makes a network
+connected: it produces Y (T-shaped) nodes rather than I nodes (isolated tips).
+An earlier generator here placed both sets as free segments drawn from a
+power-law length distribution, and the network never linked up -- see
+``design/01-fracture-seeding.md`` and ``design/03-throughgoing-joints.md``.
 
 What a fracture *is*, in this discretization: a conduit, not a barrier. Rock is
 continuous across a joint. A fracture marks the cells it threads and raises the
 conductance of the links along its trace; it never disconnects anything.
+
+Provenance of the method: the throughgoing-plus-abutting construction and the
+X/Y/I topological description are standard in discrete fracture network work
+(Sanderson & Nixon 2015 for the topology; ADFNE, Fadakar-Alghalandis 2017, and
+FracSim2D for the generators). No existing Python generator was usable here --
+they are MATLAB, C++, Python 2, or 3D-only -- so the algorithm is reimplemented
+and the network is validated against ``fractopo``.
 """
 
 import numpy as np
@@ -27,30 +41,81 @@ class JointSet(object):
     One family of subparallel joints.
 
     dip_deg  : mean orientation, degrees from horizontal, in the (x, depth)
-               plane. Positive dips to the right, so +90 is vertical.
-    kappa    : von Mises concentration of the orientation scatter. Larger is
-               tighter; 20 is roughly +/- 13 degrees.
+               plane. 0 is horizontal, 90 is vertical.
     spacing  : mean normal spacing between joints of this set [m].
+    kappa    : von Mises concentration of the orientation scatter. Larger is
+               tighter; 25 is roughly +/- 11 degrees.
+    abuts    : name of the set these joints terminate against, or ``None`` for
+               a throughgoing set that spans the domain.
+    spans    : how many primary joints an abutting trace crosses before it
+               stops. 1 means it terminates at the very next one.
     """
 
-    def __init__(self, name, dip_deg, kappa, spacing,
-                 spacing_sigma=0.35, length_min=4.0, length_exponent=2.0):
+    def __init__(self, name, dip_deg, spacing, kappa=25.0,
+                 spacing_sigma=0.30, abuts=None, spans=1):
         self.name = name
-        self.dip_deg = dip_deg            # mean dip [deg from horizontal]
-        self.kappa = kappa                # von Mises concentration [-]
-        self.spacing = spacing            # mean normal spacing [m]
-        self.spacing_sigma = spacing_sigma  # lognormal sigma of the spacing
-        self.length_min = length_min      # minimum trace length [m]
-        self.length_exponent = length_exponent  # p(L) ~ L**-exponent
+        self.dip_deg = dip_deg
+        self.spacing = spacing
+        self.kappa = kappa
+        self.spacing_sigma = spacing_sigma
+        self.abuts = abuts
+        self.spans = spans
+
+    @property
+    def is_throughgoing(self):
+        return self.abuts is None
 
 
-#: The default granite case: two steep conjugate sets plus a sheeting set.
-#: PLACEHOLDER VALUES -- replace with field joint spacings and orientations.
-GRANITE_SETS = [
-    JointSet("J1", dip_deg=+75.0, kappa=20.0, spacing=1.5),
-    JointSet("J2", dip_deg=-75.0, kappa=20.0, spacing=1.5),
-    JointSet("SH", dip_deg=+5.0, kappa=40.0, spacing=1.5),
-]
+def conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=1.5,
+                   kappa=25.0, spacing_sigma=0.30, spans=1):
+    """
+    A conjugate pair: a throughgoing set and a set that abuts it.
+
+    The default is the orthogonal case -- vertical joints cut by horizontal
+    ones, 90 degrees apart -- which is the simplest geometry that bounds a
+    block on all four sides. For a symmetric shear pair instead, pass
+    ``dip_primary=+45, dip_secondary=-45``: still 90 degrees apart, differently
+    oriented relative to the surface.
+    """
+    return [
+        JointSet("J1", dip_deg=dip_primary, spacing=spacing, kappa=kappa,
+                 spacing_sigma=spacing_sigma),
+        JointSet("J2", dip_deg=dip_secondary, spacing=spacing, kappa=kappa,
+                 spacing_sigma=spacing_sigma, abuts="J1", spans=spans),
+    ]
+
+
+#: The default granite case. PLACEHOLDER SPACING -- replace with field values.
+GRANITE_SETS = conjugate_sets()
+
+
+def _unit(dip_deg):
+    """Unit vector along a joint of this dip, in (x, depth)."""
+    th = np.deg2rad(dip_deg)
+    return np.array([np.cos(th), np.sin(th)])
+
+
+def _clip_to_box(origin, direction, lx, lz):
+    """
+    Clip an infinite line to the domain rectangle. Returns (p0, p1) or None.
+
+    Liang-Barsky on the parametric line ``origin + t * direction``.
+    """
+    t0, t1 = -np.inf, np.inf
+    for p, q in ((-direction[0], origin[0]), (direction[0], lx - origin[0]),
+                 (-direction[1], origin[1]), (direction[1], lz - origin[1])):
+        if p == 0.0:
+            if q < 0.0:
+                return None                      # parallel and outside
+            continue
+        t = q / p
+        if p < 0.0:
+            t0 = max(t0, t)
+        else:
+            t1 = min(t1, t)
+    if t0 >= t1:
+        return None
+    return origin + t0 * direction, origin + t1 * direction
 
 
 class FractureNetwork(object):
@@ -71,6 +136,7 @@ class FractureNetwork(object):
         self.link_v = None                # (nz-1, nx) bool: vertical links
         self.link_h = None                # (nz, nx-1) bool: horizontal links
         self.segments = None              # list of (p0, p1) endpoints [m]
+        self.segment_set = None           # name of the set each trace came from
         self.trace_length = None          # total trace length in domain [m]
 
     # ---- geometry
@@ -101,46 +167,96 @@ class FractureNetwork(object):
 
     # ---- seeding
 
-    def seed(self, sets=None, pad=3.0, rng=None):
+    def seed(self, sets=None, rng=None):
         """
         Place the joints and mark the cells and links they occupy.
 
-        `pad` seeds fractures this far outside the domain before clipping.
-        Without it no fracture can be centred just beyond the edge, and edge
-        cells come out artificially far from the network -- an artifact of the
-        boundary, not geology.
+        Throughgoing sets are laid down first and span the domain. Sets that
+        name one of them in ``abuts`` are then cut back so that each trace runs
+        from one of its host joints to the next.
         """
         sets = GRANITE_SETS if sets is None else sets
         rng = np.random.default_rng() if rng is None else rng
 
+        lines = {}                       # set name -> list of (origin, dir)
         self.segments = []
-        for js in sets:
-            self.segments += self._segments_for_set(js, pad, rng)
+        self.segment_set = []
+
+        for js in [s for s in sets if s.is_throughgoing]:
+            lines[js.name] = self._lines_for_set(js, rng)
+            for origin, d in lines[js.name]:
+                seg = _clip_to_box(origin, d, self.lx, self.lz)
+                if seg is not None:
+                    self.segments.append(seg)
+                    self.segment_set.append(js.name)
+
+        for js in [s for s in sets if not s.is_throughgoing]:
+            hosts = lines.get(js.abuts)
+            if hosts is None:
+                raise ValueError(
+                    "set %r abuts %r, which is not a throughgoing set here"
+                    % (js.name, js.abuts))
+            for origin, d in self._lines_for_set(js, rng):
+                seg = self._abut(origin, d, hosts, js.spans, rng)
+                if seg is not None:
+                    self.segments.append(seg)
+                    self.segment_set.append(js.name)
+
         self._rasterize()
         return self
 
-    def _segments_for_set(self, js, pad, rng):
-        """Centre-lines offset along the set normal at drawn spacings."""
-        theta = np.deg2rad(js.dip_deg)
-        d = np.array([np.cos(theta), np.sin(theta)])     # along-fracture
-        n = np.array([-d[1], d[0]])                      # set normal
+    def _lines_for_set(self, js, rng):
+        """
+        Infinite lines of this set, offset along its normal at drawn spacings.
 
-        box = np.array([[-pad, -pad], [self.lx + pad, -pad],
-                        [-pad, self.lz + pad], [self.lx + pad, self.lz + pad]])
-        s_c, t_c = box @ d, box @ n
+        Seeded across the whole domain diagonal so that no corner is starved --
+        an edge with no joint beyond it reads as unfractured rock when it is
+        only the boundary of the model.
+        """
+        d0 = _unit(js.dip_deg)
+        n0 = np.array([-d0[1], d0[0]])
+        box = np.array([[0.0, 0.0], [self.lx, 0.0],
+                        [0.0, self.lz], [self.lx, self.lz]])
+        t_c, s_c = box @ n0, box @ d0
 
-        diag = np.hypot(self.lx, self.lz)
-        segs, t = [], t_c.min()
+        out, t = [], t_c.min()
         while t < t_c.max():
-            th = theta + rng.vonmises(0.0, js.kappa)
-            dd = np.array([np.cos(th), np.sin(th)])
-            u = rng.random()
-            L = min(js.length_min * (1.0 - u) ** (-1.0 / (js.length_exponent - 1.0)),
-                    diag)
-            mid = rng.uniform(s_c.min(), s_c.max()) * d + t * n
-            segs.append((mid - 0.5 * L * dd, mid + 0.5 * L * dd))
+            th = np.deg2rad(js.dip_deg) + rng.vonmises(0.0, js.kappa)
+            d = np.array([np.cos(th), np.sin(th)])
+            origin = 0.5 * (s_c.min() + s_c.max()) * d0 + t * n0
+            out.append((origin, d))
             t += rng.lognormal(np.log(js.spacing), js.spacing_sigma)
-        return segs
+        return out
+
+    def _abut(self, origin, d, hosts, spans, rng):
+        """
+        Cut a trace back so it runs between host joints and terminates there.
+
+        This is the rule that makes a network out of a scatter of lines: a
+        younger joint stops at an older one, giving a Y node instead of a free
+        tip. Where too few hosts are crossed, the trace is clipped to the
+        domain instead so the edges are not left bare.
+        """
+        ts = []
+        for h_origin, h_d in hosts:
+            den = d[0] * h_d[1] - d[1] * h_d[0]
+            if abs(den) < 1e-12:
+                continue                                    # parallel
+            w = h_origin - origin
+            ts.append((w[0] * h_d[1] - w[1] * h_d[0]) / den)
+        ts = np.sort(np.array(ts))
+
+        if ts.size >= spans + 1:
+            i = rng.integers(0, ts.size - spans)
+            p0, p1 = origin + ts[i] * d, origin + ts[i + spans] * d
+            inside = _clip_to_box(p0, (p1 - p0), self.lx, self.lz)
+            return None if inside is None else (p0, p1)
+        return _clip_to_box(origin, d, self.lx, self.lz)
+
+    def segments_of(self, set_name):
+        """The traces belonging to one named set."""
+        return [seg for seg, nm in zip(self.segments, self.segment_set)
+                if nm == set_name]
 
     def _rasterize(self):
         """Mark the cells each trace threads, and the links along it."""
@@ -151,6 +267,8 @@ class FractureNetwork(object):
 
         for p0, p1 in self.segments:
             L = np.hypot(*(p1 - p0))
+            if L <= 0.0:
+                continue
             ns = max(int(np.ceil(L / (0.25 * self.dx))), 2)
             pts = p0 + np.linspace(0.0, 1.0, ns)[:, None] * (p1 - p0)
             ix = np.floor(pts[:, 0] / self.dx).astype(int)

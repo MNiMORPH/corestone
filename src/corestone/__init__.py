@@ -19,6 +19,8 @@ The pieces:
 
 - :class:`corestone.FractureNetwork` -- seed the joints that carry the water.
 - :class:`corestone.JointSet` -- one family of subparallel joints.
+- :func:`corestone.conjugate_sets` -- a throughgoing set and one that
+  abuts it, 90 degrees apart by default.
 
 Units are SI throughout unless a docstring says otherwise; see ``CLAUDE.md``
 for the sign and axis conventions this model assumes -- in particular that the
@@ -26,6 +28,8 @@ vertical coordinate is depth, positive downward.
 """
 
 from ._version import __version__
-from .fractures import FractureNetwork, JointSet, GRANITE_SETS
+from .fractures import (FractureNetwork, JointSet, conjugate_sets,
+                        GRANITE_SETS)
 
-__all__ = ["__version__", "FractureNetwork", "JointSet", "GRANITE_SETS"]
+__all__ = ["__version__", "FractureNetwork", "JointSet",
+           "conjugate_sets", "GRANITE_SETS"]
