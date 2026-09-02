@@ -19,13 +19,11 @@ fast enough to move a slider.
 
 ## (b) Plan and trajectory -- as the next action
 
-1. **Next**: promote the weathering step from `prototypes/probe_b_weathering.py`
-   into `src/corestone/weathering.py`, with tests.
-2. Then the artesian front end: sliders for temperature, rainfall, joint
+1. **Next**: the artesian front end: sliders for temperature, rainfall, joint
    spacing and elapsed time, plus reseeding the network. Two panels -- the
    affinity field `(1 - c)` beside the rock -- so the equation is seen rather
    than narrated.
-3. Read `E_A` out of Palandri & Kharaka (2004) rather than assuming 60 kJ/mol.
+2. Read `E_A` out of Palandri & Kharaka (2004) rather than assuming 60 kJ/mol.
 
 Open decision left with the author: the abutting-set `density`. 1.0 gives clean
 well-bounded blocks and is the current default; low density gives realistic
@@ -33,13 +31,16 @@ Y-dominated outcrop topology with less well-bounded blocks. See design 03.
 
 ## (c) Key current data and objects
 
-- `src/corestone/fractures.py` -- the only implemented module. Seeds the joint
-  network; everything else reads from it.
+- `src/corestone/fractures.py` -- seeds the joint network.
+- `src/corestone/weathering.py` -- **the model**. Verified to reproduce the
+  prototype bit-for-bit (max|diff| = 0 on flux, concentration and dissolved
+  fraction) when it was promoted out of `prototypes/`.
 - `prototypes/probe_a_fracture_seeder.py` -- distance-to-fracture measurement.
-- `prototypes/probe_b_weathering.py` -- **the working model**, not yet promoted.
+- `prototypes/probe_b_weathering.py` -- the timing and temperature tables;
+  now imports the package rather than carrying its own copy.
 - `prototypes/probe_c_topology.py` -- fractopo validation. Needs an environment
   with fractopo; it is not a dependency.
-- `prototypes/figure_draft.py` / `.png` -- the three-panel figure.
+- `examples/figure_three_panel.py` / `.png` -- the three-panel figure.
 - `design/01`, `02`, `03` -- fracture seeding; teaching scope; throughgoing
   joints.
 
@@ -84,9 +85,9 @@ authorisation.
 ## (g) Reproduction
 
 ```sh
-pip install -e ".[test]" && pytest              # 12 tests
+pip install -e ".[test]" && pytest              # 23 tests
 PYTHONPATH=src python3 prototypes/probe_b_weathering.py
-PYTHONPATH=src python3 prototypes/figure_draft.py
+PYTHONPATH=src python3 examples/figure_three_panel.py
 PYTHONPATH=src python3 examples/seed_a_joint_network.py
 # probe_c needs fractopo, which is not a dependency:
 PYTHONPATH=src <venv-with-fractopo>/bin/python prototypes/probe_c_topology.py

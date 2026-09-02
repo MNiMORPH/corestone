@@ -36,7 +36,7 @@ interactive browser demo. What exists:
 | | |
 | --- | --- |
 | `corestone.FractureNetwork` | implemented and tested — seeds a conjugate joint network |
-| the weathering step | working, but still in `prototypes/`, not yet a module |
+| `corestone.Weathering` | implemented and tested — dissolves the rock along it |
 | the browser front end | not started |
 
 **Every physical parameter in this model is a placeholder.** None is measured.
@@ -95,22 +95,36 @@ or build a separate environment.
 
 ```python
 import numpy as np
-from corestone import FractureNetwork, conjugate_sets
+from corestone import FractureNetwork, orthogonal_grid
 
-# A 20 x 15 m section at 20 cm resolution.
-net = FractureNetwork(nz=75, nx=100, dx=0.2).seed(
-    sets=conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=1.5),
+# A 20 x 15 m section at 5 cm resolution, joints every 1.5 m.
+net = FractureNetwork(nz=300, nx=400, dx=0.05).seed(
+    sets=orthogonal_grid(spacing=1.5),
     rng=np.random.default_rng(12345))
 
 d = net.distance_to_fracture()       # metres from each cell to the nearest joint
 print(net.p21, np.median(d))         # fracture intensity, median distance
 ```
 
-`examples/seed_a_joint_network.py` runs that and plots it.
+and to weather it:
+
+```python
+from corestone import Weathering
+
+model = Weathering(net).run(years=100e3)
+print(model.equilibration_length)          # L_eq at the current temperature
+print(model.is_grus.mean(), model.is_corestone.mean())
+```
+
+`examples/seed_a_joint_network.py` plots the network and the distance field;
+`examples/figure_three_panel.py` produces the figure below.
+
+![the three-panel figure](examples/figure_three_panel.png)
 
 ## Repository layout
 
 - `src/corestone/` — the model.
+- `examples/` — runnable scripts, meant to be read as much as run.
 - `design/` — a design document per decision, written *before* the code, with
   the probe that settled it and the parameters it introduced.
 - `prototypes/` — the runnable probes themselves. Ugly on purpose.

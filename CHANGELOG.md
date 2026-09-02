@@ -6,8 +6,8 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
-Nothing released yet. The model runs but the weathering step is still a
-prototype rather than a module, and every physical parameter is a placeholder.
+Nothing released yet. The model runs, but the browser front end does not exist
+and every physical parameter is a placeholder.
 
 ### Added
 
@@ -21,16 +21,22 @@ prototype rather than a module, and every physical parameter is a placeholder.
   `conjugate_sets(45, -45)` gives the symmetric shear pair instead.
 - `FractureNetwork.distance_to_fracture()`: distance from every cell to the
   nearest joint, the quantity that decides which rock can weather at all.
-- `examples/seed_a_joint_network.py`.
+- `corestone.Weathering`: steady gravity-driven flow routed down the joints in
+  one sweep, and dissolution at an Arrhenius rate constant modulated by the
+  chemical affinity of the pore water. Two solid phases, one soluble and one
+  inert, so the rock disaggregates into grus rather than dissolving to a
+  cavity.
+- `corestone.orthogonal_grid()`: a perfectly regular vertical/horizontal joint
+  network, with no orientation scatter and exact spacing.
+- `examples/seed_a_joint_network.py` and `examples/figure_three_panel.py`.
 - Design documents recording each decision, the probe that settled it, and the
   parameters it introduced, in `design/`.
 
 ### Notes
 
-- The weathering step -- gravity-driven flow routing, the affinity-limited
-  dissolution rate, and the two solid phases -- works and is exercised by
-  `prototypes/probe_b_weathering.py`, but has not been promoted into
-  `src/corestone/` yet.
+- Default resolution is 5 cm over a 20 x 15 m section, 120,000 cells. This is
+  an accuracy choice: at 40 cm a joint was smeared across a whole cell and grus
+  came out 4 percentage points high. The result is converged by 10 cm.
 - The joint network is validated against
   [fractopo](https://github.com/nialov/fractopo) in
   `prototypes/probe_c_topology.py`. fractopo is not a dependency: it is a check
