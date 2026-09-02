@@ -33,11 +33,13 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
 
-from corestone import FractureNetwork, JointSet, orthogonal_grid
+from corestone import (FractureNetwork, JointSet, orthogonal_grid,
+                       uniform_grid_shape)
 
 YR = 365.25 * 24 * 3600.0
 
-NZ, NX, DX = 300, 401, 0.05
+DX = 0.05
+NZ, NX = uniform_grid_shape(20.0, 15.0, DX, 1.5)
 INFILTRATION = 0.30 / YR              # m/s
 K_MATRIX = 1.0e-8                     # intact granite [m/s]   PLACEHOLDER
 K_FRACTURE = 1.0e-5                   # jointed rock  [m/s]    PLACEHOLDER

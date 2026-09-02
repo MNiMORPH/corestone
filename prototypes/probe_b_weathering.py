@@ -28,10 +28,11 @@ Run:  PYTHONPATH=src python3 prototypes/probe_b_weathering.py
 """
 import numpy as np
 
-from corestone import FractureNetwork, Weathering, orthogonal_grid
+from corestone import (FractureNetwork, Weathering, orthogonal_grid,
+                       uniform_grid_shape)
 
-NZ, NX, DX = 300, 401, 0.05        # odd nx: see FractureNetwork._rasterize
-SPACING = 1.5
+DX, SPACING = 0.05, 1.5
+NZ, NX = uniform_grid_shape(20.0, 15.0, DX, SPACING)
 
 
 def model(T=285.0):

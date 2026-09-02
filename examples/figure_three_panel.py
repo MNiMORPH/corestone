@@ -21,14 +21,15 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 from scipy.ndimage import uniform_filter
 
-from corestone import FractureNetwork, Weathering, orthogonal_grid
+from corestone import (FractureNetwork, Weathering, orthogonal_grid,
+                       uniform_grid_shape)
 
 # ---- what to draw -------------------------------------------------------------
-NZ, NX, DX = 300, 401, 0.05                # 20.05 x 15 m at 5 cm; nx is
-                                           # ODD so the regular joint
-                                           # pattern rasterises mirror-
-                                           # symmetrically
+DX = 0.05                                  # cell size [m]
 SPACING = 1.5                              # joint spacing [m]
+# Cell counts that let the joint set tile the section exactly, with a joint on
+# each wall and no odd block left over at the edges.
+NZ, NX = uniform_grid_shape(20.0, 15.0, DX, SPACING)
 KYR = 100.0                                # elapsed time
 OUT = "examples/figure_three_panel.png"
 
@@ -168,7 +169,7 @@ ax.legend(handles=[Line2D([0], [0], color="#3a1c00", lw=1.0,
 fig.text(0.045, 0.962, "corestone – fracture-controlled granite weathering",
          fontsize=15.5, color=INK, ha="left", va="top", weight="bold")
 fig.text(0.045, 0.915,
-         "%.0f × %.0f m section at %.0f cm, %.0f kyr at %.0f K, joints every "
+         "%.2f × %.2f m section at %.0f cm, %.0f kyr at %.0f K, joints every "
          "%.2f m. Every parameter is a placeholder – see "
          "design/02-teaching-scope.md."
          % (LX, LZ, DX * 100, KYR, model.T, SPACING),
