@@ -146,6 +146,7 @@ class Weathering(object):
         self._A = None                    # the step matrix, reused in place
         self._diag = None                 # where its diagonal sits in .data
         self._lu = None                   # cached factorisation, reused
+        self._x = None                    # last solute solution, unclipped
         self.factorisations = 0           # how many times it was rebuilt
 
     # ---- parameter setters (one per parameter; units in the docstring)
@@ -360,6 +361,13 @@ class Weathering(object):
         1e5. The reaction term here is linear and bounded, so neither hazard
         remains.
 
+        The solve STARTS FROM THE PREVIOUS STEP'S FIELD. The rock changes by at
+        most ``dx_max`` of its mineral content in a step, so the concentration
+        moves very little, and the old field is a far better guess than the
+        zero the solver would otherwise assume. This costs no accuracy: the
+        convergence test is on the residual ``||b - A x||``, which does not
+        know where the iteration started.
+
         Water entering at the surface carries ``c = 0``, so it contributes
         nothing to the inflow sum: undersaturation enters only through the
         reaction term on the right.
@@ -386,10 +394,13 @@ class Weathering(object):
             n_it = [0]
             P = spl.LinearOperator(A.shape, matvec=self._lu.solve)
             x, info = spl.bicgstab(
-                A, b, M=P, atol=0.0, tol=self.krylov_tol,
+                A, b, x0=self._x, M=P, atol=0.0, tol=self.krylov_tol,
                 callback=lambda xk: n_it.__setitem__(0, n_it[0] + 1))
             if info != 0 or n_it[0] > self.max_krylov_iterations:
                 x = direct()                       # preconditioner has gone stale
+        # Kept unclipped, and kept whether or not it was clipped on the way
+        # out, because it is the next step's starting guess and not an answer.
+        self._x = x
         return np.clip(x, 0.0, 1.0).reshape(self.nz, self.nx)
 
     def solve_flow(self):
@@ -484,6 +495,7 @@ class Weathering(object):
         self._A = None
         self._diag = None
         self._lu = None
+        self._x = None
         self.factorisations = 0
         self.M = np.ones((self.nz, self.nx))
         self.c = np.zeros((self.nz, self.nx))

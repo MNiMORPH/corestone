@@ -100,3 +100,40 @@ def test_the_step_matrix_is_rebuilt_when_the_transport_coefficients_change():
     after = m._step_matrix(r)
     assert (before - after).nnz > 0
     assert after.shape == before.shape
+
+
+def test_the_reused_solution_does_not_change_the_answer():
+    """
+    The warm start is a guess, not an approximation. Whatever it starts from,
+    the iteration is required to drive ``||b - A x||`` below the tolerance, so
+    the converged field must match a direct factorise-and-solve of the very
+    same system. Checked after the rock has weathered a while, when the guess
+    and the answer have had time to separate.
+    """
+    import scipy.sparse.linalg as spl
+    m = _model()
+    m.run(years=40e3)
+    r = m.reaction_coefficient
+    warm = m.solve_solute(r)
+    assert m._x is not None                       # the guess was actually kept
+
+    A = m._step_matrix(r)
+    b = np.broadcast_to(r * m.dx * m.dx, (m.nz, m.nx)).ravel()
+    cold = np.clip(spl.splu(A.tocsc()).solve(b.copy()), 0.0, 1.0)
+    assert np.abs(warm.ravel() - cold).max() < 1e-9
+
+
+def test_the_residual_of_the_returned_field_meets_the_tolerance():
+    """
+    Stated as the solver's own contract, rather than inferred from agreement
+    with another solver: the field it hands back solves the system it was
+    given, to the tolerance it was given.
+    """
+    m = _model()
+    m.run(years=40e3)
+    r = m.reaction_coefficient
+    x = m.solve_solute(r)
+    A = m._step_matrix(r)
+    b = np.broadcast_to(r * m.dx * m.dx, (m.nz, m.nx)).ravel()
+    res = np.linalg.norm(b - A @ x.ravel()) / np.linalg.norm(b)
+    assert res < 1e-8
