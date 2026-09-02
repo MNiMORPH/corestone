@@ -49,10 +49,14 @@ class JointSet(object):
                a throughgoing set that spans the domain.
     spans    : how many primary joints an abutting trace crosses before it
                stops. 1 means it terminates at the very next one.
+    density  : fraction of the available gaps between primary joints that
+               carry a trace of this set. 1.0 fills every one, giving a clean
+               orthogonal block system; lower values leave gaps and make the
+               blocks more irregular.
     """
 
     def __init__(self, name, dip_deg, spacing, kappa=25.0,
-                 spacing_sigma=0.30, abuts=None, spans=1):
+                 spacing_sigma=0.30, abuts=None, spans=1, density=1.0):
         self.name = name
         self.dip_deg = dip_deg
         self.spacing = spacing
@@ -60,6 +64,7 @@ class JointSet(object):
         self.spacing_sigma = spacing_sigma
         self.abuts = abuts
         self.spans = spans
+        self.density = density
 
     @property
     def is_throughgoing(self):
@@ -67,7 +72,7 @@ class JointSet(object):
 
 
 def conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=1.5,
-                   kappa=25.0, spacing_sigma=0.30, spans=1):
+                   kappa=25.0, spacing_sigma=0.30, spans=1, density=1.0):
     """
     A conjugate pair: a throughgoing set and a set that abuts it.
 
@@ -81,7 +86,8 @@ def conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=1.5,
         JointSet("J1", dip_deg=dip_primary, spacing=spacing, kappa=kappa,
                  spacing_sigma=spacing_sigma),
         JointSet("J2", dip_deg=dip_secondary, spacing=spacing, kappa=kappa,
-                 spacing_sigma=spacing_sigma, abuts="J1", spans=spans),
+                 spacing_sigma=spacing_sigma, abuts="J1", spans=spans,
+                 density=density),
     ]
 
 
@@ -197,8 +203,7 @@ class FractureNetwork(object):
                     "set %r abuts %r, which is not a throughgoing set here"
                     % (js.name, js.abuts))
             for origin, d in self._lines_for_set(js, rng):
-                seg = self._abut(origin, d, hosts, js.spans, rng)
-                if seg is not None:
+                for seg in self._abut(origin, d, hosts, js, rng):
                     self.segments.append(seg)
                     self.segment_set.append(js.name)
 
@@ -228,14 +233,18 @@ class FractureNetwork(object):
             t += rng.lognormal(np.log(js.spacing), js.spacing_sigma)
         return out
 
-    def _abut(self, origin, d, hosts, spans, rng):
+    def _abut(self, origin, d, hosts, js, rng):
         """
-        Cut a trace back so it runs between host joints and terminates there.
+        Cut a line into traces that run between host joints and stop there.
 
         This is the rule that makes a network out of a scatter of lines: a
         younger joint stops at an older one, giving a Y node instead of a free
-        tip. Where too few hosts are crossed, the trace is clipped to the
-        domain instead so the edges are not left bare.
+        tip. Every gap between consecutive hosts is a candidate, occupied with
+        probability ``js.density`` -- one trace per line would leave the block
+        edges mostly unjointed and the blocks unbounded in this direction.
+
+        Where the line crosses too few hosts to define a gap, it is clipped to
+        the domain instead, so the edges are not left bare.
         """
         ts = []
         for h_origin, h_d in hosts:
@@ -246,12 +255,18 @@ class FractureNetwork(object):
             ts.append((w[0] * h_d[1] - w[1] * h_d[0]) / den)
         ts = np.sort(np.array(ts))
 
-        if ts.size >= spans + 1:
-            i = rng.integers(0, ts.size - spans)
-            p0, p1 = origin + ts[i] * d, origin + ts[i + spans] * d
-            inside = _clip_to_box(p0, (p1 - p0), self.lx, self.lz)
-            return None if inside is None else (p0, p1)
-        return _clip_to_box(origin, d, self.lx, self.lz)
+        if ts.size < js.spans + 1:
+            seg = _clip_to_box(origin, d, self.lx, self.lz)
+            return [] if seg is None else [seg]
+
+        out = []
+        for i in range(0, ts.size - js.spans, js.spans):
+            if js.density < 1.0 and rng.random() > js.density:
+                continue
+            p0, p1 = origin + ts[i] * d, origin + ts[i + js.spans] * d
+            if _clip_to_box(p0, p1 - p0, self.lx, self.lz) is not None:
+                out.append((p0, p1))
+        return out
 
     def segments_of(self, set_name):
         """The traces belonging to one named set."""

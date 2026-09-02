@@ -123,3 +123,30 @@ def test_p21_is_a_sane_intensity():
     n = _net()
     assert 0.0 < n.p21 < 10.0
     assert n.trace_length > 0.0
+
+
+def test_density_controls_how_many_block_edges_are_jointed():
+    """
+    One abutting trace per line leaves the block edges mostly unjointed, so the
+    blocks are bounded in one direction only. Every gap is a candidate, taken
+    with probability `density`.
+    """
+    full = _net(sets=conjugate_sets(90.0, 0.0, density=1.0))
+    sparse = _net(sets=conjugate_sets(90.0, 0.0, density=0.3))
+    n_full = sum(1 for s in full.segment_set if s == "J2")
+    n_sparse = sum(1 for s in sparse.segment_set if s == "J2")
+    assert n_full > 3 * n_sparse
+    assert full.p21 > sparse.p21
+    # Bounding the blocks in both directions brings the far corners closer.
+    assert full.distance_to_fracture().max() \
+         < sparse.distance_to_fracture().max()
+
+
+def test_a_full_orthogonal_grid_has_the_analytic_intensity():
+    """
+    P21 for a grid of lines at spacing S in two orthogonal directions is 2/S.
+    A check on the generator that does not depend on any of our own machinery.
+    """
+    S = 1.5
+    n = _net(sets=conjugate_sets(90.0, 0.0, spacing=S, density=1.0))
+    assert n.p21 == pytest.approx(2.0 / S, rel=0.15)
