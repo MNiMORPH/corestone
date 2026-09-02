@@ -90,6 +90,40 @@ perfect verticality being at fault. It was not: it was the flow model. Testing
 one deficiency while another is still present gives a confident and wrong
 answer.
 
+## It also corrected the temperature demonstration
+
+Design 02 built the teaching demonstration on this: raise the temperature and
+*more* rock survives as corestone, because hotter water saturates sooner and
+concentrates the weathering at the joints. Under the cascade that was a clean
+15-point rise, 52.1 to 67.5 %, across 275-305 K.
+
+Under Darcy flow it nearly vanishes:
+
+```
+ T [K]  L_eq [m]     mean X   grus %  corestone %
+   275     1.256    0.09510     8.70        84.42
+   285     0.500    0.10220     9.08        82.47
+   295     0.212    0.10387     9.26        84.09
+   305     0.095    0.10424     9.70        86.06
+   315     0.045    0.10427    10.21        87.49
+```
+
+A **28-fold** shortening of `L_eq` moves the total weathering by under a tenth,
+and the last factor of four moves it by 0.3 %. The corestone fraction is not
+even monotonic -- it dips between 275 and 285 K, and at coarse resolution the
+275-to-305 trend reverses outright, which is how the test caught this.
+
+The reason is that under a real flow equation the water is *already*
+concentrated at the joints, so making `L_eq` smaller has little left to do. The
+system is transport-limited: what dissolves is set by how much water arrives
+and how much solute it can carry, not by how fast the rock dissolves.
+
+That is a **sharper** lesson than the one it replaces, and a truer one -- the
+high-Damkohler limit, where chemistry stops mattering entirely. But it is not
+the lesson design 02 was written around, and the earlier dramatic version was
+partly an artifact of the cascade. The slider that now does something is
+rainfall, not temperature.
+
 ## Cost
 
 ```

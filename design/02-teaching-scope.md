@@ -70,7 +70,13 @@ grus cells. Nothing but `(1 - c)` and the plumbing produced that.
 to 10^6 years; the front advances at roughly 15 m/Myr, which is the observed
 order for granite. A demo that runs 20 kyr shows a skin and teaches nothing.
 
-### The demonstration
+### The demonstration (SUPERSEDED -- see design 04)
+
+**The numbers below were produced by the gravity cascade and do not survive
+the switch to Darcy flow.** Under a real flow equation a 28-fold change in
+L_eq moves the total weathering by under a tenth, because the system is
+transport-limited. Design 04 has the corrected sweep.
+
 
 ```
  T [K]  L_eq [m]   grus %  corestone %

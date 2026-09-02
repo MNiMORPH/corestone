@@ -86,18 +86,32 @@ def test_raising_the_temperature_shortens_the_equilibration_length():
     assert m.equilibration_length > 0.0
 
 
-def test_hotter_leaves_more_corestone_not_less():
+def test_temperature_barely_matters_because_transport_limits_it():
     """
-    Ten times the rate constant, and MORE rock survives -- the weathering
-    concentrates at the joints instead of spreading. Warm is not weathered.
+    Shortening the equilibration length 28-fold changes the total weathering by
+    under a tenth. Once L_eq is far shorter than the joint spacing, the water
+    saturates within a cell of the joint whatever the rate constant, so the
+    rock dissolved is set by how much water arrives and how much it can carry
+    -- not by how fast the rock dissolves. That is the transport-limited
+    (high-Damkohler) regime.
+
+    This replaces an earlier test asserting that hotter leaves MORE corestone.
+    That held under the gravity cascade, where a shorter L_eq visibly
+    concentrated the weathering at the joints. Under Darcy flow the water is
+    already concentrated at the joints, so the effect is small and not
+    monotonic -- it reverses between 275 and 285 K. The earlier result was
+    partly an artifact of the flow model, and the test failed honestly when the
+    flow was corrected.
     """
     cold, hot = _model(), _model()
     cold.set_temperature(275.0)
-    hot.set_temperature(305.0)
+    hot.set_temperature(315.0)
     cold.run(years=100e3)
     hot.run(years=100e3)
-    assert hot.equilibration_length < cold.equilibration_length
-    assert hot.is_corestone.mean() > cold.is_corestone.mean()
+
+    assert cold.equilibration_length / hot.equilibration_length > 20.0
+    change = abs(hot.dissolved_fraction.mean() - cold.dissolved_fraction.mean())
+    assert change / cold.dissolved_fraction.mean() < 0.15
 
 
 def test_grus_forms_at_the_joints_and_corestones_away_from_them():
