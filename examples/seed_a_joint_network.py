@@ -12,13 +12,13 @@ distance, and plots both.
 import numpy as np
 from matplotlib import pyplot as plt
 
-from corestone import FractureNetwork, conjugate_sets
+from corestone import FractureNetwork, orthogonal_grid
 
-NZ, NX, DX = 75, 100, 0.20                     # a 20 x 15 m section
+NZ, NX, DX = 300, 400, 0.05                    # a 20 x 15 m section
 L_EQ = 0.50                                    # equilibration length [m]
 
 net = FractureNetwork(NZ, NX, DX).seed(
-    sets=conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=1.5),
+    sets=orthogonal_grid(spacing=1.5),
     rng=np.random.default_rng(12345))
 
 d = net.distance_to_fracture()

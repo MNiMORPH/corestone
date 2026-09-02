@@ -33,7 +33,7 @@ from corestone import FractureNetwork
 YR = 365.25 * 24 * 3600.0
 
 # ---- domain, teaching resolution ----------------------------------------------
-NX, NZ, DX = 50, 38, 0.40             # 20 m wide x 15 m deep
+NX, NZ, DX = 400, 300, 0.05           # 20 m wide x 15 m deep
 DT_MAX_YR = 500.0                     # step ceiling; see design/02
 
 # ---- PLACEHOLDER PARAMETERS -- none of these are measured ---------------------
