@@ -204,7 +204,7 @@ def _panel(source, joints, palette, label):
 
 # Palettes reversed so that 0 is pale and 1 is saturated: bokeh's 256-step
 # ramps run dark to light.
-fig_left = _panel(affinity, joints_left, Greens256[::-1], "1 − C/C_eq")
+fig_left = _panel(affinity, joints_left, Greens256[::-1], "1 − C/Ceq")
 fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
                    "fraction dissolved")
 
