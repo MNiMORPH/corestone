@@ -36,6 +36,9 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest"]
+# The interactive demo only. The model itself needs numpy and scipy,
+# both of which Pyodide bundles -- verified with `artesian check`.
+demo = ["panel>=1.4", "matplotlib"]
 
 # src-layout: the single ``corestone`` package lives under src/.
 [tool.setuptools.packages.find]
