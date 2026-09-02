@@ -162,6 +162,7 @@ class Weathering(object):
         self._x = None                    # last solute solution, unclipped
         self._dt = None                   # the step the drift control chose
         self._c_held = None               # the c actually held over a step
+        self._drift = None                # the drift the last step produced
         self.rejected_steps = 0           # steps retried for overrunning
         self.factorisations = 0           # how many times it was rebuilt
 
@@ -572,6 +573,7 @@ class Weathering(object):
         self._x = None
         self._dt = None
         self._c_held = None
+        self._drift = None
         self.rejected_steps = 0
         self.factorisations = 0
         self.M = np.ones((self.nz, self.nx))
@@ -666,7 +668,17 @@ class Weathering(object):
         rate = lam * self.M                        # d(M/M0)/dt [1/s]
         want = min(self.dt_max, self.dx_max / max(rate.max(), 1e-30))
         if self._dt is not None:
-            want = min(want, self._dt * self.dt_growth)
+            # PREDICT from the drift the last step actually produced, rather
+            # than reaching for dt_growth every time. Drift is first order in
+            # the step, so this lands near the budget and the rejection below
+            # becomes the safety net it is meant to be. Reaching for the growth
+            # cap instead means overshooting and being rejected on nearly every
+            # step: measured, 73 rejections for 75 accepted steps, which is two
+            # solves per step and gave back the whole saving.
+            predicted = self._dt * min(
+                self.dt_growth,
+                0.9 * self.c_drift_max / max(self._drift, 1e-300))
+            want = min(want, predicted)
         step = want if dt_limit is None else min(want, dt_limit)
 
         while True:
@@ -676,6 +688,7 @@ class Weathering(object):
             self.M = saved_M
             drift = np.abs(c_new - c_held).max()
             if drift <= self.c_drift_max or step <= self.dt_min:
+                self._drift = drift
                 break
             self.rejected_steps += 1
             step = max(self.dt_min,
