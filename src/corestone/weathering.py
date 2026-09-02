@@ -107,6 +107,7 @@ class Weathering(object):
         self.H = None                     # hydraulic head [m]
         self.q = None                     # through-flux per cell [m2/s]
         self.q_v = None                   # flux on vertical links, down [m2/s]
+        self.q_out_base = None            # flux leaving through the base
         self.q_h = None                   # flux on horizontal links, right
         self._in_above = None             # inflow from the row above
         self._in_left = None              # inflow from the left neighbour
@@ -131,16 +132,41 @@ class Weathering(object):
     @property
     def equilibration_length(self):
         """
-        How far water travels before it is saturated, at the current
-        temperature [m].
+        How far water travels before it is saturated [m], for water moving at
+        the mean infiltration rate and through fresh rock.
 
         ``L_eq`` goes as ``1 / k(T)``, so it *shrinks* as the rock gets more
-        reactive. That is the counterintuitive part: a hotter system does less
-        weathering per metre of flow path, not more, because the water runs out
-        of capacity sooner.
+        reactive: a hotter system does less weathering per metre of flow path,
+        because the water runs out of capacity sooner.
+
+        This is the REFERENCE value. The local one scales with the local flux
+        -- see :meth:`local_equilibration_length`.
         """
         return self.L_eq_ref * np.exp(
             (self.E_a / self.R_gas) * (1.0 / self.T - 1.0 / self.T_ref))
+
+    def local_equilibration_length(self):
+        """
+        The equilibration length cell by cell [m].
+
+            L_eq = q * C_eq / (k(T) * A)
+
+        It is **proportional to the local flux**. Fast water in a joint travels
+        far before it saturates; slow water in the matrix saturates almost at
+        once. It also grows as the soluble mineral is consumed, because the
+        reactive surface area falls with it.
+
+        Getting this wrong is not a detail. Holding ``L_eq`` uniform makes the
+        per-cell dissolution ``Q * beta * (1 - c)`` scale with ``Q``, so a joint
+        carrying thirty times the flux dissolved thirty times faster per unit
+        volume at the same undersaturation. The rate per unit volume is
+        ``k A (1 - c)`` -- a property of the rock, not of how fast water moves
+        past it. With ``L_eq`` proportional to ``Q`` the ``Q`` cancels and the
+        rate is flux-independent, as it must be.
+        """
+        q_ref = self.infiltration * self.dx        # mean through-flux per cell
+        return (self.equilibration_length * np.maximum(self.q, 1e-300) / q_ref
+                / np.maximum(self.M, 1e-6))
 
     def solve_flow(self):
         """
@@ -183,12 +209,18 @@ class Weathering(object):
         b = np.zeros(n)
         b[idx[0, :]] = self.infiltration * dx
 
-        # Base: the drainage boundary, psi = 0, so H = -depth.
-        base = idx[-1, :]
+        # Base: the drainage boundary, psi = 0, so H = -depth. Applied as a
+        # conductance to an external fixed head rather than by overwriting the
+        # row. Overwriting pins the head but destroys continuity IN that row,
+        # and the transport step then treats those cells as ordinary ones --
+        # which cost about half a percent in the solute balance while the water
+        # balance stayed exact, because water is solved and solute is swept.
+        self._k_base = np.where(self.network.cell[-1, :],
+                                self.k_fracture, self.k_matrix)
+        self._h_base = -(nz - 0.5) * dx - 0.5 * dx
         A = A.tolil()
-        A[base, :] = 0.0
-        A[base, base] = 1.0
-        b[base] = -(nz - 0.5) * dx
+        A[idx[-1, :], idx[-1, :]] = A[idx[-1, :], idx[-1, :]] + self._k_base
+        b[idx[-1, :]] += self._k_base * self._h_base
 
         H = spl.spsolve(A.tocsc(), b).reshape(nz, nx)
         self.H = H
@@ -215,6 +247,8 @@ class Weathering(object):
         self._in_left[:, 0] += np.maximum(self.q_wrap, 0.0)
         self._in_right[:, -1] += np.maximum(-self.q_wrap, 0.0)
         self.q = self._in_above + self._in_left + self._in_right
+        # What leaves the domain through the base, per bottom-row cell.
+        self.q_out_base = self._k_base * (H[-1, :] - self._h_base)
         return self.q
 
     # ---- lifecycle
@@ -249,9 +283,11 @@ class Weathering(object):
         pass -- and that lateral coupling is the whole point of solving for the
         head instead of routing water downhill by rule.
         """
-        # Surface area falls with the mineral that is left, so L_eq grows.
-        L_eq = self.equilibration_length / np.maximum(self.M, 1e-6)
-        beta = np.expm1(self.dx / L_eq)
+        # L_eq scales with the local flux and with the mineral left; see
+        # local_equilibration_length().
+        L_eq = self.local_equilibration_length()
+        beta = np.where(self.q > 0.0, np.expm1(self.dx / np.maximum(L_eq, 1e-300)),
+                        0.0)
 
         c = np.zeros((self.nz, self.nx))
         Q = self.q
