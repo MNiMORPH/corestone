@@ -98,6 +98,47 @@ vertical extent, which fails for the same reason; traces now record which set
 they came from (`segment_set`, `segments_of`), which is also what the figure
 needs to colour them.
 
+## How many block edges carry a joint
+
+Rendering the figure exposed a defect the numbers had not. The first version
+emitted **one** abutting trace per line -- one short stub per level -- so the
+blocks were bounded laterally by the throughgoing set and barely bounded
+vertically at all. Panel 3 showed tall columns, not blocks.
+
+Every gap between consecutive host joints is now a candidate, taken with
+probability `density`:
+
+```
+                          traces  P21    p90 d   max d
+one stub per line (old)      24   0.69    0.80    2.00 m
+density = 0.25               46   0.78    0.80    1.79 m
+density = 0.6                86   0.98    0.80    1.79 m
+density = 1.0 (default)     145   1.28    0.57    1.20 m
+```
+
+At `density = 1.0` the generator reproduces the analytic intensity of an
+orthogonal grid, **P21 = 2/S = 1.33 against 1.28 measured** -- a check that
+does not depend on any of our own machinery, and now a test.
+
+**The tradeoff to decide.** Filling every gap makes the abutting traces tile
+each line end to end, which is geometrically a throughgoing line: the network
+becomes X-dominated and loses the Y-node character that made abutting
+geologically meaningful. fractopo confirms it, and at `density >= 0.6` its
+snapping does not converge at all, because so many endpoints are exactly
+coincident.
+
+```
+conjugate 90/0, density 0.25    X  14   Y 48   I 0    Y/(Y+I) 1.00
+conjugate 90/0, density 0.6     fractopo: snapping did not converge
+conjugate 90/0, density 1.0     fractopo: snapping did not converge
+```
+
+So: **`density = 1.0` is the clean orthogonal block system, best for teaching
+and best bounded; low density is the realistic outcrop topology, Y-dominated
+and analysable, with less well bounded blocks.** Defaulting to 1.0 for the
+teaching model. This is a judgement about how idealised the network should be,
+and it is worth a decision rather than a default.
+
 ## Open
 
 - Some fraction of I-node terminations, if realism outweighs clarity.
