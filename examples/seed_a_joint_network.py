@@ -12,13 +12,13 @@ distance, and plots both.
 import numpy as np
 from matplotlib import pyplot as plt
 
-from corestone import FractureNetwork, orthogonal_grid, uniform_grid_shape
+from corestone import FractureNetwork, orthogonal_grid, periodic_grid_shape
 
 DX, SPACING = 0.05, 1.5
-NZ, NX = uniform_grid_shape(20.0, 15.0, DX, SPACING)
+NZ, NX = periodic_grid_shape(20.0, 15.0, DX, SPACING)
 L_EQ = 0.50                                    # equilibration length [m]
 
-net = FractureNetwork(NZ, NX, DX).seed(
+net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(
     sets=orthogonal_grid(spacing=1.5),
     rng=np.random.default_rng(12345))
 

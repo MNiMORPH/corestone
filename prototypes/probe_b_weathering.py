@@ -29,21 +29,21 @@ Run:  PYTHONPATH=src python3 prototypes/probe_b_weathering.py
 import numpy as np
 
 from corestone import (FractureNetwork, Weathering, orthogonal_grid,
-                       uniform_grid_shape)
+                       periodic_grid_shape)
 
 DX, SPACING = 0.05, 1.5
-NZ, NX = uniform_grid_shape(20.0, 15.0, DX, SPACING)
+NZ, NX = periodic_grid_shape(20.0, 15.0, DX, SPACING)
 
 
 def model(T=285.0):
-    net = FractureNetwork(NZ, NX, DX).seed(sets=orthogonal_grid(SPACING),
+    net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(sets=orthogonal_grid(SPACING),
                                            rng=np.random.default_rng(12345))
     m = Weathering(net)
     m.set_temperature(T)
     return m
 
 
-net = FractureNetwork(NZ, NX, DX).seed(sets=orthogonal_grid(SPACING),
+net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(sets=orthogonal_grid(SPACING),
                                        rng=np.random.default_rng(12345))
 dist = net.distance_to_fracture()
 print("domain %d x %d at dx = %s m (%.0f x %.0f m), %d traces"

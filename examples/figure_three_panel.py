@@ -22,18 +22,18 @@ from matplotlib.lines import Line2D
 from scipy.ndimage import uniform_filter
 
 from corestone import (FractureNetwork, Weathering, orthogonal_grid,
-                       uniform_grid_shape)
+                       periodic_grid_shape)
 
 # ---- what to draw -------------------------------------------------------------
 DX = 0.05                                  # cell size [m]
 SPACING = 1.5                              # joint spacing [m]
 # Cell counts that let the joint set tile the section exactly, with a joint on
 # each wall and no odd block left over at the edges.
-NZ, NX = uniform_grid_shape(20.0, 15.0, DX, SPACING)
+NZ, NX = periodic_grid_shape(20.0, 15.0, DX, SPACING)
 KYR = 100.0                                # elapsed time
 OUT = "examples/figure_three_panel.png"
 
-net = FractureNetwork(NZ, NX, DX).seed(sets=orthogonal_grid(SPACING),
+net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(sets=orthogonal_grid(SPACING),
                                        rng=np.random.default_rng(12345))
 model = Weathering(net).run(years=KYR * 1e3)
 
