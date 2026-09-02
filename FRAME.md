@@ -65,7 +65,7 @@ apart from the untracked `HANDOFF-geomorphonline-demo.md`.
   solve (which is what makes the reused guess a guess and not an
   approximation).
 
-74 tests, ~14 s. **The "~100 s" this file used to claim was wrong** -- measured
+71 tests, ~8 s. **The "~100 s" this file used to claim was wrong** -- measured
 at 14.4 s on the pre-speed-up tree, so it was never true, not merely stale.
 
 ## (d) Guardrails and irreversibility state
