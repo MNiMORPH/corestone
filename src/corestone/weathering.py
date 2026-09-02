@@ -161,8 +161,16 @@ class Weathering(object):
         kh = np.where(self.network.link_h, self.k_fracture, self.k_matrix)
 
         rows, cols, vals = [], [], []
-        pairs = ((idx[:-1, :].ravel(), idx[1:, :].ravel(), kv.ravel()),
-                 (idx[:, :-1].ravel(), idx[:, 1:].ravel(), kh.ravel()))
+        pairs = [(idx[:-1, :].ravel(), idx[1:, :].ravel(), kv.ravel()),
+                 (idx[:, :-1].ravel(), idx[:, 1:].ravel(), kh.ravel())]
+        if self.network.periodic_x:
+            # The wrap link closes the section onto itself, so there are no
+            # side walls at all. A no-flow wall forces the lateral flow to
+            # vanish there, which with subhorizontal joints manufactures a
+            # domain-scale circulation and a drainage divide down the middle.
+            kw = np.where(self.network.link_wrap, self.k_fracture,
+                          self.k_matrix)
+            pairs.append((idx[:, -1], idx[:, 0], kw))
         for a, b, k in pairs:
             rows += [a, a, b, b]
             cols += [a, b, b, a]
@@ -186,6 +194,12 @@ class Weathering(object):
         self.H = H
         self.q_v = kv * (H[:-1, :] - H[1:, :])      # positive downward
         self.q_h = kh * (H[:, :-1] - H[:, 1:])      # positive rightward
+        if self.network.periodic_x:
+            kw = np.where(self.network.link_wrap, self.k_fracture,
+                          self.k_matrix)
+            self.q_wrap = kw * (H[:, -1] - H[:, 0])  # last column -> first
+        else:
+            self.q_wrap = np.zeros(nz)
 
         # Per-cell inflows, split by where they come from. Vertical flow is
         # strictly downward (checked in prototypes/probe_d_darcy.py), so the
@@ -197,6 +211,9 @@ class Weathering(object):
         self._in_left[:, 1:] = np.maximum(self.q_h, 0.0)
         self._in_right = np.zeros((nz, nx))         # from the cell to the right
         self._in_right[:, :-1] = np.maximum(-self.q_h, 0.0)
+        # Across the seam, column nx-1 is "left of" column 0 and vice versa.
+        self._in_left[:, 0] += np.maximum(self.q_wrap, 0.0)
+        self._in_right[:, -1] += np.maximum(-self.q_wrap, 0.0)
         self.q = self._in_above + self._in_left + self._in_right
         return self.q
 
@@ -254,7 +271,25 @@ class Weathering(object):
             ab[0, 1:] = upper[:-1]        # superdiagonal
             ab[1, :] = diag
             ab[2, :-1] = lower[1:]        # subdiagonal
-            c[iz, :] = np.clip(solve_banded((1, 1), ab, rhs), 0.0, 1.0)
+
+            if self.network.periodic_x:
+                # The seam makes the row CYCLIC: cell 0 draws on cell nx-1 and
+                # vice versa, which puts entries in the two far corners.
+                # Sherman-Morrison folds them back into a banded solve.
+                # NB: not named beta -- that is the reaction array above.
+                corner_tr = -self._in_left[iz, 0] if live[0] else 0.0
+                corner_bl = -self._in_right[iz, -1] if live[-1] else 0.0
+                gamma = -ab[1, 0]
+                ab[1, 0] -= gamma
+                ab[1, -1] -= corner_tr * corner_bl / gamma
+                u = np.zeros(self.nx); u[0], u[-1] = gamma, corner_tr
+                y = solve_banded((1, 1), ab, rhs)
+                z = solve_banded((1, 1), ab, u)
+                vy = y[0] + corner_bl / gamma * y[-1]
+                vz = z[0] + corner_bl / gamma * z[-1]
+                c[iz, :] = np.clip(y - z * vy / (1.0 + vz), 0.0, 1.0)
+            else:
+                c[iz, :] = np.clip(solve_banded((1, 1), ab, rhs), 0.0, 1.0)
 
             if iz < self.nz - 1:
                 solute_above = self._in_above[iz + 1, :] * c[iz, :]

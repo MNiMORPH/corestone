@@ -198,3 +198,15 @@ def test_a_regular_grid_is_uniform_right_out_to_the_walls():
     assert xs.max() == pytest.approx(n.lx - 0.5 * n.dx)
     assert np.array_equal(n.cell, n.cell[:, ::-1])
     assert np.array_equal(n.cell, n.cell[::-1, :])
+
+
+def test_a_periodic_tiling_refuses_a_spacing_that_is_not_whole_cells():
+    """
+    1.5 m at 20 cm is 7.5 cells. Rounding it silently would tile at 1.6 m while
+    the caller believed 1.5 m -- exactly the kind of quiet substitution that
+    turns into a wrong result nobody can trace.
+    """
+    from corestone import periodic_grid_shape
+    with pytest.raises(ValueError, match="whole number of cells"):
+        periodic_grid_shape(20.0, 15.0, 0.20, 1.5)
+    assert periodic_grid_shape(20.0, 15.0, 0.05, 1.5) == (301, 390)

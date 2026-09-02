@@ -143,3 +143,52 @@ def test_no_rain_means_no_weathering():
     m.run(years=100e3)
     assert np.abs(m.q_v).max() < 1e-15
     assert m.dissolved_fraction.max() < 1e-8
+
+
+def _periodic_model(nz=None, nx=None, dx=0.10, spacing=1.5):
+    # dx must divide the spacing a whole number of times for a periodic
+    # tiling; 1.5 / 0.20 = 7.5 does not, and periodic_grid_shape now says so.
+    from corestone import periodic_grid_shape
+    if nz is None:
+        nz, nx = periodic_grid_shape(20.0, 15.0, dx, spacing)
+    net = FractureNetwork(nz, nx, dx, periodic_x=True).seed(
+        sets=orthogonal_grid(spacing), rng=np.random.default_rng(12345))
+    return Weathering(net)
+
+
+def test_periodic_walls_make_every_block_weather_alike():
+    """
+    A no-flow wall is not neutral. It forces the lateral flow to vanish there,
+    and with subhorizontal joints that manufactures a domain-scale circulation:
+    the centre block weathered a third as much as the blocks two in from the
+    walls, and the effect grew with the width of the section rather than
+    staying near the edges. Wrapping the section onto itself removes the walls,
+    and every block then behaves identically.
+    """
+    m = _periodic_model().run(years=100e3)
+    net = m.network
+    j = np.nonzero(net.link_v[m.nz // 2, :])[0]
+    X = m.dissolved_fraction
+    blocks = np.array([X[:, a + 1:b].mean() for a, b in zip(j[:-1], j[1:])])
+    assert len(blocks) >= 5
+    spread = (blocks.max() - blocks.min()) / blocks.mean()
+    assert spread < 0.01
+
+
+def test_the_periodic_network_tiles_across_the_seam():
+    """The wrap gap is one spacing like every other, not a doubled joint."""
+    m = _periodic_model()
+    net = m.network
+    j = np.nonzero(net.link_v[net.nz // 2, :])[0]
+    gaps = np.diff(j)
+    assert len(set(gaps)) == 1                       # uniform inside
+    assert net.nx - j[-1] + j[0] == gaps[0]          # and across the seam
+    # The subhorizontal joints reach both walls, so the seam link conducts.
+    assert net.link_wrap.sum() > 0
+
+
+def test_periodic_flow_still_conserves_water():
+    m = _periodic_model().initialize()
+    inflow = m.infiltration * m.dx * m.nx
+    for iz in range(m.nz - 1):
+        assert m.q_v[iz, :].sum() == pytest.approx(inflow, rel=1e-8)
