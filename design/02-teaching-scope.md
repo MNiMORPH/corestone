@@ -43,11 +43,11 @@ soluble phase is gone, 30% of the original solid remains as loose grains. That
 is the difference between grus and a cavity, and it is why the model can claim
 grus at all -- a single soluble phase can only make a smooth dissolution front.
 
-Flow is steady gravity-driven descent: one sweep from surface to base, each cell
-handing its water to the three cells below split by their conductance. Gravity
-makes the grid a DAG ordered by depth, so there is no pressure solve. It is a
-flow-accumulation algorithm, which is a useful bridge for students who have seen
-one on a topographic surface.
+Flow was originally a gravity cascade -- each cell handing its water to the
+three cells below -- chosen to avoid a pressure solve. **That was wrong, and it
+is replaced by steady Darcy flow in design 04.** A cascade cannot move water
+sideways, so the entire subhorizontal joint set was inert. See design 04 for
+the replacement and what it cost.
 
 ## Probe B
 
@@ -131,9 +131,9 @@ mistaken for a result.
 
 ## Deliberately deferred
 
-Unsaturated flow and pore-water saturation (the largest cut -- and the largest
-scientific loss, since fracture-versus-matrix partitioning under partial
-saturation is a real and unresolved control); aperture evolution and the
+Unsaturated flow and pore-water saturation (the largest remaining cut -- and
+the largest scientific loss, since fracture-versus-matrix partitioning under
+partial saturation is a real and unresolved control); aperture evolution and the
 channelization feedback; multi-species transport, oxygen, and biotite
 oxidation; cohesion mechanics as a solver rather than a threshold; permeability
 feedback from porosity change.

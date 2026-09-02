@@ -99,8 +99,8 @@ im = ax.imshow(np.log10(np.maximum(qn, 1e-3)), extent=EXT, origin="upper",
                cmap="Blues", vmin=-1.5, vmax=1.5, interpolation="nearest")
 joints(ax)
 dress(ax, "1   The plumbing",
-      "Gravity makes the grid a one-way cascade, so the throughgoing set\n"
-      "carries the water and the abutting set mostly bounds the blocks.")
+      "Steady Darcy flow: the head field decides where water goes. Joints\n"
+      "conduct, and water runs ALONG the horizontal ones to the next vertical.")
 ax.set_ylabel("Depth [m]", color=MUTED, fontsize=9)
 bar(im, cbax[0], "water flux, relative to mean infiltration",
     ticks=[-1.5, 0, 1.5], ticklabels=["0.03×", "1×", "30×"])

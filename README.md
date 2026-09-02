@@ -47,10 +47,10 @@ so on its face. Do not take a number out of this repository and use it.
 
 Simplifications made on purpose, and recorded with their costs in `design/`:
 
-- **Flow is steady, gravity-driven descent**, one sweep from surface to base —
-  no pressure solve, and no unsaturated (Richards) flow. Under partial
-  saturation, wide joints can act as capillary *barriers* rather than conduits,
-  which this model cannot represent. That is a real loss and it is deliberate.
+- **Flow is steady saturated Darcy flow**, solved once for the hydraulic head.
+  There is no unsaturated (Richards) flow: under partial saturation, wide
+  joints can act as capillary *barriers* rather than conduits, which this model
+  cannot represent. That is a real loss and it is deliberate.
 - **Two solid phases**, one soluble and one inert, with no aqueous speciation,
   no secondary minerals, no oxygen, and no biotite oxidation.
 - **No aperture evolution**, so no dissolution-driven channelization.
