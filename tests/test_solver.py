@@ -177,6 +177,42 @@ def test_the_base_conductance_reaches_the_matrix_through_the_triplets():
                        m._k_base * m._h_base, rtol=1e-12)
 
 
+def test_the_step_control_makes_the_error_a_dial():
+    """
+    The property that justifies replacing dx_max: tightening ``c_drift_max``
+    must reduce the error, every time, on the way to the converged answer.
+
+    dx_max could not do this. It bounds the change in M in whichever cell is
+    dissolving fastest, and which cell that is jumps about, so the error is not
+    monotone in it -- measured on the 3 m section at dt_max = 50 kyr, 0.05 gave
+    1.18e-4, 0.10 gave 2.66e-5 and 0.20 gave 2.27e-4. A knob you cannot turn
+    predictably is not a control, and no error budget can be set against one.
+    """
+    def at(drift):
+        m = _model()
+        m.c_drift_max = drift
+        m.run(years=30e3)
+        return m.M
+
+    ref = None
+    m = _model()
+    m.c_drift_max = 3e-4
+    m.run(years=30e3)
+    ref = m.M
+
+    errors = [np.abs(at(d) - ref).max() for d in (0.10, 0.03, 0.01, 0.003)]
+    assert all(a > b for a, b in zip(errors, errors[1:])), errors
+    assert errors[0] > 20.0 * errors[-1]          # and it is a real range
+
+
+def test_an_explicit_step_overrides_the_drift_control():
+    """``update(dt=...)`` means that step, whatever the controller wants."""
+    m = _model()
+    m.run(years=5e3)
+    want = 137.0 * YEAR
+    assert m.update(dt=want) == want
+
+
 def test_run_lands_on_the_time_it_was_asked_for():
     """
     ``run`` used to step past its target by up to one step. Harmless in a
@@ -185,12 +221,26 @@ def test_run_lands_on_the_time_it_was_asked_for():
     coarser one. It put a floor of ~1e-2 under a convergence study that should
     have gone to zero, and made that study look non-monotone.
 
-    Checked with long steps, since that is when the overshoot was large: with
-    a slack limiter a run to 30 kyr used to stop at 32.5 kyr.
+    Checked with long steps, since that is when the overshoot was large: at
+    30 kyr with a slack drift budget the model used to stop at 32.5 kyr.
     """
-    for dx_max in (0.5, 0.05):
+    for drift in (0.03, 0.003):
         m = _model()
-        m.dt_max = 50000.0 * YEAR
-        m.dx_max = dx_max
+        m.c_drift_max = drift
         m.run(years=30e3)
         assert m.t == pytest.approx(30e3 * YEAR, rel=1e-12)
+
+
+def test_a_step_shortened_to_land_on_the_target_does_not_shrink_the_next_one():
+    """
+    The control remembers the step it WANTED, not the one it was allowed. If a
+    short final step were fed back, ``run`` called twice in a row would crawl
+    where a single call would not, and the answer would depend on how the run
+    was chopped into calls.
+    """
+    m = _model()
+    m.run(years=20e3)
+    tiny = 10.0 * YEAR
+    step = m.update(dt_limit=tiny)                # capped hard by the caller
+    assert step == tiny
+    assert m._dt > 100.0 * tiny                   # the control is not fooled

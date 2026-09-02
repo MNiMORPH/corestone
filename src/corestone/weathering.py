@@ -121,9 +121,22 @@ class Weathering(object):
         self.x_grus = 0.50                # soluble fraction lost -> grus
         self.x_core = 0.05                # below this, effectively unaltered
         self.f_inert = 0.30               # quartz: never dissolves, stays sand
-        self.dt_max = 2000.0 * YEAR       # step ceiling. 500 yr cost 4x the
-        self.dx_max = 0.05                # steps for 0.8 % in the answer, back
-                                          # when a step was cheap; see design/07
+        self.c_drift_max = 0.03           # THE step control: how far c may move
+                                          # while it is held across a step.
+                                          # This is the model's one time-step
+                                          # approximation, so it is the thing
+                                          # bounded. Error is very nearly
+                                          # linear in it -- halve it, halve the
+                                          # error. A CHOSEN error budget; see
+                                          # update() for what each value costs.
+        self.dt_max = 50000.0 * YEAR      # ceilings, not the control. They
+        self.dx_max = 0.50                # bound a step that the drift control
+                                          # has no history for (the first) or
+                                          # would let run away (a field that
+                                          # has stopped moving).
+        self.dt_growth = 2.0              # most a step may lengthen at once
+        self.dt_min = 1.0 * YEAR          # floor, so a pathological drift
+                                          # cannot spin the controller for ever
         self.krylov_tol = 1.0e-10         # convergence of the reused solve
         self.max_krylov_iterations = 15   # past this, refactorise instead
 
@@ -147,6 +160,9 @@ class Weathering(object):
         self._diag = None                 # where its diagonal sits in .data
         self._lu = None                   # cached factorisation, reused
         self._x = None                    # last solute solution, unclipped
+        self._dt = None                   # the step the drift control chose
+        self._c_held = None               # the c actually held over a step
+        self.rejected_steps = 0           # steps retried for overrunning
         self.factorisations = 0           # how many times it was rebuilt
 
     # ---- parameter setters (one per parameter; units in the docstring)
@@ -554,6 +570,9 @@ class Weathering(object):
         self._diag = None
         self._lu = None
         self._x = None
+        self._dt = None
+        self._c_held = None
+        self.rejected_steps = 0
         self.factorisations = 0
         self.M = np.ones((self.nz, self.nx))
         self.c = np.zeros((self.nz, self.nx))
@@ -586,25 +605,91 @@ class Weathering(object):
         ``lambda`` is formed from :attr:`specific_reaction_coefficient` and so
         never divides by a mineral content approaching zero.
 
-        The step is still limited, because ``c`` is held across it while the
-        rock underneath it moves. ``dx_max`` bounds that drift the same way it
-        did before -- on the tangent, ``lambda M dt``, which is the old Euler
-        rate exactly -- so the parameter still means what it used to mean.
+        WHAT LIMITS THE STEP. Holding ``c`` across it is the only
+        approximation left, so that is what is bounded: after each solve the
+        new field is compared with the one that was held, and the next step is
+        scaled so the drift lands near ``c_drift_max``.
 
-        ``dt_limit`` caps the chosen step without replacing it, which is what
+        ``dx_max`` used to do this job and did it badly. It bounds the change
+        in ``M`` in the single fastest-dissolving cell, which is a proxy for
+        the drift and not the drift; which cell that is jumps from step to
+        step, so the sequence is erratic and the error is NOT MONOTONE in the
+        limiter. Measured on the 3 m section at ``dt_max`` = 50 kyr:
+        ``dx_max`` 0.05 gave 1.18e-4, 0.10 gave 2.66e-5, 0.20 gave 2.27e-4.
+        Nothing can be chosen against a curve like that. Against
+        ``c_drift_max`` the error is monotone on every case tried and close to
+        linear, so it is a dial:
+
+            c_drift_max   3 m app    45 deg   12 x 9 m   3 m at dx.02
+                  0.003   8.1e-06   2.1e-03    3.3e-03        1.2e-05
+                  0.01    3.1e-05   8.2e-03    1.1e-02        4.7e-05
+                  0.03    1.1e-04   2.5e-02    3.1e-02        1.6e-04
+                  0.10    5.4e-04   7.8e-02    9.3e-02        8.1e-04
+
+        The default, 0.03, is a CHOSEN ERROR BUDGET and not a derived
+        quantity: about 3 % of full scale on a field that lives in [0, 1],
+        which is invisible in the demo and beats the old Euler answer on three
+        of those four cases. It is one line to change, and the row above says
+        what changing it costs.
+
+        The budget is ENFORCED, not aimed at: a step is taken, the drift it
+        actually produced is measured, and a step that overran is thrown away
+        and retried shorter. Predicting the step from the previous one's drift
+        is cheaper but leaves the FIRST step uncontrolled, and that one step is
+        enough to put a floor under the whole run -- measured, an opening step
+        of 7124 yr held the error at 1.1e-2 no matter how tight the budget,
+        while the same run with the opening step controlled went to 6.3e-5.
+        A rejection costs one solve, and only when the prediction was wrong.
+
+        Passing ``dt`` explicitly overrides all of this. ``dt_limit`` instead
+        caps the automatic choice without replacing it, which is what
         :meth:`run` uses to land exactly on the time asked for.
         """
-        c = self.solve_solute(self.reaction_coefficient)
-        lam = self.specific_reaction_coefficient * (1.0 - c) / self.tau
+        if self._c_held is None:
+            self._c_held = self.solve_solute(self.reaction_coefficient)
+        c_held = self._c_held
+        lam = self.specific_reaction_coefficient * (1.0 - c_held) / self.tau
+
+        def advance(step):
+            # The clip is a guard, not a mechanism: lambda >= 0 because c <= 1,
+            # so the exponential cannot leave (0, 1] on its own.
+            return np.clip(self.M * np.exp(-lam * step), 0.0, 1.0)
+
+        if dt is not None:
+            M_new = advance(dt)
+            self.M = M_new
+            self._c_held = self.solve_solute(self.reaction_coefficient)
+            self.c = self._c_held
+            self.t += dt
+            return dt
+
         rate = lam * self.M                        # d(M/M0)/dt [1/s]
-        step = min(dt if dt is not None else self.dt_max,
-                   self.dx_max / max(rate.max(), 1e-30))
-        if dt_limit is not None:
-            step = min(step, dt_limit)
-        # The clip is a guard, not a mechanism: lambda >= 0 because c <= 1, so
-        # the exponential cannot leave (0, 1] on its own.
-        self.M = np.clip(self.M * np.exp(-lam * step), 0.0, 1.0)
-        self.c = c
+        want = min(self.dt_max, self.dx_max / max(rate.max(), 1e-30))
+        if self._dt is not None:
+            want = min(want, self._dt * self.dt_growth)
+        step = want if dt_limit is None else min(want, dt_limit)
+
+        while True:
+            M_new = advance(step)
+            saved_M, self.M = self.M, M_new
+            c_new = self.solve_solute(self.reaction_coefficient)
+            self.M = saved_M
+            drift = np.abs(c_new - c_held).max()
+            if drift <= self.c_drift_max or step <= self.dt_min:
+                break
+            self.rejected_steps += 1
+            step = max(self.dt_min,
+                       0.9 * step * self.c_drift_max / max(drift, 1e-300))
+
+        # Remember what the control would have allowed, undoing any cap the end
+        # of the run imposed -- otherwise a short final step would be read as
+        # evidence that short steps are needed, and the answer would depend on
+        # how the run was chopped into calls.
+        self._dt = step if dt_limit is None or step < dt_limit else want
+
+        self.M = M_new
+        self._c_held = c_new
+        self.c = c_new
         self.t += step
         return step
 
@@ -613,13 +698,13 @@ class Weathering(object):
         Advance to ``years`` of model time, initializing if needed.
 
         Lands ON the time asked for. It used to step past it by up to one step
-        -- ``while t < target: update()``, with nothing trimming the last one
-        -- so a run to 30 kyr returned a model at 32.5 kyr whenever the steps
-        were long. That is invisible in any single run and poisonous in a
-        comparison: two settings get compared at two different model times, and
-        the difference is read as the error of the coarser one. It put a floor
-        of about 1e-2 under a convergence study that should have gone to zero,
-        and it is why that study looked non-monotone.
+        -- ``while t < target: update()`` and nothing trimming the last one --
+        so ``run(years=30e3)`` returned a model at 32.5 kyr when the steps were
+        long. That is invisible in any single run and poisonous in a
+        comparison: two settings would be compared at two different times, and
+        the difference read as the error of the coarser one. It put a floor of
+        about 1e-2 under a convergence study that should have gone to zero, and
+        it is the reason that study looked non-monotone.
         """
         if self.M is None:
             self.initialize()
