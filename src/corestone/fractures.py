@@ -94,6 +94,33 @@ def conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=1.5,
     ]
 
 
+def periodic_grid_shape(width, depth, dx, spacing):
+    """
+    Cell counts for a section that wraps left-to-right onto itself.
+
+    Periodic in x, so the width must be a whole number of spacings with no
+    joint repeated at the seam: ``n * spacing / dx`` columns. Depth is not
+    periodic and keeps the ``+ 1`` that puts a joint on the top and bottom.
+
+    A no-flow wall is not neutral. It forces the lateral flow to vanish there,
+    which in a section with subhorizontal joints manufactures a domain-scale
+    circulation and a drainage divide down the middle: measured, the centre
+    block weathered a third as much as the blocks two in from the walls, and
+    the effect grew with the width of the section rather than staying near the
+    edges. Wrapping removes the walls entirely.
+    """
+    per = spacing / dx
+    if abs(per - round(per)) > 1e-9:
+        raise ValueError(
+            "a periodic tiling needs the spacing to be a whole number of "
+            "cells; spacing / dx = %.4f. Choose dx = %.4f or %.4f."
+            % (per, spacing / np.ceil(per), spacing / np.floor(per)))
+    per = int(round(per))
+    nx = max(int(np.floor(width / dx / per)), 1) * per
+    nz = max(int(np.floor(depth / dx / per)), 1) * per + 1
+    return nz, nx
+
+
 def uniform_grid_shape(width, depth, dx, spacing):
     """
     Cell counts that let a regular joint set tile the domain exactly.
@@ -168,14 +195,18 @@ class FractureNetwork(object):
     vertical and `(nz, nx-1)` horizontal.
     """
 
-    def __init__(self, nz, nx, dx):
+    def __init__(self, nz, nx, dx, periodic_x=False):
         self.nz = nz                      # rows, increasing downward
         self.nx = nx                      # columns, increasing rightward
         self.dx = dx                      # cell size [m], square cells
+        self.periodic_x = periodic_x      # wrap the left and right walls
 
         self.cell = None                  # (nz, nx) bool: fracture threads it
         self.link_v = None                # (nz-1, nx) bool: vertical links
         self.link_h = None                # (nz, nx-1) bool: horizontal links
+        self.link_wrap = None             # (nz,) bool: the wrap-around link
+                                          # joining column nx-1 to column 0,
+                                          # used only when periodic_x
         self.segments = None              # list of (p0, p1) endpoints [m]
         self.segment_set = None           # name of the set each trace came from
         self.trace_length = None          # total trace length in domain [m]
@@ -277,9 +308,17 @@ class FractureNetwork(object):
             # This is exactly uniform only when the domain is a whole number of
             # spacings. When it is not, the final block is short -- so choose
             # ``n * spacing / dx + 1`` cells across (see ``uniform_grid_shape``).
-            span = t_c.max() - t_c.min()
-            n = max(int(np.floor(span / js.spacing + 1e-9)), 0)
-            offsets = t_c.min() + np.arange(n + 1) * js.spacing
+            wraps = self.periodic_x and abs(np.dot(n0, [1.0, 0.0])) > 0.5
+            if wraps:
+                # The period is the full domain width, not the span between
+                # cell centres, and the far wall IS the near wall -- so there
+                # is no joint on the closing edge to place.
+                n = max(int(round(self.lx / js.spacing)), 1)
+                offsets = t_c.min() + np.arange(n) * js.spacing
+            else:
+                span = t_c.max() - t_c.min()
+                n = max(int(np.floor(span / js.spacing + 1e-9)), 0)
+                offsets = t_c.min() + np.arange(n + 1) * js.spacing
             return [(mid + t * n0, d0) for t in offsets]
 
         out, t = [], t_c.min()
@@ -323,6 +362,23 @@ class FractureNetwork(object):
             p0, p1 = origin + ts[i] * d, origin + ts[i + js.spans] * d
             if _clip_to_box(p0, p1 - p0, self.lx, self.lz) is not None:
                 out.append((p0, p1))
+
+        if self.periodic_x and ts.size:
+            # The span between the outermost hosts runs across the seam, where
+            # there is no wall to terminate against. It is one span of the
+            # tiling like any other, seen as two pieces because the section is
+            # drawn cut open: from the last host to the right edge, and from
+            # the left edge to the first host.
+            if js.density >= 1.0 or rng.random() <= js.density:
+                for a, b in ((ts[-1], None), (None, ts[0])):
+                    seg = _clip_to_box(
+                        origin + (a if a is not None else ts[0]) * d, d,
+                        self.lx, self.lz)
+                    if seg is None:
+                        continue
+                    q0, q1 = seg
+                    out.append((q0, origin + b * d) if a is None
+                               else (origin + a * d, q1))
         return out
 
     def segments_of(self, set_name):
@@ -368,3 +424,7 @@ class FractureNetwork(object):
                     self.link_v[min(iz[k], iz[k + 1]), ix[k]] = True
                 if dix[k] != 0:
                     self.link_h[iz[k], min(ix[k], ix[k + 1])] = True
+
+        # The wrap link is fractured where a joint reaches both walls, which
+        # for a periodic tiling means the sub-horizontal set.
+        self.link_wrap = self.cell[:, 0] & self.cell[:, -1]
