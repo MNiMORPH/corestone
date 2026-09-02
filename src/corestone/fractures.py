@@ -164,6 +164,50 @@ def orthogonal_grid(spacing=1.5, density=1.0, rotation=0.0):
                           kappa=None, spacing_sigma=0.0, density=density)
 
 
+def tiling_angles(nx, max_index=None):
+    """
+    Rotations at which an orthogonal joint pair tiles a periodic domain exactly.
+
+    A pair rotated by theta has along-x periods ``S/cos(theta)`` and
+    ``S/sin(theta)``. Both divide the width only when ``tan(theta) = b/a`` for
+    integers a and b -- the joint directions have to be rational-slope lattice
+    directions -- and, in cells, only when a and b each divide ``nx``. The
+    joint spacing that tiles is then ``lx / (k * hypot(a, b))`` for integer k.
+
+    Off these angles the pattern does not close on itself and leaves a seam
+    where the joints fail to line up. It is a local defect rather than the
+    domain-scale circulation that no-flow walls produce, but it is visible, and
+    snapping the angle removes it.
+
+    Returns ``[(degrees, a, b), ...]`` sorted by angle, for 0 to 45 degrees.
+    """
+    from math import atan2, degrees, gcd
+    limit = nx if max_index is None else min(nx, max_index)
+    divisors = [d for d in range(1, limit + 1) if nx % d == 0]
+    out = {}
+    for a in divisors:
+        for b in divisors + [0]:
+            if b > a or gcd(a, b) != 1:
+                continue
+            ang = degrees(atan2(b, a))
+            if 0.0 <= ang <= 45.0 + 1e-9:
+                out.setdefault(round(ang, 6), (ang, a, b))
+    return [out[k] for k in sorted(out)]
+
+
+def tiling_spacing(lx, a, b, target):
+    """
+    The tiling joint spacing nearest ``target`` for the lattice angle (a, b).
+
+    Only ``lx / (k * hypot(a, b))`` tiles, so the spacing is quantised too --
+    which is why the spacing slider snaps as well as the angle one.
+    """
+    import math
+    h = math.hypot(a, b)
+    k = max(int(round(lx / (target * h))), 1)
+    return lx / (k * h)
+
+
 def rotated_grid_shape(width, depth, dx, x_period, rotation=45.0):
     """
     Cell counts and joint spacing for a rotated grid that still tiles.
