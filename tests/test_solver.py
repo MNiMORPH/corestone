@@ -175,3 +175,22 @@ def test_the_base_conductance_reaches_the_matrix_through_the_triplets():
     assert np.allclose(d[-1, :] - links, m._k_base, rtol=1e-12)
     assert np.allclose(rhs.reshape(m.nz, m.nx)[-1, :],
                        m._k_base * m._h_base, rtol=1e-12)
+
+
+def test_run_lands_on_the_time_it_was_asked_for():
+    """
+    ``run`` used to step past its target by up to one step. Harmless in a
+    single run and poisonous in any comparison: two settings would be compared
+    at two different model times, and the difference read as the error of the
+    coarser one. It put a floor of ~1e-2 under a convergence study that should
+    have gone to zero, and made that study look non-monotone.
+
+    Checked with long steps, since that is when the overshoot was large: with
+    a slack limiter a run to 30 kyr used to stop at 32.5 kyr.
+    """
+    for dx_max in (0.5, 0.05):
+        m = _model()
+        m.dt_max = 50000.0 * YEAR
+        m.dx_max = dx_max
+        m.run(years=30e3)
+        assert m.t == pytest.approx(30e3 * YEAR, rel=1e-12)

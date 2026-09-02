@@ -561,7 +561,7 @@ class Weathering(object):
         self.solve_flow()
         return self
 
-    def update(self, dt=None):
+    def update(self, dt=None, dt_limit=None):
         """
         Advance the rock state by one step, and return the step actually taken.
 
@@ -590,12 +590,17 @@ class Weathering(object):
         rock underneath it moves. ``dx_max`` bounds that drift the same way it
         did before -- on the tangent, ``lambda M dt``, which is the old Euler
         rate exactly -- so the parameter still means what it used to mean.
+
+        ``dt_limit`` caps the chosen step without replacing it, which is what
+        :meth:`run` uses to land exactly on the time asked for.
         """
         c = self.solve_solute(self.reaction_coefficient)
         lam = self.specific_reaction_coefficient * (1.0 - c) / self.tau
         rate = lam * self.M                        # d(M/M0)/dt [1/s]
         step = min(dt if dt is not None else self.dt_max,
                    self.dx_max / max(rate.max(), 1e-30))
+        if dt_limit is not None:
+            step = min(step, dt_limit)
         # The clip is a guard, not a mechanism: lambda >= 0 because c <= 1, so
         # the exponential cannot leave (0, 1] on its own.
         self.M = np.clip(self.M * np.exp(-lam * step), 0.0, 1.0)
@@ -604,12 +609,23 @@ class Weathering(object):
         return step
 
     def run(self, years):
-        """Advance to ``years`` of model time, initializing if needed."""
+        """
+        Advance to ``years`` of model time, initializing if needed.
+
+        Lands ON the time asked for. It used to step past it by up to one step
+        -- ``while t < target: update()``, with nothing trimming the last one
+        -- so a run to 30 kyr returned a model at 32.5 kyr whenever the steps
+        were long. That is invisible in any single run and poisonous in a
+        comparison: two settings get compared at two different model times, and
+        the difference is read as the error of the coarser one. It put a floor
+        of about 1e-2 under a convergence study that should have gone to zero,
+        and it is why that study looked non-monotone.
+        """
         if self.M is None:
             self.initialize()
         target = years * YEAR
-        while self.t < target:
-            self.update()
+        while self.t < target - 1e-9 * YEAR:
+            self.update(dt_limit=target - self.t)
         return self
 
     def finalize(self):
