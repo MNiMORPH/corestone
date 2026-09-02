@@ -5,9 +5,10 @@ The seeded joint network puts water where the design says it should.
 import numpy as np
 import pytest
 
-from corestone import FractureNetwork, JointSet, conjugate_sets, GRANITE_SETS
+from corestone import (FractureNetwork, JointSet, conjugate_sets,
+                       orthogonal_grid, GRANITE_SETS)
 
-NZ, NX, DX = 38, 50, 0.40
+NZ, NX, DX = 75, 100, 0.20
 
 
 def _net(seed=12345, sets=None):
@@ -150,3 +151,31 @@ def test_a_full_orthogonal_grid_has_the_analytic_intensity():
     S = 1.5
     n = _net(sets=conjugate_sets(90.0, 0.0, spacing=S, density=1.0))
     assert n.p21 == pytest.approx(2.0 / S, rel=0.15)
+
+
+def test_the_orthogonal_grid_is_exactly_axis_aligned():
+    """No orientation scatter: every joint exactly vertical or exactly
+    horizontal, so one component of every trace vector is zero."""
+    n = _net(sets=orthogonal_grid(spacing=1.5))
+    for p0, p1 in n.segments:
+        d = p1 - p0
+        assert min(abs(d[0]), abs(d[1])) < 1e-9
+
+
+def test_the_orthogonal_grid_is_evenly_spaced():
+    """Exact spacing, not lognormal: consecutive parallel joints are one
+    spacing apart to machine precision."""
+    S = 1.5
+    n = _net(sets=orthogonal_grid(spacing=S))
+    xs = np.unique(np.round([p0[0] for p0, p1 in n.segments_of("J1")], 9))
+    assert len(xs) >= 5
+    assert np.allclose(np.diff(xs), S)
+
+
+def test_the_orthogonal_grid_does_not_depend_on_the_generator():
+    """With no scatter, no spacing variability and every gap filled, the
+    network is fully determined -- the random generator is not consulted."""
+    a = _net(seed=1, sets=orthogonal_grid(spacing=1.5))
+    b = _net(seed=999, sets=orthogonal_grid(spacing=1.5))
+    assert np.array_equal(a.cell, b.cell)
+    assert len(a.segments) == len(b.segments)

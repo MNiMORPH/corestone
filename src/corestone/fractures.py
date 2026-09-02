@@ -44,11 +44,14 @@ class JointSet(object):
                plane. 0 is horizontal, 90 is vertical.
     spacing  : mean normal spacing between joints of this set [m].
     kappa    : von Mises concentration of the orientation scatter. Larger is
-               tighter; 25 is roughly +/- 11 degrees.
+               tighter; 25 is roughly +/- 11 degrees. ``None`` means no
+               scatter at all -- every joint of the set exactly parallel.
     abuts    : name of the set these joints terminate against, or ``None`` for
                a throughgoing set that spans the domain.
     spans    : how many primary joints an abutting trace crosses before it
                stops. 1 means it terminates at the very next one.
+    spacing_sigma : lognormal sigma of the spacing. ``0`` means exact,
+               evenly spaced joints.
     density  : fraction of the available gaps between primary joints that
                carry a trace of this set. 1.0 fills every one, giving a clean
                orthogonal block system; lower values leave gaps and make the
@@ -91,8 +94,21 @@ def conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=1.5,
     ]
 
 
+def orthogonal_grid(spacing=1.5, density=1.0):
+    """
+    A perfectly regular vertical/horizontal joint grid.
+
+    No orientation scatter and no spacing variability: every joint exactly
+    vertical or exactly horizontal, evenly spaced, so the blocks are identical
+    squares of side ``spacing``. The clearest object to teach from, and the
+    case whose fracture intensity has an exact answer, P21 = 2 / spacing.
+    """
+    return conjugate_sets(dip_primary=90.0, dip_secondary=0.0, spacing=spacing,
+                          kappa=None, spacing_sigma=0.0, density=density)
+
+
 #: The default granite case. PLACEHOLDER SPACING -- replace with field values.
-GRANITE_SETS = conjugate_sets()
+GRANITE_SETS = orthogonal_grid()
 
 
 def _unit(dip_deg):
@@ -224,13 +240,20 @@ class FractureNetwork(object):
                         [0.0, self.lz], [self.lx, self.lz]])
         t_c, s_c = box @ n0, box @ d0
 
-        out, t = [], t_c.min()
+        regular = js.spacing_sigma == 0.0 and js.kappa is None
+        # A regular set is phased half a spacing in from the edge, so no joint
+        # lands exactly on the boundary.
+        out, t = [], t_c.min() + (0.5 * js.spacing if regular else 0.0)
         while t < t_c.max():
-            th = np.deg2rad(js.dip_deg) + rng.vonmises(0.0, js.kappa)
-            d = np.array([np.cos(th), np.sin(th)])
+            if js.kappa is None:
+                d = d0
+            else:
+                th = np.deg2rad(js.dip_deg) + rng.vonmises(0.0, js.kappa)
+                d = np.array([np.cos(th), np.sin(th)])
             origin = 0.5 * (s_c.min() + s_c.max()) * d0 + t * n0
             out.append((origin, d))
-            t += rng.lognormal(np.log(js.spacing), js.spacing_sigma)
+            t += (js.spacing if js.spacing_sigma == 0.0
+                  else rng.lognormal(np.log(js.spacing), js.spacing_sigma))
         return out
 
     def _abut(self, origin, d, hosts, js, rng):

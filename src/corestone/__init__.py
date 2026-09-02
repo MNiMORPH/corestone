@@ -21,6 +21,8 @@ The pieces:
 - :class:`corestone.JointSet` -- one family of subparallel joints.
 - :func:`corestone.conjugate_sets` -- a throughgoing set and one that
   abuts it, 90 degrees apart by default.
+- :func:`corestone.orthogonal_grid` -- the perfectly regular case: exactly
+  vertical and horizontal joints, evenly spaced, identical square blocks.
 
 Units are SI throughout unless a docstring says otherwise; see ``CLAUDE.md``
 for the sign and axis conventions this model assumes -- in particular that the
@@ -29,7 +31,7 @@ vertical coordinate is depth, positive downward.
 
 from ._version import __version__
 from .fractures import (FractureNetwork, JointSet, conjugate_sets,
-                        GRANITE_SETS)
+                        orthogonal_grid, GRANITE_SETS)
 
 __all__ = ["__version__", "FractureNetwork", "JointSet",
-           "conjugate_sets", "GRANITE_SETS"]
+           "conjugate_sets", "orthogonal_grid", "GRANITE_SETS"]
