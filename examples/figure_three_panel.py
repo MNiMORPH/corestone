@@ -7,8 +7,14 @@ is the point of the figure: the affinity term is the only field in the model,
 so putting it on screen is the difference between seeing the equation and being
 told it.
 
-    python3 examples/figure_three_panel.py            # writes the PNG
-    python3 examples/figure_three_panel.py --show     # and opens it
+    python3 examples/figure_three_panel.py                 # writes the PNG
+    python3 examples/figure_three_panel.py --show          # and opens it
+    python3 examples/figure_three_panel.py --width 5 --depth 5 \
+            --out examples/figure_5m_section.png           # a smaller section
+
+The domain is snapped down to a whole number of joint spacings, so the section
+actually drawn may be slightly smaller than the one asked for; the header
+states what was used.
 """
 import sys
 
@@ -25,13 +31,22 @@ from corestone import (FractureNetwork, Weathering, orthogonal_grid,
                        periodic_grid_shape)
 
 # ---- what to draw -------------------------------------------------------------
-DX = 0.05                                  # cell size [m]
-SPACING = 1.5                              # joint spacing [m]
-# Cell counts that let the joint set tile the section exactly, with a joint on
-# each wall and no odd block left over at the edges.
-NZ, NX = periodic_grid_shape(20.0, 15.0, DX, SPACING)
-KYR = 100.0                                # elapsed time
-OUT = "examples/figure_three_panel.png"
+def _arg(flag, default, cast=float):
+    """One command-line override, so a variant needs no second copy of this."""
+    return cast(sys.argv[sys.argv.index(flag) + 1]) if flag in sys.argv else default
+
+
+DX = _arg("--dx", 0.05)                    # cell size [m]
+SPACING = _arg("--spacing", 1.5)           # joint spacing [m]
+KYR = _arg("--kyr", 100.0)                 # elapsed time
+WIDTH = _arg("--width", 20.0)              # section width asked for [m]
+DEPTH = _arg("--depth", 15.0)              # section depth asked for [m]
+OUT = _arg("--out", "examples/figure_three_panel.png", str)
+
+# Cell counts that tile the period exactly, with a joint on each wall and none
+# repeated at the seam. The section is snapped DOWN to a whole number of joint
+# spacings, so it may come out smaller than asked for; the header says which.
+NZ, NX = periodic_grid_shape(WIDTH, DEPTH, DX, SPACING)
 
 net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(sets=orthogonal_grid(SPACING),
                                        rng=np.random.default_rng(12345))
@@ -143,9 +158,9 @@ ax.contour(np.linspace(DX / 2, LX - DX / 2, NX),
            X, levels=[model.x_grus], colors="#7a2e00", linewidths=1.4, zorder=4)
 joints(ax, color="#3a1c00", lw=0.8, alpha=0.42)
 dress(ax, "3   Corestones in grus",
-      "Blocks weather inward from every face, and fastest at the corners,\n"
-      "which shed solute to two joints instead of one. That is the rounding –\n"
-      "no oxidation and no fracture mechanics required.")
+      "Blocks weather inward from every face, fastest at corners,\n"
+      "which shed solute to two joints rather than one. That is the\n"
+      "rounding – no oxidation, no fracture mechanics.")
 bar(im, cbax[2], "fraction of the soluble phase dissolved")
 
 # Label a corestone genuinely surrounded by grus, and a grus patch, keeping the
@@ -158,11 +173,14 @@ core = np.unravel_index(
     np.argmax(np.where(model.is_corestone & half, enclosed, -1.0)), X.shape)
 gi = np.unravel_index(
     np.argmax(np.where(model.is_grus & ~half, enclosed, -1.0)), X.shape)
-for (iz, ix), label, off in ((core, "corestone", -3.0), (gi, "grus", -3.4)):
+# Offsets scale with the section, so the labels do not collide on a small one.
+_pad_x, _pad_z = 0.16 * LX, 0.09 * LZ
+for (iz, ix), label, off in ((core, "corestone", -0.22 * LZ),
+                             (gi, "grus", +0.22 * LZ)):
     x0, z0 = ix * DX + DX / 2, iz * DX + DX / 2
     ax.annotate(label, xy=(x0, z0),
-                xytext=(np.clip(x0, 2.2, LX - 2.2),
-                        np.clip(z0 + off, 1.0, LZ - 1.0)),
+                xytext=(np.clip(x0, _pad_x, LX - _pad_x),
+                        np.clip(z0 + off, _pad_z, LZ - _pad_z)),
                 ha="center", fontsize=10.5, color=INK, zorder=6,
                 bbox=dict(boxstyle="round,pad=0.34", fc="white", ec="#a8a8a8"),
                 arrowprops=dict(arrowstyle="-|>", color=INK, lw=1.2,
