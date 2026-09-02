@@ -37,11 +37,21 @@ def topology(fn, name):
     gdf = gpd.GeoDataFrame(geometry=traces)
     area = gpd.GeoDataFrame(
         geometry=[Polygon([(0, 0), (LX, 0), (LX, LZ), (0, LZ)])])
-    net = Network(gdf, area, name=name, determine_branches_nodes=True,
-                  snap_threshold=0.01 * DX, truncate_traces=True)
-    n = net.node_counts
-    interior = n["X"] + n["Y"] + n["I"]
+    # Abutting traces terminate exactly on their host, so many endpoints are
+    # coincident. fractopo's snapping needs a threshold that is neither so
+    # tight that it loops nor so loose that it merges distinct nodes.
     d = fn.distance_to_fracture()
+    try:
+        net = Network(gdf, area, name=name, determine_branches_nodes=True,
+                      snap_threshold=0.05 * DX, truncate_traces=True)
+        n = net.node_counts
+    except RecursionError:
+        # fractopo's snapping does not converge when very many traces
+        # terminate on exactly the same host points. Report it; do not hide it.
+        print(f"{name:26s} traces {len(traces):3d}  P21 {fn.p21:5.2f}   "
+              f"fractopo: snapping did not converge   "
+              f"median d {np.median(d):.2f} m  p90 {np.percentile(d, 90):.2f} m")
+        return
     print(f"{name:26s} traces {len(traces):3d}  P21 {fn.p21:5.2f}   "
           f"X {n['X']:3d}  Y {n['Y']:3d}  I {n['I']:3d}   "
           f"Y/(Y+I) {n['Y'] / max(n['Y'] + n['I'], 1):5.2f}   "
@@ -65,5 +75,8 @@ topology(FractureNetwork(NZ, NX, DX).seed(sets=conjugate_sets(90., 0.), rng=rng(
 topology(FractureNetwork(NZ, NX, DX).seed(sets=conjugate_sets(45., -45.), rng=rng()),
          "conjugate +/-45, abutting")
 topology(FractureNetwork(NZ, NX, DX).seed(
-             sets=conjugate_sets(90., 0., spacing=0.8), rng=rng()),
-         "conjugate 90/0, S = 0.8 m")
+             sets=conjugate_sets(90., 0., density=0.6), rng=rng()),
+         "conjugate 90/0, density 0.6")
+topology(FractureNetwork(NZ, NX, DX).seed(
+             sets=conjugate_sets(90., 0., density=0.25), rng=rng()),
+         "conjugate 90/0, density 0.25")

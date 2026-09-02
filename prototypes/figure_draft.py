@@ -10,6 +10,8 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 from scipy.ndimage import uniform_filter
 
+from corestone import GRANITE_SETS
+
 src = open("prototypes/probe_b_weathering.py").read().split("fn = FractureNetwork")[0]
 M = {}
 exec(compile(src, "probe_b", "exec"), M)
@@ -18,7 +20,9 @@ NZ, NX, DX = M["NZ"], M["NX"], M["DX"]
 LX, LZ = NX * DX, NZ * DX
 KYR = 100.0
 
-fn = M["FractureNetwork"](NZ, NX, DX).seed(rng=np.random.default_rng(12345))
+fn_sets = GRANITE_SETS
+fn = M["FractureNetwork"](NZ, NX, DX).seed(sets=fn_sets,
+                                           rng=np.random.default_rng(12345))
 X, q, c = M["weather"](fn, years=KYR * 1e3, T=M["T_REF"])
 L_eq = M["equilibration_length"](M["T_REF"])
 
@@ -37,10 +41,19 @@ for a in axes[1:]:
 CAPTIONS = []
 
 
-def joints(ax, color="#1a1a1a", lw=0.7, alpha=0.55):
-    for p0, p1 in fn.segments:
-        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color=color, lw=lw,
-                alpha=alpha, solid_capstyle="round", zorder=3)
+def joints(ax, color="#1a1a1a", lw=0.9, alpha=0.6):
+    """
+    Draw the two sets distinguishably. Throughgoing joints are solid and
+    heavier; the abutting set is dashed. Distinguished by dash pattern as well
+    as weight, so the two are not told apart by colour alone.
+    """
+    for (p0, p1), name in zip(fn.segments, fn.segment_set):
+        through = name == fn_sets[0].name
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color=color,
+                lw=lw if through else lw * 0.75,
+                alpha=alpha if through else alpha * 0.85,
+                ls="-" if through else (0, (3.5, 2.2)),
+                solid_capstyle="round", zorder=3)
 
 
 def dress(ax, title, caption):
@@ -74,8 +87,8 @@ im = ax.imshow(np.log10(np.maximum(qn, 1e-3)), extent=EXT, origin="upper",
                cmap="Blues", vmin=-1.5, vmax=1.5, interpolation="nearest")
 joints(ax)
 dress(ax, "1   The plumbing",
-      "Rain enters the top and runs down the joints. No pressure solve:\n"
-      "gravity makes the grid a one-way cascade, split by conductance.")
+      "Gravity makes the grid a one-way cascade, so the throughgoing set\n"
+      "carries the water and the abutting set mostly bounds the blocks.")
 ax.set_ylabel("Depth [m]", color=MUTED, fontsize=9)
 bar(im, cbax[0], "water flux, relative to mean infiltration",
     ticks=[-1.5, 0, 1.5], ticklabels=["0.03×", "1×", "30×"])
@@ -102,7 +115,7 @@ xg = np.linspace(DX / 2, LX - DX / 2, NX)
 zg = np.linspace(DX / 2, LZ - DX / 2, NZ)
 ax.contour(xg, zg, X, levels=[M["X_GRUS"]], colors="#7a2e00", linewidths=1.4,
            zorder=4)
-joints(ax, color="#3a1c00", lw=0.6, alpha=0.32)
+joints(ax, color="#3a1c00", lw=0.8, alpha=0.42)
 dress(ax, "3   Corestones in grus",
       "Rock further from a joint than $L_{eq}$ is never reached by\n"
       "undersaturated water. Not tougher granite – unvisited granite.")
@@ -129,7 +142,10 @@ for (iz, ix), label, off in ((core, "corestone", 4.2), (gi, "grus", -3.4)):
                 arrowprops=dict(arrowstyle="-|>", color=INK, lw=1.2,
                                 shrinkA=3, shrinkB=4))
 
-ax.legend(handles=[Line2D([0], [0], color="#3a1c00", lw=1.0, label="joint"),
+ax.legend(handles=[Line2D([0], [0], color="#3a1c00", lw=1.0,
+                          label="joint, throughgoing"),
+                   Line2D([0], [0], color="#3a1c00", lw=0.8,
+                          ls=(0, (3.5, 2.2)), label="joint, abutting"),
                    Line2D([0], [0], color="#7a2e00", lw=1.4,
                           label="grus threshold, X = %.1f" % M["X_GRUS"])],
           loc="lower left", fontsize=8.5, frameon=True, framealpha=0.93,
