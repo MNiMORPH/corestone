@@ -2,7 +2,7 @@
 
 The read-first frame for this repo, per `~/.claude/COMPACTION_PLAYBOOK.md`.
 After a compaction, read this **before** acting, and verify every structural
-claim below against git and disk before trusting it. Current to `0c76150`.
+claim below against git and disk before trusting it. Current to `f3bd9c4`.
 
 ## (a) Origin -- why this model exists
 
@@ -41,7 +41,7 @@ matplotlib` reports all three bundled by Pyodide.
 
 ## (c) Key current data and objects
 
-Branch `master`, HEAD `0c76150`, **25 commits unpushed**, working tree clean
+Branch `master`, HEAD `f3bd9c4`, **30 commits unpushed**, working tree clean
 apart from the untracked `HANDOFF-geomorphonline-demo.md`.
 
 - `src/corestone/fractures.py` -- the joint network. Seeded via `seed()`, or
@@ -65,7 +65,7 @@ apart from the untracked `HANDOFF-geomorphonline-demo.md`.
   solve (which is what makes the reused guess a guess and not an
   approximation).
 
-71 tests, ~8 s. **The "~100 s" this file used to claim was wrong** -- measured
+79 tests, ~10 s. **The "~100 s" this file used to claim was wrong** -- measured
 at 14.4 s on the pre-speed-up tree, so it was never true, not merely stale.
 
 ## (d) Guardrails and irreversibility state
@@ -118,19 +118,31 @@ Three changes, in order of what they bought: minimum-degree ordering on
 warm start (`8395d97`); the base boundary and the reaction term both assembled
 without a format round trip (`ed30aca`, `739754b`).
 
-**Two measured proposals, not implemented, awaiting a decision:**
+**The integrator and the step control, 2026-09-02.** Same method as above;
+`c_drift_max` at its default 0.03.
 
-- **The exponential integrator** (`prototypes/probe_f_integrator.py`,
-  `0c76150`). `r` is proportional to `M`, so with `c` held over a step the
-  equation is `dM/dt = -lambda M` and its solution is an exponential. Euler
-  takes the tangent. At equal cost the exponential form is ~6x more accurate;
-  at matched error over 200 kyr it is **18 steps against 107**, the largest
-  single acceleration left. It needs `dt_max` and `dx_max` relaxed, which are
-  parameters, and the error is not monotone in `dx_max`.
-- **The refactorisation cap.** `max_krylov_iterations = 15` has never fired;
-  lowering it to 5 so that it does is worth ~15 %. Left alone because the
-  optimum moves between 4 and 5 case to case. Table in the `solve_solute`
-  docstring.
+    case      before    after     ratio   steps
+    3 m app    0.511 s   0.215 s   x2.38   107 -> 79
+    45 deg     0.117 s   0.060 s   x1.95    33 -> 26
+    12 x 9 m   3.477 s   1.276 s   x2.72    57 -> 30
+    3 m dx.02 21.829 s   6.309 s   x3.46   108 -> 82
+
+- **`M(t+dt) = M(t) exp(-lambda dt)`** replaces forward Euler (`78eb750`). `r`
+  is proportional to `M`, so with `c` held the step integrates exactly. 1.1x
+  to 8.4x more accurate at identical step counts, for one `np.exp`.
+- **`c_drift_max` replaces `dx_max` as the control** (`ebf8f65`). It bounds the
+  model's one time-step approximation -- `c` held while the rock moves --
+  rather than a proxy for it, and the error is monotone in it and nearly first
+  order. It is **a chosen error budget**, ~3 % of full scale, one line to
+  change; the table is in `update`.
+- The budget is **enforced by rejection**, and the step is **predicted** from
+  the last drift (`f3bd9c4`). Predicting matters as much as enforcing: reaching
+  for the growth cap instead was rejected on 73 of 75 steps.
+
+**Still awaiting a decision: the refactorisation cap.**
+`max_krylov_iterations = 15` has never fired; lowering it to 5 so that it does
+is worth ~15 %. Left alone because the optimum moves between 4 and 5 case to
+case. Table in the `solve_solute` docstring.
 
 ## (f) Negative results, and why not
 
@@ -158,6 +170,18 @@ without a format round trip (`ed30aca`, `739754b`).
   108 steps are `info = -10` after two iterations, which happens because the
   preconditioner is very good. The iteration cap plays no part: raising it to
   a million changes nothing.
+- **A convergence study that stalls is probably not measuring convergence.**
+  `run(years=X)` stepped PAST X by up to one step, so two settings were
+  compared at two different model times and the gap was read as the coarser
+  one's error. It floored a study at 1e-2 and made it look non-monotone
+  (`f2645cd`).
+- **An uncontrolled first step floors the whole run.** One opening step of
+  7124 yr held the error at 1.1e-2 however tight the budget; controlled, the
+  same run reached 6.3e-5. This is why the step control rejects rather than
+  merely predicts.
+- **Count solves, not steps.** The step control cut steps by 30 % and the run
+  took exactly as long, because it was paying two solves per step in
+  rejections.
 - **`spilu` is not worth it as the preconditioner.** Half the build cost of a
   full `splu`, but the factorisation is reused across many steps, so build
   cost is not what dominates.
