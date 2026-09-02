@@ -28,11 +28,26 @@ water. Raising the temperature *shrinks* ``L_eq``, so hotter water saturates
 sooner and the weathering concentrates at the joints rather than spreading --
 which is why warm does not mean weathered.
 
-Flow is steady gravity-driven descent: one sweep from the surface down, each
-cell handing its water to the three cells below split by their conductance.
-Gravity makes the grid a one-way cascade ordered by depth, so there is no
-pressure solve. See ``design/02-teaching-scope.md`` for what that buys and what
-it costs.
+Flow is steady Darcy flow, solved for the hydraulic head,
+
+    div( K grad H ) = 0,        H = psi - d        (d is depth, positive down)
+
+with infiltration prescribed at the surface, a fixed head at the base and
+no-flow sides. Conductance lives on the **links** between cells, which is where
+the fracture network lives: a fractured link conducts, an intact one barely
+does. Lateral flow along a subhorizontal joint is then not a special case -- it
+is what the head field does when a low-resistance path exists.
+
+An earlier version routed water down a gravity cascade instead, each cell
+handing its water to the three cells below. That could enter a horizontal joint
+but never travel along one, so the whole horizontal set was inert: deleting it
+changed the weathering by 0.2 percentage points. The cascade was cheaper, but
+the thing it could not represent was exactly the thing the joints are for.
+
+Because the conductance does not evolve, the head is solved **once**. And
+because a flow driven by the gradient of a potential cannot circulate, the flux
+field is acyclic: solute is swept row by row, with the lateral exchange inside
+each row solved as a tridiagonal system rather than iterated.
 
 **Every parameter here is a placeholder.** None is measured. They are tabulated
 in the design document, and no number from this module should be used as a
@@ -40,6 +55,9 @@ result.
 """
 
 import numpy as np
+import scipy.sparse as sp
+import scipy.sparse.linalg as spl
+from scipy.linalg import solve_banded
 
 #: Seconds in a Julian year. Time is seconds internally; years appear only at
 #: the input and output edges, and this is where the conversion is named.
@@ -62,8 +80,10 @@ class Weathering(object):
 
         # ---- parameters. ALL PLACEHOLDERS; see design/02-teaching-scope.md
         self.infiltration = 0.30 / YEAR   # recharge at the surface [m/s]
-        self.k_fracture = 1000.0          # routing conductance, joint cell
-        self.k_matrix = 1.0               # routing conductance, intact rock
+        self.k_fracture = 1.0e-5          # hydraulic conductivity, jointed
+                                          # rock [m/s]        PLACEHOLDER
+        self.k_matrix = 1.0e-8            # hydraulic conductivity, intact
+                                          # granite [m/s]     PLACEHOLDER
         self.L_eq_ref = 0.50              # equilibration length at T_ref [m]
         self.T_ref = 285.0                # reference temperature [K]
         self.E_a = 60.0e3                 # activation energy [J/mol]
@@ -82,9 +102,15 @@ class Weathering(object):
         self.T = self.T_ref               # temperature [K]
         self.t = 0.0                      # model time [s]
         self.M = None                     # soluble mineral remaining, M/M0
-        self.c = None                     # normalised concentration, C/C_eq
-        self.q = None                     # water flux per cell [m2/s]
-        self._K = None                    # routing conductance per cell
+        self.c = None                     # normalised concentration C/C_eq
+                                          # LEAVING each cell, not entering
+        self.H = None                     # hydraulic head [m]
+        self.q = None                     # through-flux per cell [m2/s]
+        self.q_v = None                   # flux on vertical links, down [m2/s]
+        self.q_h = None                   # flux on horizontal links, right
+        self._in_above = None             # inflow from the row above
+        self._in_left = None              # inflow from the left neighbour
+        self._in_right = None             # inflow from the right neighbour
 
     # ---- parameter setters (one per parameter; units in the docstring)
 
@@ -116,34 +142,63 @@ class Weathering(object):
         return self.L_eq_ref * np.exp(
             (self.E_a / self.R_gas) * (1.0 / self.T - 1.0 / self.T_ref))
 
-    def route_flow(self):
+    def solve_flow(self):
         """
-        Steady gravity-driven descent, in one sweep from the surface down.
+        Steady Darcy head, and the link fluxes it implies.
 
-        Each cell hands its water to the three cells below, split by their
-        conductance. Gravity orders the grid by depth, so this is a single pass
-        and no pressure solve is needed. Conductance does not change as the
-        rock weathers, so this is computed once.
+        Finite volume on square cells, so the geometric factor is one: the flux
+        along a link is ``K * (H_i - H_j)`` in m2/s per unit thickness. ``H`` is
+        TOTAL head with elevation already in it -- adding a separate gravity
+        term to the link flux double-counts it and manufactures water.
+
+        Conductance is static, so this runs once.
         """
-        self._K = np.where(self.network.cell, self.k_fracture, self.k_matrix)
-        q = np.zeros((self.nz, self.nx))
-        q[0, :] = self.infiltration * self.dx        # m2/s per unit thickness
-        for iz in range(self.nz - 1):
-            f_l, f_c, f_r = self._split(iz + 1)
-            send = q[iz, :]
-            q[iz + 1, :] += send * f_c
-            q[iz + 1, :-1] += (send * f_l)[1:]
-            q[iz + 1, 1:] += (send * f_r)[:-1]
-        self.q = q
-        return q
+        nz, nx, dx = self.nz, self.nx, self.dx
+        n = nz * nx
+        idx = np.arange(n).reshape(nz, nx)
 
-    def _split(self, iz):
-        """Fractions of a cell's water going down-left, down and down-right."""
-        below = self._K[iz, :]
-        wl = np.concatenate([[0.0], below[:-1]])
-        wr = np.concatenate([below[1:], [0.0]])
-        tot = wl + below + wr
-        return wl / tot, below / tot, wr / tot
+        kv = np.where(self.network.link_v, self.k_fracture, self.k_matrix)
+        kh = np.where(self.network.link_h, self.k_fracture, self.k_matrix)
+
+        rows, cols, vals = [], [], []
+        pairs = ((idx[:-1, :].ravel(), idx[1:, :].ravel(), kv.ravel()),
+                 (idx[:, :-1].ravel(), idx[:, 1:].ravel(), kh.ravel()))
+        for a, b, k in pairs:
+            rows += [a, a, b, b]
+            cols += [a, b, b, a]
+            vals += [k, -k, k, -k]
+        A = sp.coo_matrix((np.concatenate(vals),
+                           (np.concatenate(rows), np.concatenate(cols))),
+                          shape=(n, n)).tocsr()
+
+        # Infiltration into the top row [m2/s per unit thickness].
+        b = np.zeros(n)
+        b[idx[0, :]] = self.infiltration * dx
+
+        # Base: the drainage boundary, psi = 0, so H = -depth.
+        base = idx[-1, :]
+        A = A.tolil()
+        A[base, :] = 0.0
+        A[base, base] = 1.0
+        b[base] = -(nz - 0.5) * dx
+
+        H = spl.spsolve(A.tocsc(), b).reshape(nz, nx)
+        self.H = H
+        self.q_v = kv * (H[:-1, :] - H[1:, :])      # positive downward
+        self.q_h = kh * (H[:, :-1] - H[:, 1:])      # positive rightward
+
+        # Per-cell inflows, split by where they come from. Vertical flow is
+        # strictly downward (checked in prototypes/probe_d_darcy.py), so the
+        # only vertical inflow to a cell is from the row above it.
+        self._in_above = np.zeros((nz, nx))
+        self._in_above[0, :] = self.infiltration * dx
+        self._in_above[1:, :] = np.maximum(self.q_v, 0.0)
+        self._in_left = np.zeros((nz, nx))          # from the cell to the left
+        self._in_left[:, 1:] = np.maximum(self.q_h, 0.0)
+        self._in_right = np.zeros((nz, nx))         # from the cell to the right
+        self._in_right[:, :-1] = np.maximum(-self.q_h, 0.0)
+        self.q = self._in_above + self._in_left + self._in_right
+        return self.q
 
     # ---- lifecycle
 
@@ -152,56 +207,64 @@ class Weathering(object):
         self.M = np.ones((self.nz, self.nx))
         self.c = np.zeros((self.nz, self.nx))
         self.t = 0.0
-        self.route_flow()
+        self.solve_flow()
         return self
 
     def update(self, dt=None):
         """
         Advance the rock state by one step, and return the step actually taken.
 
-        The solute sweep follows the flow: water enters the top fresh, and each
-        cell's outlet concentration is the exact integral of the rate law over
-        the cell. What the water picked up is what the rock lost.
+        The solute balance in a cell is steady -- transport is fast compared
+        with the rock -- so what leaves equals what entered plus what dissolved:
+
+            Q_i (1 + beta_i) c_i  -  sum(lateral inflow) c_j
+                =  Q_i beta_i  +  (solute arriving from above)
+
+        where ``Q_i`` is the through-flux and ``beta = expm1(dx / L_eq)``. That
+        choice of beta is not an approximation: substituted into the balance it
+        reproduces the exact exponential ``c_out = 1 + (c_in - 1) exp(-dx/L_eq)``
+        in the one-dimensional case, while keeping the equation linear in the
+        two-dimensional one.
+
+        Vertical flow is everywhere downward, so rows can be swept in order.
+        Within a row, water moving sideways along a joint couples neighbouring
+        cells, which makes each row a tridiagonal system rather than a plain
+        pass -- and that lateral coupling is the whole point of solving for the
+        head instead of routing water downhill by rule.
         """
         # Surface area falls with the mineral that is left, so L_eq grows.
         L_eq = self.equilibration_length / np.maximum(self.M, 1e-6)
+        beta = np.expm1(self.dx / L_eq)
 
-        c_in = np.zeros((self.nz, self.nx))
-        dissolved = np.zeros((self.nz, self.nx))
-        carry_q = np.zeros(self.nx)
-        carry_qc = np.zeros(self.nx)
+        c = np.zeros((self.nz, self.nx))
+        Q = self.q
+        solute_above = np.zeros(self.nx)
 
         for iz in range(self.nz):
-            qi = self.q[iz, :]
-            if iz == 0:
-                ci = np.zeros(self.nx)
-            else:
-                ci = np.where(qi > 0.0,
-                              carry_qc / np.maximum(carry_q, 1e-300), 0.0)
-            c_out = 1.0 + (ci - 1.0) * np.exp(-self.dx / L_eq[iz, :])
-            dissolved[iz, :] = qi * (c_out - ci) / self.dx
-            c_in[iz, :] = ci
-            if iz == self.nz - 1:
-                break
-            carry_q = np.zeros(self.nx)
-            carry_qc = np.zeros(self.nx)
-            for w, shift in zip(self._split(iz + 1), (-1, 0, +1)):
-                add_q, add_qc = qi * w, qi * w * c_out
-                if shift == 0:
-                    carry_q += add_q
-                    carry_qc += add_qc
-                elif shift == -1:
-                    carry_q[:-1] += add_q[1:]
-                    carry_qc[:-1] += add_qc[1:]
-                else:
-                    carry_q[1:] += add_q[:-1]
-                    carry_qc[1:] += add_qc[:-1]
+            q_i = Q[iz, :]
+            live = q_i > 0.0
 
-        rate = dissolved / (self.tau * self.dx)        # d(M/M0)/dt [1/s]
+            diag = np.where(live, q_i * (1.0 + beta[iz, :]), 1.0)
+            # Coefficients on the left and right neighbours' concentrations.
+            lower = np.where(live, -self._in_left[iz, :], 0.0)
+            upper = np.where(live, -self._in_right[iz, :], 0.0)
+            rhs = np.where(live, q_i * beta[iz, :] + solute_above, 0.0)
+
+            ab = np.zeros((3, self.nx))
+            ab[0, 1:] = upper[:-1]        # superdiagonal
+            ab[1, :] = diag
+            ab[2, :-1] = lower[1:]        # subdiagonal
+            c[iz, :] = np.clip(solve_banded((1, 1), ab, rhs), 0.0, 1.0)
+
+            if iz < self.nz - 1:
+                solute_above = self._in_above[iz + 1, :] * c[iz, :]
+
+        # What the water picked up is what the rock lost, per unit volume.
+        rate = Q * beta * (1.0 - c) / (self.tau * self.dx * self.dx)
         step = min(dt if dt is not None else self.dt_max,
                    self.dx_max / max(rate.max(), 1e-30))
         self.M = np.clip(self.M - rate * step, 0.0, 1.0)
-        self.c = c_in
+        self.c = c
         self.t += step
         return step
 

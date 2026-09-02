@@ -21,21 +21,53 @@ def test_the_rock_starts_fresh_and_the_water_starts_clean():
     assert m.t == 0.0
 
 
-def test_the_flow_routing_conserves_water():
+def test_the_flow_solution_conserves_water():
     """
-    Every cell hands on all of its water, and the edge columns have no
-    off-grid receiver, so each row carries the whole infiltration.
+    Steady flow with no sources below the surface: whatever infiltrates must
+    cross every horizontal plane and leave at the base.
     """
     m = _model().initialize()
-    top = m.q[0, :].sum()
-    for iz in range(m.nz):
-        assert m.q[iz, :].sum() == pytest.approx(top, rel=1e-12)
+    inflow = m.infiltration * m.dx * m.nx
+    for iz in range(m.nz - 1):
+        assert m.q_v[iz, :].sum() == pytest.approx(inflow, rel=1e-9)
+
+
+def test_flow_is_downward_everywhere_so_rows_can_be_swept():
+    """
+    A flow driven by the gradient of a potential cannot circulate. The solute
+    step sweeps rows in order and relies on this; it is checked, not assumed.
+    """
+    m = _model().initialize()
+    assert (m.q_v < 0.0).sum() == 0
+
+
+def test_the_horizontal_joints_carry_water():
+    """
+    The reason for solving a flow equation rather than routing water downhill.
+    A gravity cascade can enter a subhorizontal joint but never travel along
+    one, which left the whole horizontal set inert.
+
+    The contrast grows with resolution -- 9x at dx = 0.20 m and 34x at
+    0.05 m -- because a coarse grid marks a larger fraction of links as
+    fractured and dilutes it. The threshold here is set for the coarse case.
+    """
+    m = _model().initialize()
+    net = m.network
+    on_joint = np.abs(m.q_h[net.link_h]).mean()
+    intact = np.abs(m.q_h[~net.link_h]).mean()
+    assert on_joint > 5.0 * intact
 
 
 def test_water_enters_fresh_and_saturates_with_depth():
+    """
+    ``c`` is the concentration leaving a cell, not entering it, so the top row
+    is small rather than exactly zero: rain arrives fresh and picks up a little
+    on its way through. By the base it is saturated.
+    """
     m = _model().run(years=50e3)
-    assert m.c[0, :].max() == 0.0                    # rain arrives undersaturated
+    assert m.c[0, :].max() < 0.05
     assert np.median(m.c[-1, :]) > np.median(m.c[5, :])
+    assert np.median(m.c[-1, :]) > 0.9
     assert m.c.max() <= 1.0 + 1e-12
     assert np.allclose(m.affinity, 1.0 - m.c)
 
@@ -88,7 +120,12 @@ def test_weathering_only_ever_advances():
 
 
 def test_no_rain_means_no_weathering():
+    """
+    No infiltration, no flux, no dissolution. The residual is the head solver's
+    roundoff -- the exact solution is a uniform head and identically zero flux.
+    """
     m = _model()
     m.set_infiltration(0.0)
     m.run(years=100e3)
-    assert np.all(m.dissolved_fraction == 0.0)
+    assert np.abs(m.q_v).max() < 1e-15
+    assert m.dissolved_fraction.max() < 1e-8
