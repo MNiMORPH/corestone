@@ -28,7 +28,7 @@ from matplotlib.lines import Line2D
 from scipy.ndimage import uniform_filter
 
 from corestone import (FractureNetwork, Weathering, orthogonal_grid,
-                       periodic_grid_shape)
+                       periodic_grid_shape, rotated_grid_shape)
 
 # ---- what to draw -------------------------------------------------------------
 def _arg(flag, default, cast=float):
@@ -43,12 +43,19 @@ WIDTH = _arg("--width", 20.0)              # section width asked for [m]
 DEPTH = _arg("--depth", 15.0)              # section depth asked for [m]
 OUT = _arg("--out", "examples/figure_three_panel.png", str)
 
-# Cell counts that tile the period exactly, with a joint on each wall and none
-# repeated at the seam. The section is snapped DOWN to a whole number of joint
-# spacings, so it may come out smaller than asked for; the header says which.
-NZ, NX = periodic_grid_shape(WIDTH, DEPTH, DX, SPACING)
+ROTATION = _arg("--rotation", 0.0)         # turn the whole joint pair [deg]
+XPERIOD = _arg("--xperiod", 2.0)           # along-x repeat when rotated [m]
 
-net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(sets=orthogonal_grid(SPACING),
+# Cell counts that tile the period exactly. The section is snapped DOWN to a
+# whole number of repeats, so it may come out smaller than asked for; the
+# header says which. A rotated pair tiles on its along-x period rather than on
+# the joint spacing, so it needs the other helper -- and that sets the spacing.
+if ROTATION:
+    NZ, NX, SPACING = rotated_grid_shape(WIDTH, DEPTH, DX, XPERIOD, ROTATION)
+else:
+    NZ, NX = periodic_grid_shape(WIDTH, DEPTH, DX, SPACING)
+
+net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(sets=orthogonal_grid(SPACING, rotation=ROTATION),
                                        rng=np.random.default_rng(12345))
 model = Weathering(net).run(years=KYR * 1e3)
 
@@ -123,8 +130,9 @@ im = ax.imshow(np.log10(np.maximum(qn, 1e-3)), extent=EXT, origin="upper",
                cmap="Blues", vmin=-1.5, vmax=1.5, interpolation="nearest")
 joints(ax)
 dress(ax, "1   The plumbing",
-      "Steady Darcy flow: the head field decides where water goes. Joints\n"
-      "conduct, and water runs ALONG the horizontal ones to the next vertical.")
+      "Steady Darcy flow: the head field decides where water goes. The joints\n"
+      "conduct and the rock between them barely does, so water runs along the\n"
+      "network — including sideways, which pure gravity routing cannot do.")
 ax.set_ylabel("Depth [m]", color=MUTED, fontsize=9)
 bar(im, cbax[0], "water flux, relative to mean infiltration",
     ticks=[-1.5, 0, 1.5], ticklabels=["0.03×", "1×", "30×"])
@@ -200,9 +208,10 @@ fig.text(0.045, 0.962, "corestone – fracture-controlled granite weathering",
          fontsize=15.5, color=INK, ha="left", va="top", weight="bold")
 fig.text(0.045, 0.915,
          "%.2f × %.2f m section at %.0f cm, %.0f kyr at %.0f K, joints every "
-         "%.2f m. Every parameter is a placeholder – see "
+         "%.2f m%s. Every parameter is a placeholder – see "
          "design/02-teaching-scope.md."
-         % (LX, LZ, DX * 100, KYR, model.T, SPACING),
+         % (LX, LZ, DX * 100, KYR, model.T, SPACING,
+            "" if not ROTATION else ", rotated %.0f°" % ROTATION),
          fontsize=9.5, color=MUTED, ha="left", va="top")
 
 p2 = axes[1].get_position()
