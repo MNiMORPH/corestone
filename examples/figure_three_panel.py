@@ -41,6 +41,11 @@ X = model.dissolved_fraction
 q = model.q
 affinity = model.affinity
 L_eq = model.equilibration_length
+# Quote L_eq for FRESH rock. It also scales as 1/M, so in cells that have
+# given up their soluble phase it runs to the M floor and means nothing.
+L_fresh = L_eq * model.q / (model.infiltration * model.dx)
+L_joint = np.median(L_fresh[net.cell])
+L_matrix = np.median(L_fresh[~net.cell])
 LX, LZ = net.lx, net.lz
 
 INK, MUTED = "#1a1a1a", "#6b6b6b"
@@ -116,12 +121,18 @@ im = ax.imshow(affinity, extent=EXT, origin="upper", cmap="Greens",
 joints(ax, color="#0b3d20")
 dress(ax, "2   The equation, made visible",
       "Dark green is fresh water with capacity left. Pale is water already\n"
-      "saturated: the bracket is zero and weathering has stopped.")
+      "saturated. The matrix saturates within one cell; only the joints, where\n"
+      "the water moves fast enough to outrun the reaction, stay undersaturated.")
 bar(im, cbax[1], r"affinity term  $1 - C/C_{eq}$")
-ax.text(0.982, 0.045, "$L_{eq}$ = %.2f m" % L_eq,
-        transform=ax.transAxes, ha="right", va="bottom", fontsize=10.5,
-        color=INK, bbox=dict(boxstyle="round,pad=0.35", fc="white",
-                             ec="#c9c9c9", alpha=0.94))
+# L_eq is LOCAL: it scales with the flux, so it differs by two orders of
+# magnitude between a joint and the matrix. Quoting one number would mislead.
+ax.text(0.982, 0.045,
+        "$L_{eq}$ = %.2f m at mean infiltration\n"
+        "locally %.3f m in the matrix, %.1f m in a joint" % (L_eq, L_matrix, L_joint),
+        transform=ax.transAxes, ha="right", va="bottom", fontsize=9.5,
+        color=INK, linespacing=1.4,
+        bbox=dict(boxstyle="round,pad=0.35", fc="white",
+                  ec="#c9c9c9", alpha=0.94))
 
 # ---- 3: what is left ----------------------------------------------------------
 ax = axes[2]
