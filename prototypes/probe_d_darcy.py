@@ -37,7 +37,7 @@ from corestone import FractureNetwork, JointSet, orthogonal_grid
 
 YR = 365.25 * 24 * 3600.0
 
-NZ, NX, DX = 300, 400, 0.05
+NZ, NX, DX = 300, 401, 0.05
 INFILTRATION = 0.30 / YR              # m/s
 K_MATRIX = 1.0e-8                     # intact granite [m/s]   PLACEHOLDER
 K_FRACTURE = 1.0e-5                   # jointed rock  [m/s]    PLACEHOLDER

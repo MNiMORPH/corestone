@@ -24,7 +24,10 @@ from scipy.ndimage import uniform_filter
 from corestone import FractureNetwork, Weathering, orthogonal_grid
 
 # ---- what to draw -------------------------------------------------------------
-NZ, NX, DX = 300, 400, 0.05                # 20 x 15 m section at 5 cm
+NZ, NX, DX = 300, 401, 0.05                # 20.05 x 15 m at 5 cm; nx is
+                                           # ODD so the regular joint
+                                           # pattern rasterises mirror-
+                                           # symmetrically
 SPACING = 1.5                              # joint spacing [m]
 KYR = 100.0                                # elapsed time
 OUT = "examples/figure_three_panel.png"

@@ -241,19 +241,27 @@ class FractureNetwork(object):
         t_c, s_c = box @ n0, box @ d0
 
         regular = js.spacing_sigma == 0.0 and js.kappa is None
-        # A regular set is phased half a spacing in from the edge, so no joint
-        # lands exactly on the boundary.
-        out, t = [], t_c.min() + (0.5 * js.spacing if regular else 0.0)
+        mid = 0.5 * (s_c.min() + s_c.max()) * d0
+
+        if regular:
+            # CENTRE the pattern. Stepping from one edge until the domain runs
+            # out leaves the whole remainder on the far side: at 1.5 m spacing
+            # across 20 m the margins came out 1.25 m and 0.75 m, and the flow
+            # and weathering inherited that asymmetry from the geometry.
+            # The domain is not generally a whole number of spacings, so the
+            # margins cannot equal half a spacing -- but they can be equal.
+            span = t_c.max() - t_c.min()
+            n = max(int(round(span / js.spacing)), 1)
+            margin = 0.5 * (span - (n - 1) * js.spacing)
+            offsets = t_c.min() + margin + np.arange(n) * js.spacing
+            return [(mid + t * n0, d0) for t in offsets]
+
+        out, t = [], t_c.min()
         while t < t_c.max():
-            if js.kappa is None:
-                d = d0
-            else:
-                th = np.deg2rad(js.dip_deg) + rng.vonmises(0.0, js.kappa)
-                d = np.array([np.cos(th), np.sin(th)])
-            origin = 0.5 * (s_c.min() + s_c.max()) * d0 + t * n0
-            out.append((origin, d))
-            t += (js.spacing if js.spacing_sigma == 0.0
-                  else rng.lognormal(np.log(js.spacing), js.spacing_sigma))
+            th = np.deg2rad(js.dip_deg) + rng.vonmises(0.0, js.kappa)
+            d = np.array([np.cos(th), np.sin(th)])
+            out.append((mid + t * n0, d))
+            t += rng.lognormal(np.log(js.spacing), js.spacing_sigma)
         return out
 
     def _abut(self, origin, d, hosts, js, rng):
@@ -297,7 +305,17 @@ class FractureNetwork(object):
                 if nm == set_name]
 
     def _rasterize(self):
-        """Mark the cells each trace threads, and the links along it."""
+        """
+        Mark the cells each trace threads, and the links along it.
+
+        A note on symmetry. A centred regular pattern is symmetric as geometry,
+        but the raster is only mirror-symmetric if the cell count across the
+        domain is **odd**: with an even count and a spacing that is an even
+        number of cells, the mirror of the first joint column falls one cell
+        short of the last, and every joint carries a one-cell offset. Measured
+        on a 20 m section at 5 cm: mean mirror mismatch in the dissolved
+        fraction 0.065 at nx = 400, and exactly 0 at nx = 401.
+        """
         self.cell = np.zeros((self.nz, self.nx), dtype=bool)
         self.link_v = np.zeros((self.nz - 1, self.nx), dtype=bool)
         self.link_h = np.zeros((self.nz, self.nx - 1), dtype=bool)

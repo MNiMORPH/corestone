@@ -30,7 +30,7 @@ import numpy as np
 
 from corestone import FractureNetwork, Weathering, orthogonal_grid
 
-NZ, NX, DX = 300, 400, 0.05
+NZ, NX, DX = 300, 401, 0.05        # odd nx: see FractureNetwork._rasterize
 SPACING = 1.5
 
 

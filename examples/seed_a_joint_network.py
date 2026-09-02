@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 
 from corestone import FractureNetwork, orthogonal_grid
 
-NZ, NX, DX = 300, 400, 0.05                    # a 20 x 15 m section
+NZ, NX, DX = 300, 401, 0.05                    # 20.05 x 15 m; odd nx
 L_EQ = 0.50                                    # equilibration length [m]
 
 net = FractureNetwork(NZ, NX, DX).seed(

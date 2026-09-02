@@ -179,3 +179,20 @@ def test_the_orthogonal_grid_does_not_depend_on_the_generator():
     b = _net(seed=999, sets=orthogonal_grid(spacing=1.5))
     assert np.array_equal(a.cell, b.cell)
     assert len(a.segments) == len(b.segments)
+
+
+def test_a_centred_regular_grid_is_left_right_symmetric():
+    """
+    Stepping the pattern from one edge until the domain runs out leaves the
+    whole remainder on the far side -- at 1.5 m spacing across 20 m the margins
+    came out 1.25 m and 0.75 m, and the flow inherited that asymmetry from the
+    geometry. The pattern is centred instead.
+
+    The raster is only exactly mirror-symmetric when the cell count is ODD; see
+    FractureNetwork._rasterize.
+    """
+    n = FractureNetwork(300, 401, 0.05).seed(sets=orthogonal_grid(1.5),
+                                             rng=np.random.default_rng(1))
+    xs = np.array(sorted({round(p0[0], 6) for p0, _ in n.segments_of("J1")}))
+    assert xs.min() == pytest.approx(n.lx - xs.max())
+    assert np.array_equal(n.cell, n.cell[:, ::-1])
