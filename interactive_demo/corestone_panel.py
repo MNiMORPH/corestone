@@ -291,5 +291,9 @@ pn.Column(
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
            max_width=DESIGN_WIDTH),
-    sizing_mode="stretch_width", max_width=DESIGN_WIDTH,
+    # Centred, not jammed left. The cap means the app can be narrower than the
+    # frame -- whenever the embedding page has not scaled the frame to the
+    # design width -- and left-aligned that reads as a broken layout with a
+    # slab of empty space beside it rather than as a demo.
+    sizing_mode="stretch_width", max_width=DESIGN_WIDTH, align="center",
 ).servable(title="corestone – fracture-controlled granite weathering")
