@@ -90,8 +90,16 @@ C_DRIFT_MAX = 0.01
 # ran away wider than the page. Capping here gives the loop a fixed point,
 # from the app's side, in one place, whatever the browser does.
 DESIGN_WIDTH = 900
-SLIDER_WIDTH = 520
-FIG_W, FIG_H = 420, 400
+#: A third of the width each, since the three sit on one row. Stacked, each
+#: took a label line and a track line and the three of them were 150 px of an
+#: 809 px app -- and the embedding page scales that height along with the
+#: width, so every pixel here is multiplied on a wide screen.
+SLIDER_WIDTH = DESIGN_WIDTH // 3 - 20
+#: Wider than it is tall, because a figure is not its data area: the depth
+#: axis and its label take about 55 px on the left and the colour bar another
+#: 60 on the right, while only the distance axis (~55 px) is below. Sized 1:1,
+#: as this was, a SQUARE section comes out visibly taller than it is wide.
+FIG_W, FIG_H = 460, 400
 
 
 def _spacings(angle_deg):
@@ -109,7 +117,7 @@ def _spacings(angle_deg):
 # quantises the spacing too. Off those values the joints fail to line up
 # across the seam.
 angle = pn.widgets.DiscreteSlider(
-    name="Joint orientation [° from vertical]",
+    name="Joint orientation [°]",
     options={"%.1f°" % a: a for a, _, _ in ANGLES}, value=0.0,
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 spacing = pn.widgets.DiscreteSlider(
@@ -117,7 +125,7 @@ spacing = pn.widgets.DiscreteSlider(
     options={"%.2f m" % s: s for s in _spacings(0.0)}, value=1.0,
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 infiltration = pn.widgets.FloatSlider(
-    name="Infiltration rate [m/yr]", start=0.05, end=1.00, step=0.05,
+    name="Infiltration [m/yr]", start=0.05, end=1.00, step=0.05,
     value=0.30, format="0.00",
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 
@@ -244,24 +252,22 @@ def _resnap_spacing(a):
 
 do_reset()
 
+# ONE line, not four paragraphs. This app is embedded in a page that already
+# explains the mechanism directly above the frame, so prose here is read twice
+# and paid for once in height: the three paragraphs that used to sit here were
+# 180 px of an 809 px app, and the frame is sized to its content. What has to
+# stay is the placeholder warning, which belongs with the numbers rather than
+# with the teaching, and enough of a title that the app still makes sense
+# opened on its own.
 pn.Column(
     pn.pane.Markdown(
-        "### Why a corestone survives\n"
-        "Press **▶**. Rain enters at the surface and runs down the joints, "
-        "dissolving the granite it touches. Once the water has taken all the "
-        "solute it can hold it stops weathering, however soluble the rock — "
-        "so the blocks are eaten inward from every face, fastest at the "
-        "corners, which shed solute to two joints rather than one. That is "
-        "the rounding.\n\n"
-        "The rounded lumps left in the middle are **corestones**, and they "
-        "are *not tougher rock*. Same granite, same minerals, same "
-        "temperature as the grus crumbling around them. They are simply "
-        "where the water never reached, or reached already saturated.\n\n"
-        "*Every parameter is a placeholder; this teaches the mechanism, not "
-        "a rate.*",
-        sizing_mode="stretch_width"),
+        "**Why a corestone survives** — press **▶** and watch the blocks "
+        "round inward. *Every parameter is a placeholder; this teaches the "
+        "mechanism, not a rate.*",
+        margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
     pn.Row(run, reset, readout),
-    angle, spacing, infiltration,
+    pn.Row(angle, spacing, infiltration, sizing_mode="stretch_width",
+           max_width=DESIGN_WIDTH),
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
            max_width=DESIGN_WIDTH),
     sizing_mode="stretch_width", max_width=DESIGN_WIDTH,
