@@ -189,6 +189,25 @@ def do_reset():
     _redraw()
 
 
+def show_result(event=None):
+    """Jump straight to the state at the chosen time, without animating.
+
+    Always from fresh rock, even when the model has not yet reached that time
+    and could simply be advanced. Watching it evolve is one question; asking
+    what the rock looks like at 50 kyr is another, and the answer to the second
+    should not depend on what was pressed before it. Rebuilding makes this a
+    function of the sliders alone, which is what lets two settings be compared:
+    same time, same answer, every time.
+    """
+    run.value = False                          # stop animating, if it was
+    do_reset()
+    m = sim["model"]
+    target = stop_at.value * 1e3 * YEAR
+    while m.t < target - 1e-9 * YEAR:
+        m.update(dt_limit=target - m.t)
+    _redraw()
+
+
 def _joints():
     """The joint traces, as segments in metres."""
     net = sim["net"]
@@ -264,6 +283,8 @@ stop_at = pn.widgets.IntSlider(
 
 run = animator(step)
 reset = reset_button(do_reset, name="Fresh rock")
+jump = pn.widgets.Button(name="Show result", button_type="default", width=120)
+jump.on_click(show_result)
 
 # Every slider rebuilds: the joint geometry is the initial condition, and the
 # infiltration rate sets a flow field that is solved once and held. None of
@@ -294,11 +315,11 @@ do_reset()
 pn.Column(
     pn.pane.Markdown(
         "**Why a corestone survives** – press **▶** and watch the blocks "
-        "round inward. Set **Run to** and it stops there, so two settings can "
-        "be compared at the same age. *Every parameter is a placeholder; this "
-        "teaches the mechanism, not a rate.*",
+        "round inward, or **Show result** to jump straight to the state at "
+        "**Run to**. *Every parameter is a placeholder; this teaches the "
+        "mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
-    pn.Row(run, reset, stop_at, readout),
+    pn.Row(run, reset, stop_at, jump, readout),
     pn.Row(angle, spacing, infiltration, temperature,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
