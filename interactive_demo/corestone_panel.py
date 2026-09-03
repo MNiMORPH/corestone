@@ -31,7 +31,8 @@ demo teaches the mechanism, and no number out of it is a result.
 """
 import numpy as np
 import panel as pn
-from bokeh.models import ColorBar, ColumnDataSource, LinearColorMapper, Range1d
+from bokeh.models import (ColorBar, ColumnDataSource, FixedTicker,
+                         LinearColorMapper, Range1d)
 from bokeh.palettes import Greens256, Oranges256
 from bokeh.plotting import figure
 
@@ -285,8 +286,16 @@ joints_left = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 joints_right = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 
 
-def _panel(source, joints, palette, label):
-    """One map of the section, with its colour bar and joint traces."""
+def _panel(source, joints, palette, label, ends):
+    """
+    One map of the section, with its colour bar and joint traces.
+
+    ``ends`` names what 0 and 1 ARE, on the bar itself. "fraction dissolved"
+    is true and says nothing: what a reader wants to know is that the pale end
+    is intact rock and the dark end is grus. The numbers stay, since the
+    fraction is a real quantity and the middle of the bar has to mean
+    something, but the two ends are labelled in words.
+    """
     fig = figure(width=FIG_W, height=FIG_H,
                  x_axis_label="Distance [m]", y_axis_label="Depth [m]",
                  x_range=Range1d(0, LX), y_range=Range1d(LZ, 0),
@@ -297,7 +306,9 @@ def _panel(source, joints, palette, label):
     fig.segment("x0", "y0", "x1", "y1", source=joints,
                 color="#2a2a2a", line_width=1, alpha=0.45)
     bar = ColorBar(color_mapper=mapper, width=8, title=label,
-                   label_standoff=6, padding=4)
+                   label_standoff=6, padding=4,
+                   ticker=FixedTicker(ticks=[0.0, 0.25, 0.5, 0.75, 1.0]),
+                   major_label_overrides={0.0: ends[0], 1.0: ends[1]})
     fig.add_layout(bar, "right")
     # Half the design width each, since the two sit side by side. Without a
     # bound, responsive() defaults to 1200 PER FIGURE, so the row is entitled
@@ -309,9 +320,10 @@ def _panel(source, joints, palette, label):
 
 # Palettes reversed so that 0 is pale and 1 is saturated: bokeh's 256-step
 # ramps run dark to light.
-fig_left = _panel(affinity, joints_left, Greens256[::-1], "1 − C/Ceq")
+fig_left = _panel(affinity, joints_left, Greens256[::-1], "1 − C/Ceq",
+                  ("saturated", "fresh"))
 fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
-                   "fraction dissolved")
+                   "soluble phase dissolved", ("rock", "grus"))
 
 readout = pn.pane.Markdown("", sizing_mode="stretch_width")
 #: Which moment to jump to. It belongs to Show, not to Run: Run animates from
@@ -324,7 +336,7 @@ at_time = pn.widgets.IntSlider(
 
 run = animator(step)
 reset = reset_button(do_reset, name="Fresh rock")
-jump = pn.widgets.Button(name="Show", button_type="default", width=90)
+jump = pn.widgets.Button(name="Show", button_type="success", width=90)
 jump.on_click(show_result)
 
 # Every slider rebuilds: the joint geometry is the initial condition, and the
@@ -378,7 +390,14 @@ pn.Column(
         "straight there. *Every parameter is a placeholder; this teaches the "
         "mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
-    pn.Row(run, reset, at_time, jump, readout),
+    # Two ways to drive the model, kept visibly apart: watch it happen, or
+    # ask what it looks like at one moment. Running them together in one row
+    # made Show read as a third button belonging to the animation.
+    pn.Row(pn.Row(run, reset),
+           pn.Spacer(width=44),
+           pn.Row(at_time, jump, align="end"),
+           pn.Spacer(width=24),
+           readout, sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(angle, spacing, infiltration, temperature, cell,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
