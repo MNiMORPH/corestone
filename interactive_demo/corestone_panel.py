@@ -280,18 +280,35 @@ def _joints():
                     "x1": seg[:, 2], "y1": seg[:, 3]}
 
 
+#: Colour-bar range for the water speed, as log10 of metres per year.
+#:
+#: Five decades, 0.0001 to 10 m/yr. Across every slider setting the speed runs
+#: from 5e-5 m/yr in stagnant rock at the lowest infiltration to 20 m/yr in a
+#: joint at the highest, and a range covering all of that would be seven
+#: decades -- which washes the picture out, since at any ONE setting the
+#: section only spans about four. So the ends clip a little at the extremes of
+#: the infiltration slider, and only inside joints, which are already the
+#: darkest thing on the map and lose nothing by saturating.
+SPEED_LOG_LOW, SPEED_LOG_HIGH = -4.0, 1.0
+
+
 def _speed_field(m):
-    """Water speed as orders of magnitude against the mean infiltration rate.
+    """Water speed in metres per year, logarithmically.
 
-    Logarithmic because it spans four of them: the matrix starts at about a
-    thousandth of what falls on the surface while the joints carry twenty
-    times it. On a linear scale the whole section would be white except the
-    joints, which is a picture of the joint network and not of the flow.
+    In real units, not as a multiple of the infiltration rate: a reader can
+    ask whether a metre a year is fast for groundwater, and cannot ask that of
+    a ratio.
 
-    Fixed limits, not per-frame, so that two settings can be compared -- the
-    same reason Show rebuilds from fresh rock.
+    Logarithmic because it spans four orders of magnitude at any one setting
+    -- the matrix starts near a thousandth of what falls on the surface while
+    the joints carry twenty times it -- and on a linear scale everything but
+    the joints would be white, which is a picture of the joint network rather
+    than of the flow.
+
+    Fixed limits, not per-frame, so two settings can be compared: the same
+    reason Show rebuilds from fresh rock.
     """
-    return np.log10(np.maximum(m.darcy_speed, 1e-30) / m.infiltration)
+    return np.log10(np.maximum(m.darcy_speed, 1e-30) * YEAR)
 
 
 def _redraw():
@@ -324,17 +341,18 @@ joints_left = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 joints_right = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 
 
-def _panel(source, joints, palette, label, ends, low=0.0, high=1.0,
+def _panel(source, joints, palette, label, labels, low=0.0, high=1.0,
            ticks=(0.0, 0.25, 0.5, 0.75, 1.0)):
     """
     One map of the section, with its colour bar and joint traces.
 
-    ``ends`` names what 0 and 1 ARE, on the bar itself, since a bare fraction
-    says nothing. They name the QUANTITY and not a rock type: "none" and "all"
-    of the soluble phase, "saturated" and "fresh" water. Calling the dark end
-    "grus" was a petrological claim the model cannot support -- the sequence
-    fresh rock, saprock, saprolite, grus is a matter of fabric and mineralogy,
-    not of how much of one phase has gone.
+    ``labels`` relabels chosen ticks, because a bare number on a colour bar
+    says nothing. For the speed it undoes the logarithm and gives metres per
+    year; for the dissolved fraction it names the ends of the QUANTITY --
+    "none" and "all" of the soluble phase. Not a rock type: calling the dark
+    end "grus" was a petrological claim the model cannot support, since the
+    sequence fresh rock, saprock, saprolite, grus is a matter of fabric and
+    mineralogy and not of how much of one phase has gone.
     """
     fig = figure(width=FIG_W, height=FIG_H,
                  x_axis_label="Distance [m]", y_axis_label="Depth [m]",
@@ -348,8 +366,7 @@ def _panel(source, joints, palette, label, ends, low=0.0, high=1.0,
     bar = ColorBar(color_mapper=mapper, width=8, title=label,
                    label_standoff=6, padding=4,
                    ticker=FixedTicker(ticks=list(ticks)),
-                   major_label_overrides={ticks[0]: ends[0],
-                                          ticks[-1]: ends[1]})
+                   major_label_overrides=dict(labels))
     fig.add_layout(bar, "right")
     # Half the design width each, since the two sit side by side. Without a
     # bound, responsive() defaults to 1200 PER FIGURE, so the row is entitled
@@ -361,13 +378,16 @@ def _panel(source, joints, palette, label, ends, low=0.0, high=1.0,
 
 # Palettes reversed so that 0 is pale and 1 is saturated: bokeh's 256-step
 # ramps run dark to light.
-# Water, so blue; and a log scale from a thousandth of the mean infiltration
-# rate to ten times it, which is the range the section actually spans.
+# Water, so blue. The bar is labelled in metres per year, undoing the
+# logarithm, so the numbers on it are speeds and not exponents.
 fig_left = _panel(speed, joints_left, Blues256[::-1],
-                  "water speed ÷ rainfall rate", ("×0.001", "×10"),
-                  low=-3.0, high=1.0, ticks=(-3.0, -2.0, -1.0, 0.0, 1.0))
+                  "water speed [m/yr]",
+                  {-4.0: "0.0001", -3.0: "0.001", -2.0: "0.01",
+                   -1.0: "0.1", 0.0: "1", 1.0: "10"},
+                  low=SPEED_LOG_LOW, high=SPEED_LOG_HIGH,
+                  ticks=(-4.0, -3.0, -2.0, -1.0, 0.0, 1.0))
 fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
-                   "soluble phase dissolved", ("none", "all"))
+                   "soluble phase dissolved", {0.0: "none", 1.0: "all"})
 
 readout = pn.pane.Markdown("", sizing_mode="stretch_width")
 #: Which moment to jump to. It belongs to Show, not to Run: Run animates from
