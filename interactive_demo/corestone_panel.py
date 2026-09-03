@@ -88,11 +88,28 @@ MAX_INDEX = 4
 SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 
 #: The longest moment Show will jump to. NOT a limit on Run, which keeps going
-#: until it is paused: at the slowest settings on offer -- 0.05 m/yr and 0
-#: degrees C -- the section is only a quarter dissolved after 200 kyr, so a cap
-#: there hid the interesting part rather than ending it. 1000 kyr is enough for
-#: every setting to finish.
-END_KYR = 1000.0
+#: until it is paused -- and that distinction is what makes a finite cap here
+#: safe, because NO cap finishes every setting. An earlier note claiming 1000
+#: kyr did was simply wrong: temperature and infiltration multiply, so the time
+#: to dissolve the section spans two orders of magnitude across the sliders.
+#: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
+#:
+#:     1.0 m, 0.30 m/yr, 12 C   default          65    145     194
+#:     1.0 m, 0.30 m/yr,  0 C   cold            123    274     377
+#:     1.0 m, 0.05 m/yr, 12 C   dry             240    517     710
+#:     1.0 m, 0.05 m/yr,  0 C   both            440   1001    1508
+#:     3.0 m, 0.05 m/yr,  0 C   and coarse      827  >2000   >2000
+#:
+#: 200 kyr would cut the temperature comparison in half -- the default finishes
+#: and 0 C does not -- which reads as the tool giving up rather than as a rate
+#: difference, and comparing rates is what the slider is for. 500 carries the
+#: default and the cold case past 99 % and the dry one to 88 %, which looks
+#: finished. The compound-slow corners it does not reach; Run does, unbounded.
+#:
+#: It also bounds what Show costs, since the jump computes the whole run: at
+#: 2 cm, 34.3 s here against 66.2 s for 1000 kyr. And it keeps the default's
+#: interesting range in the first 40 % of a slider stepped in 10 kyr.
+END_KYR = 500.0
 
 #: Longest step the demo will take, whatever the drift control asks for. The
 #: model's own ceiling is 50 kyr, which is right for a model and wrong for an
