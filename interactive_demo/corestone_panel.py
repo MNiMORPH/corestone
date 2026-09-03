@@ -43,20 +43,21 @@ from corestone import (FractureNetwork, Weathering, orthogonal_grid,
 pn.extension()
 
 # ---- the section ------------------------------------------------------------
-# 6.0 x 3.05 m at 5 cm cells: WIDER THAN DEEP, like the road cut or quarry face
-# this is a picture of. Resolution is chosen for how many cells cross a BLOCK,
-# since that is what makes a corestone look round rather than stepped -- a 1 m
-# joint spacing is 20 cells across.
+# 3.0 x 3.05 m at 5 cm cells. Resolution is chosen for how many cells cross a
+# BLOCK, since that is what makes a corestone look round rather than stepped --
+# a 1 m joint spacing is 20 cells across.
 #
-# The shape is also what sets how tall the demo is on a page, and it is the
-# only thing that does. Two panels side by side at a 900 px design width are
-# 450 px each; take off ~55 px for the depth axis and ~65 for the colour bar
-# and the data area is 330 px wide. A SQUARE section is then 330 px tall, and
-# no amount of trimming labels helps -- widening the panels only makes a square
-# taller. At 2:1 the same data area is 168 px tall, which takes the whole app
-# from ~550 px to ~380, and shows twice as many corestones while it is at it.
+# NEARLY SQUARE, and it stays that way. A 2:1 section was tried, because the
+# section's shape is the only thing that sets how tall the demo is on a page:
+# two panels at a 900 px design width are 450 px each, less ~55 for the depth
+# axis and ~65 for the colour bar, so the data area is 330 px wide and a square
+# one is 330 px tall. Halving the depth halves that. But it also halves the
+# rock: the blocks come out as letterbox slots rather than the roughly
+# equidimensional joint-bounded cubes that a granite outcrop actually has, and
+# a corestone that is twice as wide as it is tall is not the thing this demo
+# exists to show. Reverted. The box is taller; the geometry is right.
 DX = 0.05                       # cell size [m]
-NX, NZ = 120, 61                # 6.0 x 3.05 m
+NX, NZ = 60, 61                 # 3.0 x 3.05 m
 LX, LZ = NX * DX, NZ * DX
 
 #: Rotations at which the joint pair tiles the periodic width exactly. The
@@ -104,9 +105,10 @@ DESIGN_WIDTH = 900
 SLIDER_WIDTH = DESIGN_WIDTH // 4 - 16
 #: Wider than it is tall, because a figure is not its data area: the depth
 #: axis and its label take about 55 px on the left and the colour bar another
-#: 60 on the right, while only the distance axis (~55 px) is below. Sized 1:1,
-#: as this was, a SQUARE section comes out visibly taller than it is wide.
-FIG_W, FIG_H = 460, 240
+#: 60 on the right, while only the distance axis (~55 px) is below. Sized 1:1
+#: the DATA would come out visibly taller than it is wide; 460 x 400 makes the
+#: data square, which is what a 3.0 x 3.05 m section is.
+FIG_W, FIG_H = 460, 400
 
 
 #: The model's reference temperature, in the units the slider speaks. Both
