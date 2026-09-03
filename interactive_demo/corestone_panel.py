@@ -72,8 +72,8 @@ ANGLES = tiling_angles(NX, max_index=4)
 #: section at all.
 SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 
-#: Stop here. 200 kyr dissolves the section at the default settings, so there
-#: is nothing further to watch.
+#: The longest run offered. 200 kyr dissolves the section at the default
+#: settings, so there is nothing further to watch.
 END_KYR = 200.0
 
 #: Tighter than the model's own default of 0.03, for two reasons that happen
@@ -171,11 +171,11 @@ sim = {}
 
 
 def step():
-    """One weathering step per frame, and stop at the end of the run."""
+    """One weathering step per frame, stopping exactly at the chosen time."""
     m = sim["model"]
-    target = END_KYR * 1e3 * YEAR
+    target = stop_at.value * 1e3 * YEAR
     if m.t >= target - 1e-9 * YEAR:
-        run.value = False                      # reached the end; pause
+        run.value = False                      # arrived; pause
         return
     m.update(dt_limit=target - m.t)
     _redraw()
@@ -253,6 +253,15 @@ fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
                    "fraction dissolved")
 
 readout = pn.pane.Markdown("", sizing_mode="stretch_width")
+#: How far to run. A property of the RUN, not of the rock, which is why it
+#: sits by the buttons rather than in the parameter row and why it does not
+#: reset the model: a student sets 50 kyr, runs, changes the joint spacing --
+#: which does reset -- and runs to 50 kyr again, comparing like with like.
+#: Left where it is, it also continues: run to 50, raise it to 100, run again.
+stop_at = pn.widgets.IntSlider(
+    name="Run to [kyr]", start=10, end=int(END_KYR), step=10,
+    value=int(END_KYR), sizing_mode="stretch_width", max_width=260)
+
 run = animator(step)
 reset = reset_button(do_reset, name="Fresh rock")
 
@@ -285,10 +294,11 @@ do_reset()
 pn.Column(
     pn.pane.Markdown(
         "**Why a corestone survives** – press **▶** and watch the blocks "
-        "round inward. *Every parameter is a placeholder; this teaches the "
-        "mechanism, not a rate.*",
+        "round inward. Set **Run to** and it stops there, so two settings can "
+        "be compared at the same age. *Every parameter is a placeholder; this "
+        "teaches the mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
-    pn.Row(run, reset, readout),
+    pn.Row(run, reset, stop_at, readout),
     pn.Row(angle, spacing, infiltration, temperature,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
