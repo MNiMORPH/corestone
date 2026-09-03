@@ -334,9 +334,12 @@ def _redraw():
     # mineralogy, and a corestone is a SHAPE, a rounded block surrounded by
     # weathered rock, not a cell that happens to be under a cut-off. Deep
     # intact bedrock counted as corestone.
+    # The mean over cells IS the fraction of the section's soluble phase that
+    # has gone, since every cell starts with the same amount, so this needs no
+    # "mean" qualifier to be exact.
     readout.object = (
-        "**%.0f kyr** &nbsp;·&nbsp; soluble phase dissolved, mean "
-        "**%.0f %%**" % (m.t / YEAR / 1e3, 100 * m.dissolved_fraction.mean()))
+        "**%.0f kyr** &nbsp;·&nbsp; **%.0f %%** soluble phase dissolved"
+        % (m.t / YEAR / 1e3, 100 * m.dissolved_fraction.mean()))
 
 
 # ---- figures ----------------------------------------------------------------
@@ -398,7 +401,8 @@ fig_left = _panel(speed, joints_left, Blues256[::-1],
 fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
                    "soluble phase dissolved", {0.0: "none", 1.0: "all"})
 
-readout = pn.pane.Markdown("", sizing_mode="stretch_width")
+readout = pn.pane.Markdown("", sizing_mode="stretch_width",
+                           margin=(0, 10, 0, 10))
 #: Which moment to jump to. It belongs to Show, not to Run: Run animates from
 #: fresh rock until there is nothing left to watch, and this asks a different
 #: question -- what does the rock look like at 50 kyr? -- answered directly.
@@ -407,9 +411,13 @@ at_time = pn.widgets.IntSlider(
     name="View results at [kyr]", start=10, end=int(END_KYR), step=10,
     value=50, sizing_mode="stretch_width", max_width=260)
 
-run = animator(step)
-reset = reset_button(do_reset, name="Fresh rock")
-jump = pn.widgets.Button(name="Show", button_type="success", width=90)
+# One primary action per group, and the RESET is not it. "Fresh rock" was
+# the loudest thing on the screen -- primary blue against a grey Run -- which
+# points a reader at the button that throws their work away. Run and Show are
+# the two things to do, so they carry the emphasis; Fresh rock is neutral.
+run = animator(step, button_type="primary")
+reset = reset_button(do_reset, name="Fresh rock", button_type="default")
+jump = pn.widgets.Button(name="Show", button_type="primary", width=90)
 jump.on_click(show_result)
 
 # Every slider rebuilds: the joint geometry is the initial condition, and the
@@ -464,16 +472,18 @@ pn.Column(
         "taken. *Every parameter is a placeholder; this teaches the "
         "mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
-    # Two ways to drive the model, kept visibly apart: watch it happen, or
-    # ask what it looks like at one moment. Running them together in one row
-    # made Show read as a third button belonging to the animation.
+    # Actions, then the things that change the rock, then what the state IS.
+    # The readout used to sit at the end of the button row, where a status
+    # readout looks like another control; it belongs next to the pictures it
+    # describes. Within the button row the two ways to drive the model stay
+    # visibly apart: watch it happen, or ask what it looks like at one moment.
     pn.Row(pn.Row(run, reset),
            pn.Spacer(width=44),
            pn.Row(at_time, jump, align="end"),
-           pn.Spacer(width=24),
-           readout, sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
+           sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(angle, spacing, infiltration, temperature, cell,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
+    readout,
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
            max_width=DESIGN_WIDTH),
     # Centred, not jammed left. The cap means the app can be narrower than the
