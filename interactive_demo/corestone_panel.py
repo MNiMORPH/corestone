@@ -138,8 +138,15 @@ END_KYR = 500.0
 #:
 #: At 500 the warm end is already over budget in a browser, so it drops frames
 #: and its wall-clock stretches -- compressing the very difference this is for.
-#: At 250 the whole temperature range keeps up, and the run to 90 % takes 36 s
-#: at 0 degrees C, 19 s at 12 and 9 s at 30, watched at 30 fps.
+#: At 250 the whole temperature range keeps up. Measured in Chrome on the
+#: built page, against the 7.50 kyr per real second this asks for:
+#:
+#:      0 C   7.52 kyr/s     36 s to 90 % dissolved
+#:     12 C   7.48           19 s
+#:     30 C   7.04            9 s
+#:
+#: Uniform within 6 %, so what a reader feels is the model time, which is the
+#: whole claim.
 #:
 #: What it costs: twice as many frames as 500, so the slowest corner on offer
 #: (3 m joints, 0.05 m/yr, 0 degrees C) is 8207 frames, about four and a half
