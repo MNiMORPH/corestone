@@ -243,3 +243,32 @@ def test_from_masks_rejects_mismatched_link_shapes():
     bad_h = np.zeros((10, 10), bool)        # should be (nz, nx-1)
     with pytest.raises(ValueError, match="link_h must be"):
         FractureNetwork.from_masks(np.zeros((9, 10), bool), bad_h, 0.1)
+
+
+def test_only_spacings_that_are_a_whole_number_of_cells_are_offered():
+    """
+    Tiling exactly is a statement about the GRID, not only about the lengths.
+    A 0.4286 m spacing on 0.05 m cells is 8.57 cells, so successive joints land
+    on different parts of a cell and the pattern does not repeat -- and the
+    demo offered exactly that, at the resolution it ships with.
+
+    It also decides how much a resolution change costs: the spacings available
+    are a property of the cell count, so they are not the same set at 5 cm and
+    at 2 cm.
+    """
+    from corestone import tiling_spacings
+
+    loose = tiling_spacings(3.0, 1, 0, 0.3, 3.0)
+    assert any(abs(round(s / 0.05) - s / 0.05) > 1e-9 for s in loose), loose
+
+    for dx in (0.05, 0.025, 0.02):
+        snapped = tiling_spacings(3.0, 1, 0, 0.3, 3.0, dx=dx)
+        assert snapped, dx
+        for s in snapped:
+            cells = s / dx
+            assert abs(round(cells) - cells) < 1e-9, (dx, s, cells)
+        assert set(snapped) <= set(loose)
+
+    # and the sets genuinely differ between resolutions
+    assert (tiling_spacings(3.0, 1, 0, 0.3, 3.0, dx=0.05)
+            != tiling_spacings(3.0, 1, 0, 0.3, 3.0, dx=0.02))

@@ -195,7 +195,7 @@ def tiling_angles(nx, max_index=None):
     return [out[k] for k in sorted(out)]
 
 
-def tiling_spacings(lx, a, b, low, high, count=8):
+def tiling_spacings(lx, a, b, low, high, count=8, dx=None):
     """
     Every tiling spacing at one lattice angle, coarsest first.
 
@@ -204,13 +204,24 @@ def tiling_spacings(lx, a, b, low, high, count=8):
     bound which of them are offered and have no defaults on purpose: what
     counts as a sensible joint spacing depends on the section being shown, and
     it is the caller's decision rather than this function's.
+
+    ``dx`` drops the ones that are not a WHOLE NUMBER OF CELLS. Tiling the
+    domain exactly is a statement about the grid, not only about the lengths:
+    a spacing of 0.4286 m on 0.05 m cells is 8.57 cells, so successive joints
+    land on different parts of a cell and the pattern does not repeat. Pass it
+    whenever the answer is going to be rasterised, which is always in practice
+    -- it is optional only because the geometry is meaningful without a grid.
     """
     import math
     h = math.hypot(a, b)
     out = []
     for k in range(1, count + 1):
         s = tiling_spacing(lx, a, b, lx / (k * h))
-        if low <= s <= high and not any(abs(s - v) < 1e-9 for v in out):
+        if not (low <= s <= high):
+            continue
+        if dx is not None and abs(round(s / dx) - s / dx) > 1e-9:
+            continue
+        if not any(abs(s - v) < 1e-9 for v in out):
             out.append(s)
     return sorted(out, reverse=True) or [lx / h]
 
