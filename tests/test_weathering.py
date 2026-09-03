@@ -206,3 +206,30 @@ def test_periodic_flow_still_conserves_water():
     inflow = m.infiltration * m.dx * m.nx
     for iz in range(m.nz - 1):
         assert m.q_v[iz, :].sum() == pytest.approx(inflow, rel=1e-8)
+
+
+def test_the_water_speed_is_the_infiltration_rate_where_there_are_no_joints():
+    """
+    Unjointed rock has nowhere to focus the flow, so every cell passes exactly
+    what falls on it and the Darcy speed is the infiltration rate everywhere.
+
+    That is the check the cell-centred reassembly needs: the solver works on
+    faces, and turning face fluxes back into a speed is where a factor of two
+    or a missing boundary face hides. Both would still look plausible on a
+    colour map.
+    """
+    net = FractureNetwork(30, 30, 0.10, periodic_x=True).seed(sets=[])
+    m = Weathering(net).initialize()
+    assert not net.link_v.any() and not net.link_h.any()
+    v = m.darcy_speed
+    assert np.allclose(v, m.infiltration, rtol=1e-6), (v.min(), v.max())
+
+
+def test_joints_carry_far_more_than_the_matrix():
+    m = _periodic_model().initialize()
+    v = m.darcy_speed
+    joint = m.network.cell
+    assert np.median(v[joint]) > 100.0 * np.median(v[~joint])
+    # and the mean flux through any depth still equals what fell on the surface
+    assert m.q_v.sum(axis=1)[m.nz // 2] == pytest.approx(
+        m.infiltration * m.dx * m.nx, rel=1e-8)

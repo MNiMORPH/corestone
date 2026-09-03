@@ -33,7 +33,7 @@ import numpy as np
 import panel as pn
 from bokeh.models import (ColorBar, ColumnDataSource, FixedTicker,
                          LinearColorMapper, Range1d)
-from bokeh.palettes import Greens256, Oranges256
+from bokeh.palettes import Blues256, Oranges256
 from bokeh.plotting import figure
 
 from artesian.live import animator, reset_button, responsive
@@ -280,11 +280,25 @@ def _joints():
                     "x1": seg[:, 2], "y1": seg[:, 3]}
 
 
+def _speed_field(m):
+    """Water speed as orders of magnitude against the mean infiltration rate.
+
+    Logarithmic because it spans four of them: the matrix starts at about a
+    thousandth of what falls on the surface while the joints carry twenty
+    times it. On a linear scale the whole section would be white except the
+    joints, which is a picture of the joint network and not of the flow.
+
+    Fixed limits, not per-frame, so that two settings can be compared -- the
+    same reason Show rebuilds from fresh rock.
+    """
+    return np.log10(np.maximum(m.darcy_speed, 1e-30) / m.infiltration)
+
+
 def _redraw():
     m = sim["model"]
-    affinity.data = {"image": [m.affinity]}
+    speed.data = {"image": [_speed_field(m)]}
     dissolved.data = {"image": [m.dissolved_fraction]}
-    fig_left.title.text = "Where the water can still dissolve"
+    fig_left.title.text = "How fast the water is moving"
     fig_right.title.text = "What is left of the rock"
     # Time and a mean, and nothing that needs a threshold. This used to read
     # "grus X %, corestone Y %", which was two claims the model cannot make.
@@ -304,13 +318,14 @@ def _redraw():
 # axis to 0 at the top. Row 0 of the array is the ground surface, and bokeh
 # draws row 0 at the anchor and later rows at increasing y, which with a
 # reversed range puts the surface at the top where it belongs -- no flip.
-affinity = ColumnDataSource(data={"image": [np.zeros((2, 2))]})
+speed = ColumnDataSource(data={"image": [np.zeros((2, 2))]})
 dissolved = ColumnDataSource(data={"image": [np.zeros((2, 2))]})
 joints_left = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 joints_right = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 
 
-def _panel(source, joints, palette, label, ends):
+def _panel(source, joints, palette, label, ends, low=0.0, high=1.0,
+           ticks=(0.0, 0.25, 0.5, 0.75, 1.0)):
     """
     One map of the section, with its colour bar and joint traces.
 
@@ -325,15 +340,16 @@ def _panel(source, joints, palette, label, ends):
                  x_axis_label="Distance [m]", y_axis_label="Depth [m]",
                  x_range=Range1d(0, LX), y_range=Range1d(LZ, 0),
                  tools="", toolbar_location=None)
-    mapper = LinearColorMapper(palette=palette, low=0.0, high=1.0)
+    mapper = LinearColorMapper(palette=palette, low=low, high=high)
     fig.image(image="image", x=0, y=0, dw=LX, dh=LZ, source=source,
               color_mapper=mapper)
     fig.segment("x0", "y0", "x1", "y1", source=joints,
                 color="#2a2a2a", line_width=1, alpha=0.45)
     bar = ColorBar(color_mapper=mapper, width=8, title=label,
                    label_standoff=6, padding=4,
-                   ticker=FixedTicker(ticks=[0.0, 0.25, 0.5, 0.75, 1.0]),
-                   major_label_overrides={0.0: ends[0], 1.0: ends[1]})
+                   ticker=FixedTicker(ticks=list(ticks)),
+                   major_label_overrides={ticks[0]: ends[0],
+                                          ticks[-1]: ends[1]})
     fig.add_layout(bar, "right")
     # Half the design width each, since the two sit side by side. Without a
     # bound, responsive() defaults to 1200 PER FIGURE, so the row is entitled
@@ -345,8 +361,11 @@ def _panel(source, joints, palette, label, ends):
 
 # Palettes reversed so that 0 is pale and 1 is saturated: bokeh's 256-step
 # ramps run dark to light.
-fig_left = _panel(affinity, joints_left, Greens256[::-1], "1 − C/Ceq",
-                  ("saturated", "fresh"))
+# Water, so blue; and a log scale from a thousandth of the mean infiltration
+# rate to ten times it, which is the range the section actually spans.
+fig_left = _panel(speed, joints_left, Blues256[::-1],
+                  "water speed ÷ rainfall rate", ("×0.001", "×10"),
+                  low=-3.0, high=1.0, ticks=(-3.0, -2.0, -1.0, 0.0, 1.0))
 fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
                    "soluble phase dissolved", ("none", "all"))
 
@@ -412,7 +431,8 @@ pn.Column(
     pn.pane.Markdown(
         "**Why a corestone survives** – press **▶** and watch the blocks "
         "round inward, or set **View results at** and press **Show** to go "
-        "straight there. *Every parameter is a placeholder; this teaches the "
+        "straight there. Left is where the water goes; right is what it has "
+        "taken. *Every parameter is a placeholder; this teaches the "
         "mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
     # Two ways to drive the model, kept visibly apart: watch it happen, or

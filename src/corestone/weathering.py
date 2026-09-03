@@ -875,6 +875,37 @@ class Weathering(object):
         return self.dissolved_fraction < self.x_core
 
     @property
+    def darcy_speed(self):
+        """
+        Speed of the water at each cell centre [m/s].
+
+        The solver works on LINKS -- a flux through each face -- and this is
+        the cell-centred vector reassembled from them and its magnitude taken:
+        the mean of the two vertical faces and of the two horizontal faces,
+        divided by the cell size to turn a flux per unit thickness into a
+        specific discharge. At the surface the face flux is the infiltration
+        and at the base it is the drainage, so no cell is missing a face.
+
+        This is the CAUSE the rest of the model is the effect of, and unlike
+        the affinity field it is not a restatement of the dissolved fraction:
+        early on the matrix carries about a thousandth of the mean infiltration
+        rate while the joints carry twenty times it, and as the rock opens the
+        matrix comes up to carry nearly all of it.
+        """
+        nz, nx, dx = self.nz, self.nx, self.dx
+        qz = np.zeros((nz, nx))
+        qz[:-1, :] += self.q_v
+        qz[1:, :] += self.q_v
+        qz[0, :] += self.infiltration * dx
+        qz[-1, :] += self.q_out_base
+        qx = np.zeros((nz, nx))
+        qx[:, :-1] += self.q_h
+        qx[:, 1:] += self.q_h
+        qx[:, -1] += self.q_wrap
+        qx[:, 0] += self.q_wrap
+        return np.hypot(0.5 * qx, 0.5 * qz) / dx
+
+    @property
     def affinity(self):
         """The bracket, ``1 - C/C_eq``: how much capacity the water has left."""
         return 1.0 - self.c
