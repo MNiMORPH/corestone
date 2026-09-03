@@ -411,13 +411,9 @@ at_time = pn.widgets.IntSlider(
     name="View results at [kyr]", start=10, end=int(END_KYR), step=10,
     value=50, sizing_mode="stretch_width", max_width=260)
 
-# One primary action per group, and the RESET is not it. "Fresh rock" was
-# the loudest thing on the screen -- primary blue against a grey Run -- which
-# points a reader at the button that throws their work away. Run and Show are
-# the two things to do, so they carry the emphasis; Fresh rock is neutral.
-run = animator(step, button_type="primary")
-reset = reset_button(do_reset, name="Fresh rock", button_type="default")
-jump = pn.widgets.Button(name="Show", button_type="primary", width=90)
+run = animator(step)
+reset = reset_button(do_reset, name="Fresh rock")
+jump = pn.widgets.Button(name="Show", button_type="success", width=90)
 jump.on_click(show_result)
 
 # Every slider rebuilds: the joint geometry is the initial condition, and the
@@ -472,18 +468,15 @@ pn.Column(
         "taken. *Every parameter is a placeholder; this teaches the "
         "mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
-    # Actions, then the things that change the rock, then what the state IS.
-    # The readout used to sit at the end of the button row, where a status
-    # readout looks like another control; it belongs next to the pictures it
-    # describes. Within the button row the two ways to drive the model stay
-    # visibly apart: watch it happen, or ask what it looks like at one moment.
-    pn.Row(pn.Row(run, reset),
-           pn.Spacer(width=44),
-           pn.Row(at_time, jump, align="end"),
+    # One row per way of driving the model: watch it happen, or ask what it
+    # looks like at one moment. The state readout rides with the first, where
+    # there is room for it, rather than taking a line of its own.
+    pn.Row(run, reset, readout,
+           sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
+    pn.Row(at_time, jump, align="end",
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(angle, spacing, infiltration, temperature, cell,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
-    readout,
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
            max_width=DESIGN_WIDTH),
     # Centred, not jammed left. The cap means the app can be narrower than the
