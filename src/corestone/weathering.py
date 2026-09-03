@@ -470,6 +470,31 @@ class Weathering(object):
         self._x = x
         return np.clip(x, 0.0, 1.0).reshape(self.nz, self.nx)
 
+    def link_conductivity(self):
+        """
+        Hydraulic conductivity on every link: ``(vertical, horizontal, wrap)``.
+
+        A jointed link conducts, an intact one barely does, and that is the
+        whole of it -- the conductance depends on the FRACTURE NETWORK and not
+        on how much rock is left, so the head is solved once and held.
+
+        That is a simplification, and a load-bearing one. Dissolving rock
+        opens porosity, so weathered rock should conduct better than fresh,
+        which focuses more water into the weathered zone, which dissolves it
+        faster. Leaving it out removes a positive feedback that real
+        dissolution systems have. It is a method rather than an expression so
+        that the question can be asked without rewriting the solver; see
+        prototypes/probe_h_evolving_permeability.py.
+        """
+        net = self.network
+        kv = np.where(net.link_v, self.k_fracture, self.k_matrix)
+        kh = np.where(net.link_h, self.k_fracture, self.k_matrix)
+        if net.periodic_x:
+            kw = np.where(net.link_wrap, self.k_fracture, self.k_matrix)
+        else:
+            kw = np.zeros(self.nz)
+        return kv, kh, kw
+
     def flow_operator(self):
         """
         The conductance matrix for the head, and the right-hand side.
@@ -487,8 +512,7 @@ class Weathering(object):
         n = nz * nx
         idx = np.arange(n).reshape(nz, nx)
 
-        kv = np.where(self.network.link_v, self.k_fracture, self.k_matrix)
-        kh = np.where(self.network.link_h, self.k_fracture, self.k_matrix)
+        kv, kh, kw = self.link_conductivity()
 
         rows, cols, vals = [], [], []
         pairs = [(idx[:-1, :].ravel(), idx[1:, :].ravel(), kv.ravel()),
@@ -498,8 +522,6 @@ class Weathering(object):
             # side walls at all. A no-flow wall forces the lateral flow to
             # vanish there, which with subhorizontal joints manufactures a
             # domain-scale circulation and a drainage divide down the middle.
-            kw = np.where(self.network.link_wrap, self.k_fracture,
-                          self.k_matrix)
             pairs.append((idx[:, -1], idx[:, 0], kw))
         for a_, b_, k in pairs:
             rows += [a_, a_, b_, b_]
@@ -540,8 +562,7 @@ class Weathering(object):
         Conductance is static, so this runs once.
         """
         nz, nx, dx = self.nz, self.nx, self.dx
-        kv = np.where(self.network.link_v, self.k_fracture, self.k_matrix)
-        kh = np.where(self.network.link_h, self.k_fracture, self.k_matrix)
+        kv, kh, kw = self.link_conductivity()
 
         A, b = self.flow_operator()
         H = spl.splu(A, permc_spec=ORDERING).solve(b).reshape(nz, nx)
@@ -549,8 +570,6 @@ class Weathering(object):
         self.q_v = kv * (H[:-1, :] - H[1:, :])      # positive downward
         self.q_h = kh * (H[:, :-1] - H[:, 1:])      # positive rightward
         if self.network.periodic_x:
-            kw = np.where(self.network.link_wrap, self.k_fracture,
-                          self.k_matrix)
             self.q_wrap = kw * (H[:, -1] - H[:, 0])  # last column -> first
         else:
             self.q_wrap = np.zeros(nz)
