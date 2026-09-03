@@ -87,9 +87,22 @@ MAX_INDEX = 4
 #: section at all.
 SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 
-#: The longest run offered. 200 kyr dissolves the section at the default
-#: settings, so there is nothing further to watch.
-END_KYR = 200.0
+#: The longest moment Show will jump to. NOT a limit on Run, which keeps going
+#: until it is paused: at the slowest settings on offer -- 0.05 m/yr and 0
+#: degrees C -- the section is only a quarter dissolved after 200 kyr, so a cap
+#: there hid the interesting part rather than ending it. 1000 kyr is enough for
+#: every setting to finish.
+END_KYR = 1000.0
+
+#: Longest step the demo will take, whatever the drift control asks for. The
+#: model's own ceiling is 50 kyr, which is right for a model and wrong for an
+#: animation. It bites at both ends. Once the rock is fully dissolved nothing
+#: changes, the drift falls to zero and the step doubles until it reaches that
+#: ceiling -- the clock then races through a million years while the picture
+#: sits still. And at the slow end the rock weathers so gently that the whole
+#: run is fifteen frames, which is not an animation either. 2 kyr gives about
+#: a hundred frames in both cases and never binds while anything is happening.
+DT_MAX_KYR = 2.0
 
 #: Tighter than the model's own default of 0.03, for two reasons that happen
 #: to agree. One frame is one step, so the budget sets how long the animation
@@ -217,6 +230,7 @@ def _build():
     m.set_temperature(temperature.value + 273.15)
     m.c_drift_max = C_DRIFT_MAX
     m.flow_tolerance = FLOW_TOLERANCE
+    m.dt_max = DT_MAX_KYR * 1e3 * YEAR
     m.initialize()
     m.c = m.solve_solute(m.reaction_coefficient)
     return net, m
@@ -227,18 +241,13 @@ sim = {}
 
 
 def step():
-    """One weathering step per frame, until there is nothing left to watch.
+    """One weathering step per frame, for as long as it is left running.
 
-    Run just runs. The time selector belongs to :func:`show_result` alone --
-    a stopping point on the animation would make what you are looking at
-    depend on which button you pressed to get there.
+    No end. Run runs until it is paused, and the time selector belongs to
+    :func:`show_result` alone -- a stopping point on the animation would make
+    what you are looking at depend on which button you pressed to get there.
     """
-    m = sim["model"]
-    target = END_KYR * 1e3 * YEAR
-    if m.t >= target - 1e-9 * YEAR:
-        run.value = False                      # arrived; pause
-        return
-    m.update(dt_limit=target - m.t)
+    sim["model"].update()
     _redraw()
 
 
