@@ -111,15 +111,48 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: interesting range in the first 40 % of a slider stepped in 10 kyr.
 END_KYR = 500.0
 
-#: Longest step the demo will take, whatever the drift control asks for. The
-#: model's own ceiling is 50 kyr, which is right for a model and wrong for an
-#: animation. It bites at both ends. Once the rock is fully dissolved nothing
-#: changes, the drift falls to zero and the step doubles until it reaches that
-#: ceiling -- the clock then races through a million years while the picture
-#: sits still. And at the slow end the rock weathers so gently that the whole
-#: run is fifteen frames, which is not an animation either. 2 kyr gives about
-#: a hundred frames in both cases and never binds while anything is happening.
-DT_MAX_KYR = 2.0
+#: How much MODEL TIME one animation frame covers. The same for every setting,
+#: and that is the whole point: it makes a second of watching worth a fixed
+#: number of years, so a run that takes four times as long in the model takes
+#: four times as long to watch.
+#:
+#: One frame used to be one drift-controlled step, which taught the opposite.
+#: The controller holds the visible CHANGE per frame constant, so it hands a
+#: slow-weathering run more years per frame -- measured at 5 cm, 1.84 kyr per
+#: frame at 0 degrees C against 0.19 kyr at 30 -- and a cold section reached
+#: 90 % dissolved in 149 frames where a warm one needed 333. Cold takes 4.2x
+#: longer in model time and less than half the real time. The animation was
+#: teaching the reverse of the model.
+#:
+#: Accuracy is unaffected: the frame sub-steps as c_drift_max demands, so this
+#: sets the pace and the controller still sets the step.
+#:
+#: 250 yr rather than 500 because of the frame budget, which is 33 ms. Local
+#: cost per frame, and the same figure scaled by the 3.0x this app measured
+#: slower under Pyodide in Chrome (Show to 50 kyr: 0.96 s against 0.32 s):
+#:
+#:                        500 yr/frame        250 yr/frame
+#:      0 C, default      1.8 ms   5 ms       2.1 ms   6 ms
+#:     12 C, default      3.4      10         2.2      7
+#:     30 C, default     11.9      36  OVER   6.4     19
+#:
+#: At 500 the warm end is already over budget in a browser, so it drops frames
+#: and its wall-clock stretches -- compressing the very difference this is for.
+#: At 250 the whole temperature range keeps up, and the run to 90 % takes 36 s
+#: at 0 degrees C, 19 s at 12 and 9 s at 30, watched at 30 fps.
+#:
+#: What it costs: twice as many frames as 500, so the slowest corner on offer
+#: (3 m joints, 0.05 m/yr, 0 degrees C) is 8207 frames, about four and a half
+#: minutes to 90 %. That is the honest price of a proportional pace -- rock 30x
+#: slower takes 30x longer to watch -- and Run is pausable.
+#:
+#: The limit, stated plainly: on a machine too slow to hold 30 fps the pace
+#: stops being set by this number and starts being set by compute, and since a
+#: warm run costs more per model year, the felt difference shrinks. Total
+#: compute to 90 % is 1.19 s at 0 degrees C against 1.54 s at 30, so on a slow
+#: enough laptop the two look equally long. Nothing here can fix that; it is
+#: the frame budget, not the choice of pace.
+YEARS_PER_FRAME = 250.0
 
 #: Tighter than the model's own default of 0.03, for two reasons that happen
 #: to agree. One frame is one step, so the budget sets how long the animation
@@ -247,7 +280,7 @@ def _build():
     m.set_temperature(temperature.value + 273.15)
     m.c_drift_max = C_DRIFT_MAX
     m.flow_tolerance = FLOW_TOLERANCE
-    m.dt_max = DT_MAX_KYR * 1e3 * YEAR
+    m.dt_max = YEARS_PER_FRAME * YEAR
     m.initialize()
     m.c = m.solve_solute(m.reaction_coefficient)
     return net, m
@@ -258,13 +291,21 @@ sim = {}
 
 
 def step():
-    """One weathering step per frame, for as long as it is left running.
+    """Advance one frame -- a fixed span of MODEL TIME, for every setting.
+
+    Not one step: one step is a fixed amount of visible change, which makes
+    slow rock race and fast rock crawl. Sub-stepping inside the frame keeps
+    the accuracy control in charge of the step while this stays in charge of
+    the pace. See YEARS_PER_FRAME.
 
     No end. Run runs until it is paused, and the time selector belongs to
     :func:`show_result` alone -- a stopping point on the animation would make
     what you are looking at depend on which button you pressed to get there.
     """
-    sim["model"].update()
+    m = sim["model"]
+    target = m.t + YEARS_PER_FRAME * YEAR
+    while m.t < target - 1e-9 * YEAR:
+        m.update(dt_limit=target - m.t)
     _redraw()
 
 
