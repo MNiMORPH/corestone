@@ -1,6 +1,15 @@
 """
 Probe H: should the flow field evolve as the rock weathers?
 
+ANSWERED, AND ADOPTED. The model now does this -- see
+Weathering.link_conductivity. Two things changed on the way in: the endpoints
+came from Goodfellow et al. (2016) rather than from k_fracture as guessed
+here, and the parameter is k_weathered rather than k_grus, because the
+measurement is "the most weathered samples in a granodiorite suite" and grus
+is a particular material with a particular fabric. This file is left as the
+record of the question and what it cost to answer, so it keeps its own
+numbers.
+
 The model solves the head ONCE, from a conductance that depends only on the
 joint network. Dissolving rock opens porosity, so weathered rock should
 conduct better than fresh rock, which draws more water into the weathered

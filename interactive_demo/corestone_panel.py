@@ -286,11 +286,17 @@ def _redraw():
     dissolved.data = {"image": [m.dissolved_fraction]}
     fig_left.title.text = "Where the water can still dissolve"
     fig_right.title.text = "What is left of the rock"
+    # Time and a mean, and nothing that needs a threshold. This used to read
+    # "grus X %, corestone Y %", which was two claims the model cannot make.
+    # Both rested on cut-offs in dissolved fraction that were chosen and never
+    # justified, and neither word means a fraction dissolved: the sequence
+    # fresh rock - saprock - saprolite - grus is defined by fabric and
+    # mineralogy, and a corestone is a SHAPE, a rounded block surrounded by
+    # weathered rock, not a cell that happens to be under a cut-off. Deep
+    # intact bedrock counted as corestone.
     readout.object = (
-        "**%.0f kyr** &nbsp;·&nbsp; grus **%.0f %%** &nbsp;·&nbsp; "
-        "corestone **%.0f %%**"
-        % (m.t / YEAR / 1e3, 100 * m.is_grus.mean(),
-           100 * m.is_corestone.mean()))
+        "**%.0f kyr** &nbsp;·&nbsp; soluble phase dissolved, mean "
+        "**%.0f %%**" % (m.t / YEAR / 1e3, 100 * m.dissolved_fraction.mean()))
 
 
 # ---- figures ----------------------------------------------------------------
@@ -308,11 +314,12 @@ def _panel(source, joints, palette, label, ends):
     """
     One map of the section, with its colour bar and joint traces.
 
-    ``ends`` names what 0 and 1 ARE, on the bar itself. "fraction dissolved"
-    is true and says nothing: what a reader wants to know is that the pale end
-    is intact rock and the dark end is grus. The numbers stay, since the
-    fraction is a real quantity and the middle of the bar has to mean
-    something, but the two ends are labelled in words.
+    ``ends`` names what 0 and 1 ARE, on the bar itself, since a bare fraction
+    says nothing. They name the QUANTITY and not a rock type: "none" and "all"
+    of the soluble phase, "saturated" and "fresh" water. Calling the dark end
+    "grus" was a petrological claim the model cannot support -- the sequence
+    fresh rock, saprock, saprolite, grus is a matter of fabric and mineralogy,
+    not of how much of one phase has gone.
     """
     fig = figure(width=FIG_W, height=FIG_H,
                  x_axis_label="Distance [m]", y_axis_label="Depth [m]",
@@ -341,7 +348,7 @@ def _panel(source, joints, palette, label, ends):
 fig_left = _panel(affinity, joints_left, Greens256[::-1], "1 − C/Ceq",
                   ("saturated", "fresh"))
 fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
-                   "soluble phase dissolved", ("rock", "grus"))
+                   "soluble phase dissolved", ("none", "all"))
 
 readout = pn.pane.Markdown("", sizing_mode="stretch_width")
 #: Which moment to jump to. It belongs to Show, not to Run: Run animates from

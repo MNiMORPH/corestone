@@ -63,7 +63,7 @@ LEDGER = {
     "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - c) / tau":
         "test_the_rock_is_integrated_exactly_over_a_step_with_c_held",
 
-    "k(M) = k_matrix^M * k_grus^(1 - M)":
+    "k(M) = k_matrix^M * k_weathered^(1 - M)":
         "test_the_matrix_conducts_better_as_it_dissolves",
 }
 

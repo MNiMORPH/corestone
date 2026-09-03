@@ -124,8 +124,12 @@ class Weathering(object):
         # grades: 9e-9 to 8e-8 cm/s in the parent rock and 9e-5 to 9e-4 cm/s
         # in the most weathered samples, an increase of three to four orders
         # of magnitude. These are the mid-points of those two ranges, in m/s.
+        # Called k_weathered rather than k_grus because that is what the
+        # measurement is -- the most weathered samples in a granodiorite
+        # suite. Grus is a particular material with a particular fabric, and
+        # naming a conductivity after it claims more than the number carries.
         self.k_matrix = 5.0e-10           # intact granite [m/s]
-        self.k_grus = 5.0e-6              # fully dissolved rock [m/s]
+        self.k_weathered = 5.0e-6         # fully weathered matrix [m/s]
         self.flow_tolerance = 0.01        # re-solve the head once the rock has
                                           # changed this much anywhere. NOT a
                                           # step count: that would tie the
@@ -156,8 +160,16 @@ class Weathering(object):
         self.D_molecular = 1.0e-9         # aqueous diffusivity [m2/s]
         self.tortuosity = 10.0            # matrix tortuosity [-]
         self.dispersivity = 0.05          # longitudinal dispersivity [m]
-        self.x_grus = 0.50                # soluble fraction lost -> grus
-        self.x_core = 0.05                # below this, effectively unaltered
+        # Two ARBITRARY cut-offs on a continuous field, kept for convenience
+        # and named badly. Neither word is a fraction dissolved: fresh rock,
+        # saprock, saprolite and grus are distinguished by fabric and
+        # mineralogy, and a corestone is a SHAPE -- a rounded block surrounded
+        # by weathered rock -- so intact bedrock at depth satisfies x_core
+        # without being a corestone at all. They were reported as percentages
+        # in the demo, which made two claims this model cannot make; that has
+        # been removed. Set them yourself if you want them to mean something.
+        self.x_grus = 0.50                # ARBITRARY: "mostly dissolved"
+        self.x_core = 0.05                # ARBITRARY: "barely touched"
         self.f_inert = 0.30               # quartz: never dissolves, stays sand
         self.c_drift_max = 0.03           # THE step control: how far c may move
                                           # while it is held across a step.
@@ -507,7 +519,7 @@ class Weathering(object):
         -- linearly in the logarithm, which is how conductivity varies --
         between intact granite and fully dissolved rock:
 
-            k(M) = k_matrix^M * k_grus^(1 - M)
+            k(M) = k_matrix^M * k_weathered^(1 - M)
 
         on the mean of the two cells a link joins. A jointed link keeps
         ``k_fracture``: an open joint is an open joint whatever the rock beside
@@ -529,11 +541,11 @@ class Weathering(object):
         report granodiorite matrix conductivity rising three to four orders of
         magnitude across weathering grades, from 9e-9 to 8e-8 cm/s in parent
         rock to 9e-5 to 9e-4 cm/s in the most weathered samples; ``k_matrix``
-        and ``k_grus`` are the mid-points of those ranges. Everything else in
+        and ``k_weathered`` are the mid-points of those ranges. Everything else in
         this module is still a placeholder.
         """
         net = self.network
-        lo, hi = np.log(self.k_matrix), np.log(self.k_grus)
+        lo, hi = np.log(self.k_matrix), np.log(self.k_weathered)
 
         def k_of(m):
             return np.exp(m * lo + (1.0 - m) * hi)
@@ -842,12 +854,24 @@ class Weathering(object):
 
     @property
     def is_grus(self):
-        """Cells that have lost enough of the soluble phase to fall apart."""
+        """
+        Cells past the arbitrary ``x_grus`` cut-off.
+
+        NOT a statement that the rock is grus. See ``x_grus``: the weathering
+        grades are a matter of fabric and mineralogy, and this is one number
+        thresholded.
+        """
         return self.dissolved_fraction > self.x_grus
 
     @property
     def is_corestone(self):
-        """Cells still effectively unaltered."""
+        """
+        Cells below the arbitrary ``x_core`` cut-off.
+
+        NOT a statement that a cell is part of a corestone, which is a SHAPE
+        -- a rounded block surrounded by weathered rock. Intact bedrock at
+        depth passes this test and is not a corestone. See ``x_core``.
+        """
         return self.dissolved_fraction < self.x_core
 
     @property

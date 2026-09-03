@@ -189,7 +189,7 @@ def test_tau_falls_as_solubility_rises():
 
 def test_the_matrix_conducts_better_as_it_dissolves():
     """
-        k(M) = k_matrix^M * k_grus^(1 - M)
+        k(M) = k_matrix^M * k_weathered^(1 - M)
 
     Geometric interpolation: linear in the LOGARITHM of conductivity, which is
     how conductivity varies and why the endpoints span four orders of
@@ -210,12 +210,12 @@ def test_the_matrix_conducts_better_as_it_dissolves():
 
     m.M = np.zeros((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[intact], m.k_grus, rtol=1e-12)
+    assert np.allclose(kv[intact], m.k_weathered, rtol=1e-12)
 
     m.M = np.full((m.nz, m.nx), 0.5)
     kv, _, _ = m.link_conductivity()
-    geometric = np.sqrt(m.k_matrix * m.k_grus)
-    arithmetic = 0.5 * (m.k_matrix + m.k_grus)
+    geometric = np.sqrt(m.k_matrix * m.k_weathered)
+    arithmetic = 0.5 * (m.k_matrix + m.k_weathered)
     assert np.allclose(kv[intact], geometric, rtol=1e-12)
     assert not np.allclose(kv[intact], arithmetic, rtol=1e-3)
 
