@@ -67,13 +67,13 @@ LX = LZ = 3.00                  # the section, in metres. Fixed: it is the cell
 #: is 6.3x the cells and about 18x the time, measured below.
 #:
 #:     cell    cells   per frame   200 kyr
-#:     5 cm     3600      1.9 ms     0.34 s
-#:     2.5 cm  14400     25.2 ms     5.21 s
-#:     2 cm    22500     34.9 ms     7.72 s
+#:     5 cm     3600      4.6 ms     1.31 s
+#:     2 cm    22500     82.0 ms    23.94 s
 #:
-#: One frame is one step, so at 2 cm a frame already costs more than the 33 ms
-#: animation budget here and several times that in a browser. It animates, just
-#: slowly; Show result is the way to use it.
+#: One frame is one step, so at 2 cm a frame costs well over the 33 ms
+#: animation budget here and several times that in a browser. It animates,
+#: slowly; Show is the way to use it, and at a shorter time -- 25 kyr costs
+#: about an eighth of 200.
 CELL_SIZES = {"5 cm": 0.05, "2.5 cm": 0.025, "2 cm": 0.02}
 
 #: The index cap is not arbitrary: a high-index angle tiles only at a very
@@ -99,6 +99,23 @@ END_KYR = 200.0
 #: A step costs 2.9 ms here, so six seconds of animation is 0.5 s of arithmetic
 #: and the frame budget is nowhere near threatened.
 C_DRIFT_MAX = 0.01
+
+#: How far the rock may weather before the head is re-solved. Looser than the
+#: model's converged 0.01, because the feedback is expensive: re-solving the
+#: head is what makes weathering open the rock and draw more water in, and it
+#: costs about ten times as much as holding the flow fixed. Measured over
+#: 200 kyr on the 3 m section at 5 cm, against the converged answer:
+#:
+#:     flow_tolerance   ms/frame   200 kyr   max|dM|
+#:              0.01       11.9      3.45 s    0
+#:              0.05        4.6      1.31 s    0.027
+#:              0.10        2.6      0.73 s    0.059
+#:
+#: 0.05 keeps a frame inside the 33 ms animation budget with room for a
+#: browser being several times slower, and 0.027 on a field in [0, 1] is far
+#: inside the uncertainty on the conductivities themselves, which span an
+#: order of magnitude in the measurements they come from.
+FLOW_TOLERANCE = 0.05
 
 # Lay the app out to look right at this width; the embedding page scales the
 # whole thing above it, so everything enlarges together rather than the figures
@@ -199,6 +216,7 @@ def _build():
     m.set_infiltration(infiltration.value / YEAR)
     m.set_temperature(temperature.value + 273.15)
     m.c_drift_max = C_DRIFT_MAX
+    m.flow_tolerance = FLOW_TOLERANCE
     m.initialize()
     m.c = m.solve_solute(m.reaction_coefficient)
     return net, m
