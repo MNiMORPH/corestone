@@ -80,6 +80,15 @@ C_DRIFT_MAX = 0.01
 # Lay the app out to look right at this width; the embedding page scales the
 # whole thing above it, so everything enlarges together rather than the figures
 # growing while the sliders stay 18 px tall.
+#
+# It is also a HARD CAP on the layout, and that is not decoration. Left
+# uncapped, a stretch-to-fit app inside an iframe that sizes itself to its
+# content is a feedback loop with no fixed point: the app is as wide as it is
+# given, the frame is as wide as the app, and nothing settles it. Desktop
+# browsers pin the frame and hide the problem; iOS Safari and every iPad
+# browser (they are all WebKit) size an iframe to its content, and the demo
+# ran away wider than the page. Capping here gives the loop a fixed point,
+# from the app's side, in one place, whatever the browser does.
 DESIGN_WIDTH = 900
 SLIDER_WIDTH = 520
 FIG_W, FIG_H = 420, 400
@@ -198,7 +207,11 @@ def _panel(source, joints, palette, label):
     bar = ColorBar(color_mapper=mapper, width=8, title=label,
                    label_standoff=6, padding=4)
     fig.add_layout(bar, "right")
-    responsive(fig, aspect_ratio=float(FIG_W) / FIG_H)
+    # Half the design width each, since the two sit side by side. Without a
+    # bound, responsive() defaults to 1200 PER FIGURE, so the row is entitled
+    # to 2400 -- far wider than the app is laid out for.
+    responsive(fig, aspect_ratio=float(FIG_W) / FIG_H,
+               max_width=DESIGN_WIDTH // 2)
     return fig
 
 
@@ -249,6 +262,7 @@ pn.Column(
         sizing_mode="stretch_width"),
     pn.Row(run, reset, readout),
     angle, spacing, infiltration,
-    pn.Row(fig_left, fig_right, sizing_mode="stretch_width"),
-    sizing_mode="stretch_width",
+    pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
+           max_width=DESIGN_WIDTH),
+    sizing_mode="stretch_width", max_width=DESIGN_WIDTH,
 ).servable(title="corestone — fracture-controlled granite weathering")
