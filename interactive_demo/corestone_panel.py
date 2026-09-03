@@ -56,16 +56,30 @@ pn.extension()
 # equidimensional joint-bounded cubes that a granite outcrop actually has, and
 # a corestone that is twice as wide as it is tall is not the thing this demo
 # exists to show. Reverted. The box is taller; the geometry is right.
-DX = 0.05                       # cell size [m]
-NX, NZ = 60, 61                 # 3.0 x 3.05 m
-LX, LZ = NX * DX, NZ * DX
+LX = LZ = 3.00                  # the section, in metres. Fixed: it is the cell
+                                # SIZE that varies, not the piece of rock.
 
-#: Rotations at which the joint pair tiles the periodic width exactly. The
-#: index cap is not arbitrary: a high-index angle tiles only at a very fine
-#: spacing (nine divisions of a three-metre section), so its spacing slider
-#: would carry a single choice. Capping at 4 keeps the angles that offer a
-#: real range of spacings -- 0, 14.0, 18.4, 26.6, 33.7, 36.9 and 45 degrees.
-ANGLES = tiling_angles(NX, max_index=4)
+#: Cell sizes offered. The section is 3 m square, so these are 60, 120 and 150
+#: cells across. Finer is not simply better: what makes a corestone look round
+#: rather than stepped is cells per BLOCK, and a 1 m joint spacing is already
+#: 20 cells at 5 cm. What 2 cm buys is a sharper weathering rind; what it costs
+#: is 6.3x the cells and about 18x the time, measured below.
+#:
+#:     cell    cells   per frame   200 kyr
+#:     5 cm     3600      1.9 ms     0.34 s
+#:     2.5 cm  14400     25.2 ms     5.21 s
+#:     2 cm    22500     34.9 ms     7.72 s
+#:
+#: One frame is one step, so at 2 cm a frame already costs more than the 33 ms
+#: animation budget here and several times that in a browser. It animates, just
+#: slowly; Show result is the way to use it.
+CELL_SIZES = {"5 cm": 0.05, "2.5 cm": 0.025, "2 cm": 0.02}
+
+#: The index cap is not arbitrary: a high-index angle tiles only at a very
+#: fine spacing (nine divisions of a three-metre section), so its spacing
+#: slider would carry a single choice. Capping at 4 keeps the angles that offer
+#: a real range of spacings.
+MAX_INDEX = 4
 
 #: Which snapped spacings to offer. Below 0.3 m a block is 6 cells across and
 #: looks square however long it runs; above 3 m there is no block inside the
@@ -102,7 +116,7 @@ DESIGN_WIDTH = 900
 #: took a label line and a track line and the three of them were 150 px of an
 #: 809 px app -- and the embedding page scales that height along with the
 #: width, so every pixel here is multiplied on a wide screen.
-SLIDER_WIDTH = DESIGN_WIDTH // 4 - 16
+SLIDER_WIDTH = DESIGN_WIDTH // 5 - 14
 #: Wider than it is tall, because a figure is not its data area: the depth
 #: axis and its label take about 55 px on the left and the colour bar another
 #: 60 on the right, while only the distance axis (~55 px) is below. Sized 1:1
@@ -116,10 +130,29 @@ FIG_W, FIG_H = 460, 400
 T_REF_C = 285.0 - 273.15
 
 
-def _spacings(angle_deg):
-    """The snapped spacings available at this angle, coarse to fine."""
-    a, b = next((a, b) for ang, a, b in ANGLES if abs(ang - angle_deg) < 1e-6)
-    return tiling_spacings(LX, a, b, SPACING_LOW, SPACING_HIGH)
+def _cells(dx):
+    """Cells across the section at this cell size."""
+    return int(round(LX / dx))
+
+
+def _angles(dx):
+    """
+    Rotations at which the joint pair tiles the periodic width exactly.
+
+    A FUNCTION OF THE CELL COUNT, not of the section: the lattice indices have
+    to divide it. 60 cells across has divisors 1..6 and offers seven angles;
+    150 does not divide by 4, so 14.0 and 36.9 degrees are simply unavailable
+    at 2 cm cells. That is why the cell size cannot be swapped as a constant --
+    it changes what the other two sliders may offer.
+    """
+    return tiling_angles(_cells(dx), max_index=MAX_INDEX)
+
+
+def _spacings(angle_deg, dx):
+    """The snapped spacings available at this angle and cell size."""
+    a, b = next((a, b) for ang, a, b in _angles(dx)
+                if abs(ang - angle_deg) < 1e-6)
+    return tiling_spacings(LX, a, b, SPACING_LOW, SPACING_HIGH, dx=dx)
 
 
 # ---- widgets ----------------------------------------------------------------
@@ -130,13 +163,16 @@ def _spacings(angle_deg):
 # to close on themselves, which needs tan(theta) = b/a for integers and
 # quantises the spacing too. Off those values the joints fail to line up
 # across the seam.
+cell = pn.widgets.DiscreteSlider(
+    name="Cell size", options=CELL_SIZES, value=0.05,
+    sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 angle = pn.widgets.DiscreteSlider(
     name="Joint orientation [°]",
-    options={"%.1f°" % a: a for a, _, _ in ANGLES}, value=0.0,
+    options={"%.1f°" % a: a for a, _, _ in _angles(0.05)}, value=0.0,
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 spacing = pn.widgets.DiscreteSlider(
     name="Joint spacing [m]",
-    options={"%.2f m" % s: s for s in _spacings(0.0)}, value=1.0,
+    options={"%.2f m" % s: s for s in _spacings(0.0, 0.05)}, value=1.0,
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 infiltration = pn.widgets.FloatSlider(
     name="Infiltration [m/yr]", start=0.05, end=1.00, step=0.05,
@@ -154,7 +190,8 @@ temperature = pn.widgets.FloatSlider(
 
 def _build():
     """A fresh network and a fresh model at the current slider settings."""
-    net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(
+    n = _cells(cell.value)
+    net = FractureNetwork(n, n, cell.value, periodic_x=True).seed(
         sets=orthogonal_grid(spacing.value, rotation=angle.value),
         rng=np.random.default_rng(12345))
     m = Weathering(net)
@@ -237,8 +274,8 @@ def _redraw():
 # axis to 0 at the top. Row 0 of the array is the ground surface, and bokeh
 # draws row 0 at the anchor and later rows at increasing y, which with a
 # reversed range puts the surface at the top where it belongs -- no flip.
-affinity = ColumnDataSource(data={"image": [np.zeros((NZ, NX))]})
-dissolved = ColumnDataSource(data={"image": [np.zeros((NZ, NX))]})
+affinity = ColumnDataSource(data={"image": [np.zeros((2, 2))]})
+dissolved = ColumnDataSource(data={"image": [np.zeros((2, 2))]})
 joints_left = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 joints_right = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 
@@ -294,13 +331,31 @@ for w in (angle, spacing, infiltration, temperature):
     w.param.watch(lambda event: do_reset(), "value")
 
 
-@pn.depends(angle.param.value, watch=True)
-def _resnap_spacing(a):
-    """Which spacings tile depends on the angle, so the options move with it."""
-    opts = _spacings(a)
+def _resnap_spacing(a=None):
+    """Which spacings tile depends on the angle AND the cell size."""
+    opts = _spacings(angle.value if a is None else a, cell.value)
     nearest = min(opts, key=lambda s: abs(s - spacing.value))
     spacing.options = {"%.2f m" % s: s for s in opts}
     spacing.value = nearest
+
+
+angle.param.watch(lambda event: _resnap_spacing(event.new), "value")
+
+
+@pn.depends(cell.param.value, watch=True)
+def _resnap_grid(dx):
+    """
+    A new cell size changes what the other two sliders may offer, so they are
+    re-snapped before the model is rebuilt. Nearest surviving value each time
+    rather than a default: someone comparing 26.6 degrees at two resolutions
+    should not have the angle silently reset under them.
+    """
+    opts = _angles(dx)
+    nearest = min((a for a, _, _ in opts), key=lambda a: abs(a - angle.value))
+    angle.options = {"%.1f°" % a: a for a, _, _ in opts}
+    angle.value = nearest
+    _resnap_spacing()
+    do_reset()
 
 
 do_reset()
@@ -320,7 +375,7 @@ pn.Column(
         "mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
     pn.Row(run, reset, stop_at, jump, readout),
-    pn.Row(angle, spacing, infiltration, temperature,
+    pn.Row(angle, spacing, infiltration, temperature, cell,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
            max_width=DESIGN_WIDTH),
