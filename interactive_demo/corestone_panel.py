@@ -208,9 +208,14 @@ sim = {}
 
 
 def step():
-    """One weathering step per frame, stopping exactly at the chosen time."""
+    """One weathering step per frame, until there is nothing left to watch.
+
+    Run just runs. The time selector belongs to :func:`show_result` alone --
+    a stopping point on the animation would make what you are looking at
+    depend on which button you pressed to get there.
+    """
     m = sim["model"]
-    target = stop_at.value * 1e3 * YEAR
+    target = END_KYR * 1e3 * YEAR
     if m.t >= target - 1e-9 * YEAR:
         run.value = False                      # arrived; pause
         return
@@ -239,7 +244,7 @@ def show_result(event=None):
     run.value = False                          # stop animating, if it was
     do_reset()
     m = sim["model"]
-    target = stop_at.value * 1e3 * YEAR
+    target = at_time.value * 1e3 * YEAR
     while m.t < target - 1e-9 * YEAR:
         m.update(dt_limit=target - m.t)
     _redraw()
@@ -309,18 +314,17 @@ fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
                    "fraction dissolved")
 
 readout = pn.pane.Markdown("", sizing_mode="stretch_width")
-#: How far to run. A property of the RUN, not of the rock, which is why it
-#: sits by the buttons rather than in the parameter row and why it does not
-#: reset the model: a student sets 50 kyr, runs, changes the joint spacing --
-#: which does reset -- and runs to 50 kyr again, comparing like with like.
-#: Left where it is, it also continues: run to 50, raise it to 100, run again.
-stop_at = pn.widgets.IntSlider(
-    name="Run to [kyr]", start=10, end=int(END_KYR), step=10,
-    value=int(END_KYR), sizing_mode="stretch_width", max_width=260)
+#: Which moment to jump to. It belongs to Show, not to Run: Run animates from
+#: fresh rock until there is nothing left to watch, and this asks a different
+#: question -- what does the rock look like at 50 kyr? -- answered directly.
+#: It does not reset the model, because it is not a property of the rock.
+at_time = pn.widgets.IntSlider(
+    name="View results at [kyr]", start=10, end=int(END_KYR), step=10,
+    value=50, sizing_mode="stretch_width", max_width=260)
 
 run = animator(step)
 reset = reset_button(do_reset, name="Fresh rock")
-jump = pn.widgets.Button(name="Show result", button_type="default", width=120)
+jump = pn.widgets.Button(name="Show", button_type="default", width=90)
 jump.on_click(show_result)
 
 # Every slider rebuilds: the joint geometry is the initial condition, and the
@@ -370,11 +374,11 @@ do_reset()
 pn.Column(
     pn.pane.Markdown(
         "**Why a corestone survives** – press **▶** and watch the blocks "
-        "round inward, or **Show result** to jump straight to the state at "
-        "**Run to**. *Every parameter is a placeholder; this teaches the "
+        "round inward, or set **View results at** and press **Show** to go "
+        "straight there. *Every parameter is a placeholder; this teaches the "
         "mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
-    pn.Row(run, reset, stop_at, jump, readout),
+    pn.Row(run, reset, at_time, jump, readout),
     pn.Row(angle, spacing, infiltration, temperature, cell,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
