@@ -43,13 +43,20 @@ from corestone import (FractureNetwork, Weathering, orthogonal_grid,
 pn.extension()
 
 # ---- the section ------------------------------------------------------------
-# 3.0 x 3.05 m at 5 cm cells. Resolution is chosen for how many cells cross a
-# BLOCK, since that is what makes a corestone look round rather than stepped:
-# a 1 m joint spacing is 20 cells across. A small section finely resolved beats
-# a large one coarsely resolved, and two or three blocks is plenty to show the
-# rounding.
+# 6.0 x 3.05 m at 5 cm cells: WIDER THAN DEEP, like the road cut or quarry face
+# this is a picture of. Resolution is chosen for how many cells cross a BLOCK,
+# since that is what makes a corestone look round rather than stepped -- a 1 m
+# joint spacing is 20 cells across.
+#
+# The shape is also what sets how tall the demo is on a page, and it is the
+# only thing that does. Two panels side by side at a 900 px design width are
+# 450 px each; take off ~55 px for the depth axis and ~65 for the colour bar
+# and the data area is 330 px wide. A SQUARE section is then 330 px tall, and
+# no amount of trimming labels helps -- widening the panels only makes a square
+# taller. At 2:1 the same data area is 168 px tall, which takes the whole app
+# from ~550 px to ~380, and shows twice as many corestones while it is at it.
 DX = 0.05                       # cell size [m]
-NX, NZ = 60, 61                 # 3.0 x 3.05 m
+NX, NZ = 120, 61                # 6.0 x 3.05 m
 LX, LZ = NX * DX, NZ * DX
 
 #: Rotations at which the joint pair tiles the periodic width exactly. The
@@ -94,12 +101,17 @@ DESIGN_WIDTH = 900
 #: took a label line and a track line and the three of them were 150 px of an
 #: 809 px app -- and the embedding page scales that height along with the
 #: width, so every pixel here is multiplied on a wide screen.
-SLIDER_WIDTH = DESIGN_WIDTH // 3 - 20
+SLIDER_WIDTH = DESIGN_WIDTH // 4 - 16
 #: Wider than it is tall, because a figure is not its data area: the depth
 #: axis and its label take about 55 px on the left and the colour bar another
 #: 60 on the right, while only the distance axis (~55 px) is below. Sized 1:1,
 #: as this was, a SQUARE section comes out visibly taller than it is wide.
-FIG_W, FIG_H = 460, 400
+FIG_W, FIG_H = 460, 240
+
+
+#: The model's reference temperature, in the units the slider speaks. Both
+#: temperature factors are exactly 1 here by construction.
+T_REF_C = 285.0 - 273.15
 
 
 def _spacings(angle_deg):
@@ -128,6 +140,14 @@ infiltration = pn.widgets.FloatSlider(
     name="Infiltration [m/yr]", start=0.05, end=1.00, step=0.05,
     value=0.30, format="0.00",
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
+# Offered in degrees Celsius, because a reader thinks in a climate rather than
+# in kelvin; the model is given kelvin. The default is the model's own
+# reference temperature, 285 K, so the demo opens with both temperature
+# factors at exactly 1 and the slider is the only thing that moves them.
+temperature = pn.widgets.FloatSlider(
+    name="Temperature [°C]", start=0.0, end=30.0, step=1.0,
+    value=T_REF_C, format="0",
+    sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 
 
 def _build():
@@ -137,6 +157,7 @@ def _build():
         rng=np.random.default_rng(12345))
     m = Weathering(net)
     m.set_infiltration(infiltration.value / YEAR)
+    m.set_temperature(temperature.value + 273.15)
     m.c_drift_max = C_DRIFT_MAX
     m.initialize()
     m.c = m.solve_solute(m.reaction_coefficient)
@@ -237,7 +258,7 @@ reset = reset_button(do_reset, name="Fresh rock")
 # infiltration rate sets a flow field that is solved once and held. None of
 # them is a forcing that can be turned while the rock evolves, so changing one
 # starts the clock again rather than pretending otherwise.
-for w in (angle, spacing, infiltration):
+for w in (angle, spacing, infiltration, temperature):
     w.param.watch(lambda event: do_reset(), "value")
 
 
@@ -261,14 +282,14 @@ do_reset()
 # opened on its own.
 pn.Column(
     pn.pane.Markdown(
-        "**Why a corestone survives** — press **▶** and watch the blocks "
+        "**Why a corestone survives** – press **▶** and watch the blocks "
         "round inward. *Every parameter is a placeholder; this teaches the "
         "mechanism, not a rate.*",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
     pn.Row(run, reset, readout),
-    pn.Row(angle, spacing, infiltration, sizing_mode="stretch_width",
-           max_width=DESIGN_WIDTH),
+    pn.Row(angle, spacing, infiltration, temperature,
+           sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
            max_width=DESIGN_WIDTH),
     sizing_mode="stretch_width", max_width=DESIGN_WIDTH,
-).servable(title="corestone — fracture-controlled granite weathering")
+).servable(title="corestone – fracture-controlled granite weathering")
