@@ -34,8 +34,8 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 10
-EXPECTED_DISTINCT = 8
+EXPECTED_BLOCKS = 11
+EXPECTED_DISTINCT = 9
 
 LEDGER = {
     "R = k(T) * A * (1 - C / C_eq)":
@@ -62,6 +62,9 @@ LEDGER = {
 
     "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - c) / tau":
         "test_the_rock_is_integrated_exactly_over_a_step_with_c_held",
+
+    "k(M) = k_matrix^M * k_grus^(1 - M)":
+        "test_the_matrix_conducts_better_as_it_dissolves",
 }
 
 

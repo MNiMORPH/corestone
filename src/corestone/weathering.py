@@ -49,10 +49,18 @@ but never travel along one, so the whole horizontal set was inert: deleting it
 changed the weathering by 0.2 percentage points. The cascade was cheaper, but
 the thing it could not represent was exactly the thing the joints are for.
 
-Because the conductance does not evolve, the head is solved **once**. And
-because a flow driven by the gradient of a potential cannot circulate, the flux
-field is acyclic: solute is swept row by row, with the lateral exchange inside
-each row solved as a tridiagonal system rather than iterated.
+The conductance EVOLVES: dissolving rock opens connected porosity, so the
+matrix conducts better as it weathers, water is drawn into the weathered zone,
+and it dissolves faster still. That feedback is what makes a weathering profile
+-- shallow blocks destroyed, deeper ones surviving -- rather than a section
+that weathers uniformly at every depth. The head is therefore re-solved as the
+rock changes, every ``flow_interval`` steps; see :meth:`link_conductivity`.
+
+(Two claims stood here until 2026-09-03 and both were stale. The conductance
+was fixed and the head solved once, which is the simplification this replaces.
+The solute was also described as swept row by row with a tridiagonal solve
+inside each row -- that went when diffusion arrived and the whole field became
+one sparse advection-diffusion-reaction solve.)
 
 **Every parameter here is a placeholder.** None is measured. They are tabulated
 in the design document, and no number from this module should be used as a
@@ -109,8 +117,27 @@ class Weathering(object):
         self.infiltration = 0.30 / YEAR   # recharge at the surface [m/s]
         self.k_fracture = 1.0e-5          # hydraulic conductivity, jointed
                                           # rock [m/s]        PLACEHOLDER
-        self.k_matrix = 1.0e-8            # hydraulic conductivity, intact
-                                          # granite [m/s]     PLACEHOLDER
+        # The two ends of the matrix, and the only two numbers in this model
+        # taken from a measurement rather than invented. Goodfellow et al.
+        # (2016), JGR Earth Surface 121, 1410-1435, measured the hydraulic
+        # conductivity of granodiorite MATRIX across a range of weathering
+        # grades: 9e-9 to 8e-8 cm/s in the parent rock and 9e-5 to 9e-4 cm/s
+        # in the most weathered samples, an increase of three to four orders
+        # of magnitude. These are the mid-points of those two ranges, in m/s.
+        self.k_matrix = 5.0e-10           # intact granite [m/s]
+        self.k_grus = 5.0e-6              # fully dissolved rock [m/s]
+        self.flow_tolerance = 0.01        # re-solve the head once the rock has
+                                          # changed this much anywhere. NOT a
+                                          # step count: that would tie the
+                                          # answer to the step size, which the
+                                          # drift control exists to prevent.
+                                          # CONVERGED, not chosen: 0.2, 0.1,
+                                          # 0.05, 0.02, 0.01 give max|dM| of
+                                          # 1.9e-1, 9.4e-2, 4.4e-2, 9.4e-3 and
+                                          # 0 against 0.002. A tolerance is a
+                                          # numerical quantity and should be
+                                          # converged; the uncertainty belongs
+                                          # in the conductivities.
         self.L_ref = 0.50                 # saturation length at T_ref, mean
                                           # infiltration, fresh rock [m]
         self.T_ref = 285.0                # reference temperature [K]
@@ -174,6 +201,8 @@ class Weathering(object):
         self._dt = None                   # the step the drift control chose
         self._c_held = None               # the c actually held over a step
         self._drift = None                # the drift the last step produced
+        self._M_flow = None               # M when the head was last solved
+        self.flow_solves = 0              # how many times the head was solved
         self.rejected_steps = 0           # steps retried for overrunning
         self.factorisations = 0           # how many times it was rebuilt
 
@@ -474,23 +503,50 @@ class Weathering(object):
         """
         Hydraulic conductivity on every link: ``(vertical, horizontal, wrap)``.
 
-        A jointed link conducts, an intact one barely does, and that is the
-        whole of it -- the conductance depends on the FRACTURE NETWORK and not
-        on how much rock is left, so the head is solved once and held.
+        The matrix CONDUCTS BETTER AS IT DISSOLVES, interpolated geometrically
+        -- linearly in the logarithm, which is how conductivity varies --
+        between intact granite and fully dissolved rock:
 
-        That is a simplification, and a load-bearing one. Dissolving rock
-        opens porosity, so weathered rock should conduct better than fresh,
-        which focuses more water into the weathered zone, which dissolves it
-        faster. Leaving it out removes a positive feedback that real
-        dissolution systems have. It is a method rather than an expression so
-        that the question can be asked without rewriting the solver; see
-        prototypes/probe_h_evolving_permeability.py.
+            k(M) = k_matrix^M * k_grus^(1 - M)
+
+        on the mean of the two cells a link joins. A jointed link keeps
+        ``k_fracture``: an open joint is an open joint whatever the rock beside
+        it has done.
+
+        This is the model's one positive feedback, and it is not decoration.
+        Dissolving rock opens connected porosity, so water is drawn into the
+        weathered zone, which dissolves it faster still -- the mechanism behind
+        wormholes in limestone and reactive-infiltration fingers generally.
+        With the conductance held fixed, as it was until now, the section
+        weathers almost uniformly with depth. With the feedback the shallow
+        blocks are destroyed while the deeper ones survive and taper, because
+        water opens the rock it passes through on the way down and arrives
+        saturated below. That is a weathering PROFILE, which is what a
+        saprolite actually looks like, and the fixed version cannot produce it
+        at all (prototypes/probe_h_evolving_permeability.py).
+
+        The two endpoints are measured, not chosen. Goodfellow et al. (2016)
+        report granodiorite matrix conductivity rising three to four orders of
+        magnitude across weathering grades, from 9e-9 to 8e-8 cm/s in parent
+        rock to 9e-5 to 9e-4 cm/s in the most weathered samples; ``k_matrix``
+        and ``k_grus`` are the mid-points of those ranges. Everything else in
+        this module is still a placeholder.
         """
         net = self.network
-        kv = np.where(net.link_v, self.k_fracture, self.k_matrix)
-        kh = np.where(net.link_h, self.k_fracture, self.k_matrix)
+        lo, hi = np.log(self.k_matrix), np.log(self.k_grus)
+
+        def k_of(m):
+            return np.exp(m * lo + (1.0 - m) * hi)
+
+        M = np.clip(self.M, 0.0, 1.0) if self.M is not None \
+            else np.ones((self.nz, self.nx))
+        kv = np.where(net.link_v, self.k_fracture,
+                      k_of(0.5 * (M[:-1, :] + M[1:, :])))
+        kh = np.where(net.link_h, self.k_fracture,
+                      k_of(0.5 * (M[:, :-1] + M[:, 1:])))
         if net.periodic_x:
-            kw = np.where(net.link_wrap, self.k_fracture, self.k_matrix)
+            kw = np.where(net.link_wrap, self.k_fracture,
+                          k_of(0.5 * (M[:, -1] + M[:, 0])))
         else:
             kw = np.zeros(self.nz)
         return kv, kh, kw
@@ -590,6 +646,8 @@ class Weathering(object):
         self.q = self._in_above + self._in_left + self._in_right
         # What leaves the domain through the base, per bottom-row cell.
         self.q_out_base = self._k_base * (H[-1, :] - self._h_base)
+        self._M_flow = None if self.M is None else self.M.copy()
+        self.flow_solves += 1
         return self.q
 
     # ---- lifecycle
@@ -607,6 +665,8 @@ class Weathering(object):
         self._drift = None
         self.rejected_steps = 0
         self.factorisations = 0
+        self._M_flow = None
+        self.flow_solves = 0
         self.M = np.ones((self.nz, self.nx))
         self.c = np.zeros((self.nz, self.nx))
         self.t = 0.0
@@ -735,6 +795,18 @@ class Weathering(object):
         self._c_held = c_new
         self.c = c_new
         self.t += step
+
+        # Re-solve the head once the ROCK has changed enough to have moved the
+        # conductance, not every so many steps. A step count would tie the
+        # answer to the step size, and the drift control exists precisely so
+        # that it does not: halving the budget would silently double how often
+        # the flow was updated and change the result. This trigger is a
+        # property of the rock, so refining the time step converges rather
+        # than wanders.
+        if self._M_flow is not None and \
+                np.abs(self.M - self._M_flow).max() >= self.flow_tolerance:
+            self.solve_flow()
+            self._c_held = None           # the flow moved; c must be re-solved
         return step
 
     def run(self, years):

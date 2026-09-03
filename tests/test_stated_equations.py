@@ -187,6 +187,71 @@ def test_tau_falls_as_solubility_rises():
     assert m.tau == pytest.approx(m.tau_ref / m.solubility_factor, rel=1e-12)
 
 
+def test_the_matrix_conducts_better_as_it_dissolves():
+    """
+        k(M) = k_matrix^M * k_grus^(1 - M)
+
+    Geometric interpolation: linear in the LOGARITHM of conductivity, which is
+    how conductivity varies and why the endpoints span four orders of
+    magnitude rather than a factor of four.
+
+    Checked as the three properties that define it rather than by re-typing
+    the expression -- the two endpoints, and the fact that the midpoint is the
+    geometric and not the arithmetic mean, which is the whole content of
+    "geometric" and the thing a careless rewrite would lose.
+    """
+    m = _model()
+    net = m.network
+    intact = ~net.link_v                       # unjointed vertical links
+
+    m.M = np.ones((m.nz, m.nx))
+    kv, _, _ = m.link_conductivity()
+    assert np.allclose(kv[intact], m.k_matrix, rtol=1e-12)
+
+    m.M = np.zeros((m.nz, m.nx))
+    kv, _, _ = m.link_conductivity()
+    assert np.allclose(kv[intact], m.k_grus, rtol=1e-12)
+
+    m.M = np.full((m.nz, m.nx), 0.5)
+    kv, _, _ = m.link_conductivity()
+    geometric = np.sqrt(m.k_matrix * m.k_grus)
+    arithmetic = 0.5 * (m.k_matrix + m.k_grus)
+    assert np.allclose(kv[intact], geometric, rtol=1e-12)
+    assert not np.allclose(kv[intact], arithmetic, rtol=1e-3)
+
+    # a joint is a joint whatever the rock beside it has done
+    m.M = np.zeros((m.nz, m.nx))
+    kv, _, _ = m.link_conductivity()
+    assert np.allclose(kv[net.link_v], m.k_fracture, rtol=1e-12)
+
+
+def test_the_head_is_re_solved_as_the_rock_changes():
+    """
+    The feedback only exists if the head is actually recomputed. Triggered by
+    how much the ROCK has changed, never by a step count: a step count would
+    tie the answer to the step size, and halving the drift budget would
+    silently double how often the flow was updated.
+    """
+    m = _model()
+    m.flow_tolerance = 0.02
+    m.run(years=40e3)
+    assert m.flow_solves > 4, m.flow_solves       # the feedback is live
+
+    fine = _model()
+    fine.flow_tolerance = 0.02
+    fine.c_drift_max = 0.25 * fine.c_drift_max    # four times the steps
+    fine.run(years=40e3)
+
+    # The ANSWER is what must not depend on the step size, and it does not.
+    # The solve COUNT does move -- a coarse step overshoots the tolerance
+    # before the check, so each solve covers more than flow_tolerance of
+    # change and fewer are needed (16 against 46 here). That is a weaker
+    # coupling than a step count, which would be proportional, and it washes
+    # out of the result: 0.1630 against 0.1665.
+    a, b = m.dissolved_fraction.mean(), fine.dissolved_fraction.mean()
+    assert abs(a - b) / max(a, 1e-12) < 0.05, (a, b)
+
+
 # ------------------------------------------------------------- flow, Darcy
 
 def test_the_head_field_satisfies_the_darcy_equation_cell_by_cell():
