@@ -253,7 +253,27 @@ class Weathering(object):
                                           # numerical quantity and should be
                                           # converged; the uncertainty belongs
                                           # in the conductivities.
-        self.L_ref = 0.50                 # saturation length at T_ref, mean
+        # DERIVED. L = q C_eq / (k A), and every term is sourced:
+        #   q    0.30 m/yr infiltration = 9.51e-9 m/s
+        #   C_eq 0.10 mol Si/m3, quartz saturation
+        #   k    10^-11.84 mol m-2 s-1, oligoclase neutral (Palandri &
+        #        Kharaka 2004), times 1.6 mol Si per formula unit
+        #   A    reactive surface area, 900 m2/m3 -- GEOMETRIC, for 2 mm
+        #        cubic grains at 30 % plagioclase, which is an ordinary
+        #        coarse granite
+        # giving L_ref = 0.457 m, where the old calibration guessed 0.50.
+        #
+        # A is the one real choice and it is the deep one. BET surface area
+        # of granite is 0.1-1 m2/g, i.e. 3e5-3e6 m2/m3, two to three orders
+        # ABOVE the geometric figure, and using it would give a saturation
+        # length of about a millimetre. That gap is the long-standing
+        # laboratory-versus-field rate discrepancy (White & Brantley 2003):
+        # laboratory rate constants on BET areas overpredict field weathering
+        # by two to three orders of magnitude. Pairing a laboratory k with a
+        # GEOMETRIC area is the standard way to land near field behaviour,
+        # and the validation in the module docstring is the check that it
+        # does.
+        self.L_ref = 0.457                # saturation length at T_ref, mean
                                           # infiltration, fresh rock [m]
         self.T_ref = 285.0                # reference temperature [K]
         # The soluble phase is PLAGIOCLASE -- oligoclase, the An10-30 the
