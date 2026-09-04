@@ -165,25 +165,22 @@ def test_the_base_conductance_reaches_the_matrix_through_the_triplets():
     d = A.diagonal().reshape(m.nz, m.nx)
     # links only: rebuild the same row without the base term
     net = m.network
-    kv = np.where(net.link_v, m.k_fracture, m.k_matrix)
-    kh = np.where(net.link_h, m.k_fracture, m.k_matrix)
+    # k_matrix_at_T, not k_matrix: the conductivities carry the viscosity at
+    # the working temperature, and a fresh model has M = 1 everywhere so
+    # k(M) is exactly that. Using the uncorrected value here left this
+    # comparison wrong by k_matrix - k_matrix_at_T, which is 9.45e-11 -- and
+    # np.allclose's default atol of 1e-8 swallowed it whole.
+    kv = np.where(net.link_v, m.k_fracture, m.k_matrix_at_T)
+    kh = np.where(net.link_h, m.k_fracture, m.k_matrix_at_T)
     links = kv[-1, :].copy()                       # from the row above
     links[:-1] += kh[-1, :]
     links[1:] += kh[-1, :]
     if net.periodic_x:
-        kw = np.where(net.link_wrap, m.k_fracture, m.k_matrix)
+        kw = np.where(net.link_wrap, m.k_fracture, m.k_matrix_at_T)
         links[-1] += kw[-1]
         links[0] += kw[-1]
-    # UNEXPLAINED, AND LEFT VISIBLE. This match is good to 1.4e-5 relative,
-    # not to machine precision, and it is not floating-point cancellation --
-    # subtracting two numbers near 2e-5 to get 6.6e-6 costs about four digits,
-    # nowhere near this. It predates the tortuosity work and was invisible
-    # until np.allclose's default atol=1e-8 was removed from this file, which
-    # swamped every conductance in it. Tolerance set where the claim actually
-    # holds rather than where it looks tidy; the residual is a real question
-    # about the base-conductance bookkeeping and has not been chased.
-    assert np.allclose(d[-1, :] - links, m._k_base, rtol=1e-4, atol=0.0)
-    assert np.allclose(rhs.reshape(m.nz, m.nx)[-1, :],
+    assert np.allclose(d[-1, :] - links, m._k_base, rtol=1e-12, atol=0.0)
+    assert np.allclose(rhs.reshape(m.nz, m.nx)[-1, :],  # atol below
                        m._k_base * m._h_base, rtol=1e-12, atol=0.0)
 
 
@@ -276,7 +273,7 @@ def test_the_iterative_tolerance_is_named_the_way_this_scipy_names_it():
     A = sp.eye(8, format="csc") * 2.0
     b = np.ones(8)
     x, info = spl.bicgstab(A, b, atol=0.0, **{_RTOL: 1e-10})
-    assert info == 0 and np.allclose(x, 0.5)
+    assert info == 0 and np.allclose(x, 0.5, rtol=1e-9, atol=0.0)
 
     m = _model()
     m.update()                                 # first step: direct

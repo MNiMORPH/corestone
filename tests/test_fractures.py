@@ -169,7 +169,7 @@ def test_the_orthogonal_grid_is_evenly_spaced():
     n = _net(sets=orthogonal_grid(spacing=S))
     xs = np.unique(np.round([p0[0] for p0, p1 in n.segments_of("J1")], 9))
     assert len(xs) >= 5
-    assert np.allclose(np.diff(xs), S)
+    assert np.allclose(np.diff(xs), S, rtol=1e-12, atol=0.0)
 
 
 def test_the_orthogonal_grid_does_not_depend_on_the_generator():
@@ -193,7 +193,7 @@ def test_a_regular_grid_is_uniform_right_out_to_the_walls():
     n = FractureNetwork(nz, nx, 0.05).seed(sets=orthogonal_grid(1.5),
                                            rng=np.random.default_rng(1))
     xs = np.array(sorted({round(p0[0], 6) for p0, _ in n.segments_of("J1")}))
-    assert np.allclose(np.diff(xs), 1.5)              # uniform spacing
+    assert np.allclose(np.diff(xs), 1.5, rtol=1e-12, atol=0.0)   # uniform spacing
     assert xs.min() == pytest.approx(0.5 * n.dx)      # a joint on each wall
     assert xs.max() == pytest.approx(n.lx - 0.5 * n.dx)
     assert np.array_equal(n.cell, n.cell[:, ::-1])

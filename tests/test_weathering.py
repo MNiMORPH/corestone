@@ -87,7 +87,7 @@ def test_water_enters_fresh_and_saturates_with_depth():
     assert m.c[0, :].max() < 0.1 * np.median(m.c[5, :])   # rain arrives fresh
     assert np.median(m.c[5, :]) > 0.9                # matrix saturates quickly
     assert m.c.max() <= 1.0 + 1e-12
-    assert np.allclose(m.affinity, 1.0 - m.c)
+    assert np.allclose(m.affinity, 1.0 - m.c, rtol=1e-12, atol=0.0)
 
 
 def test_raising_the_temperature_shortens_the_saturation_length():
@@ -226,7 +226,7 @@ def test_the_water_speed_is_the_infiltration_rate_where_there_are_no_joints():
     m = Weathering(net).initialize()
     assert not net.link_v.any() and not net.link_h.any()
     v = m.darcy_speed
-    assert np.allclose(v, m.infiltration, rtol=1e-6), (v.min(), v.max())
+    assert np.allclose(v, m.infiltration, rtol=1e-6, atol=0.0), (v.min(), v.max())
 
 
 def test_joints_carry_far_more_than_the_matrix():
