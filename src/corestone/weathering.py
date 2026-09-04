@@ -290,9 +290,16 @@ class Weathering(object):
         self.R_gas = 8.314                # gas constant [J/mol/K]
         self.tau_ref = 6700.0             # M0/C_eq at T_ref: volumes of
                                           # saturated water per volume of rock
-        self.D_molecular = 1.0e-9         # aqueous diffusivity [m2/s] AT
-        self.T_D_ref = 298.15             # this temperature [K]. A dissolved
-                                          # ion at 25 C; scaled to the working
+        # MEASURED, and of the right species. The solute here is silica --
+        # C_eq is quartz saturation -- and the diffusion coefficient of
+        # dissolved silica is (1.02 +/- 0.02)e-9 m2/s at 25 C (Rebreanu,
+        # Vanderborght & Chou, 2008, Marine Chemistry 112, 230-233),
+        # confirming Wollast & Garrels (1971) at (1.00 +/- 0.05)e-9. This was
+        # carried for a long time as "order of magnitude for a dissolved ion",
+        # which undersold it: it is the measurement, for the ion in question.
+        self.D_molecular = 1.0e-9         # aqueous diffusivity of dissolved
+        self.T_D_ref = 298.15             # silica [m2/s] AT this temperature
+                                          # [K]; scaled to the working
                                           # temperature by Stokes-Einstein,
                                           # see diffusivity_factor.
         self.tortuosity = 10.0            # matrix tortuosity [-]
