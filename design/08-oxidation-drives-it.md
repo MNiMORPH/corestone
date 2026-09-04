@@ -71,12 +71,12 @@ wrong changes which modulus the model needs.
 
 | | value | source |
 |---|---|---|
-| `f_FeO` | 0.05 | Fletcher et al. (2006) Table 1, volume fraction of the FeO component |
+| `f_FeO` | **0.011** | granite. USGS reference granites G-1/G-2/G-3 give 0.0083-0.0116 and Goodfellow's granodiorite 0.0107. Fletcher's 0.05 implies 10.9 wt% FeO and is too high even for his own rock, which measures 4.6 |
 | `V_FeO` | 12.00 cm3/mol | Robie & Hemingway (1995), USGS Bulletin 2131, p. 16 |
 | `V_goethite` | 20.82 cm3/mol | same table, same page |
 | `dV/V` | **0.735** | the two above. Both are single-Fe formula units, so no factor-of-2 ambiguity |
 | `E`, `nu` | 76 GPa, 0.24 | SKB R-05-83 Tables 2-7/2-9: 52 intact granite-granodiorite cores, Forsmark. Near-surface cracked granite is softer -- 40 GPa is the more defensible choice here, and the model is about rock that is cracking |
-| `Gamma` | 200 J/m2 | Friedman, Handin & Alani (1972), via Fletcher Table 1: tensile fracture in POLYCRYSTALLINE rock |
+| `Gamma` | **1-200 J/m2, a bracket** | bounded below by 2 gamma (Brace & Walsh 1962) and above by specimen-scale G_c (Friedman et al. 1972). See below: it does not close |
 
 **The product is goethite, not ferrihydrite.** Fletcher's footnote quotes 0.7
 for "wustite to ferrihydrite" citing Robie & Hemingway -- but that compilation
@@ -86,28 +86,44 @@ write the reaction to goethite explicitly with the identical volumes. Using a
 ferrihydrite molar volume would be following a citation its own source does
 not support.
 
-**Which fracture energy, and this is the interesting part.** Single-crystal
-surface energies are of order 1 J/m2 -- Brace & Walsh (1962) measured quartz
-at 0.40-1.00 by cleavage, muscovite at 0.375, and put common minerals at
-0.1-2. Fletcher instead uses 200 J/m2, a POLYCRYSTALLINE tensile fracture
-energy, and notes that single-crystal values are smaller by a factor of ~100.
+**Which fracture energy: the bracket, not a number.** This was chased hard and
+it does not close. Gamma is bounded below by the thermodynamic floor -- twice
+the specific surface free energy, and Brace & Walsh (1962) measured quartz at
+0.40-1.00 J/m2 by cleavage, muscovite at 0.375, and put common minerals at
+0.1-2. It is bounded above by specimen-scale fracture energy, the 200 J/m2
+Fletcher uses from Friedman, Handin & Alani (1972), which is overwhelmingly
+process-zone dissipation rather than surface creation.
 
-For this model the polycrystalline value is the right one: what cracks is
-rock, through and around grains, not a cleaved crystal. And it lands on the
-observation:
+At granite f_FeO = 0.011 that bracket is enormous:
 
-    Gamma = 200 J/m2 (polycrystalline)   ->  x_c = 0.115, cracking at 12 %
-    gamma = 0.4-2 J/m2 (single crystal)  ->  x_c = 0.005-0.016
+    Gamma   1 J/m2  (2 gamma, thermodynamic floor)   x_c =  3.7 %
+    Gamma   2       (Goodfellow's high end)                 5.2 %
+    Gamma  20                                              16.6 %
+    Gamma 200       (specimen-scale G_c)                   52.5 %
 
-Goodfellow et al. (2016) report that a **~10 % rise in Fe(III)** goes with one
-to three orders of magnitude in hydraulic conductivity. The polycrystalline
-criterion predicts 12 %. That is a prediction landing on an independent
-measurement, from a criterion with nothing fitted to it, and it is the
-strongest argument in this document.
+**Why it cannot be narrowed, stated rather than fudged.** Goodfellow justify a
+near-thermodynamic value by asserting that crack-tip yielding "occurs at a
+scale smaller than the constituent grains". Zang, Wagner, Stanchits & Janssen
+(2000), JGR 105:23651-23661, MEASURED the process zone in Aue granite at
+**2 to 9 grain diameters** -- larger than a grain, not smaller. So the
+justification for the low end is contradicted by direct measurement on
+granite, while the high end is a specimen-scale quantity that a grain-scale
+crack cannot possibly develop. The truth is in between and nothing locates it.
 
-The single-crystal value would have cracking begin at half a percent
-oxidation, which is early enough to be indistinguishable from no threshold at
-all -- so the choice matters, and it is a physical choice rather than a knob.
+**What this costs, and it is the honest cost.** Goodfellow's observed ~10 %
+sits inside the bracket. The model is therefore CONSISTENT with the
+observation and does not predict it. An earlier draft of this document claimed
+a prediction of 12 % landing on their 10 %; that rested on Fletcher's
+f_FeO = 0.05, which is wrong for granite by a factor of 4.5 and too high even
+for Fletcher's own rock, and on a fracture energy chosen from one end of a
+14-fold range. Both halves of the coincidence were errors. It is recorded here
+because it was the strongest sentence in the document and it was not true.
+
+Two documents would close this and neither is open access: Zang et al. (2000)
+in full, and its companion Janssen, Wagner, Zang & Dresen (2001), Int. J.
+Earth Sciences 90:46-59, which almost certainly underlies Zang's fracture
+surface energy estimate. Worth an interlibrary request alongside White & Yee
+(1985) for the oxidation rate.
 
 **Rate law: first order in O2, not Fletcher's C^0.25.** Fletcher's exponent is
 the stoichiometric quarter of eq. (2) adopted as a concentration exponent,
