@@ -338,7 +338,28 @@ class Weathering(object):
                                           # [K]; scaled to the working
                                           # temperature by Stokes-Einstein,
                                           # see diffusivity_factor.
-        self.tortuosity = 10.0            # matrix tortuosity [-]
+        # Tortuosity divides the aqueous diffusivity to give the matrix
+        # value. 10 puts D_matrix at 1e-10 m2/s, which is right for WEATHERED
+        # material: saprolite at porosity ~0.3 and tortuosity ~3 gives
+        # D_eff/D_0 ~ 0.1. It is emphatically NOT right for intact granite,
+        # where through-diffusion experiments give D_eff/D_0 of 1e-4 to 1e-5,
+        # a tortuosity nearer 1e4.
+        #
+        # KNOWN INCONSISTENCY, stated rather than hidden: the conductivity
+        # evolves with M and this does not. Dissolving rock opens porosity to
+        # diffusion exactly as it opens it to flow, so a full treatment would
+        # interpolate tortuosity between the two ends the way
+        # link_conductivity interpolates k. Fresh rock therefore diffuses far
+        # too freely here, which flatters the early rind.
+        self.tortuosity = 10.0            # matrix tortuosity [-], weathered
+
+        # Longitudinal dispersivity scales with the transport distance:
+        # Gelhar, Welty & Rehfeldt (1992) put it near a tenth of the scale
+        # observed, with orders of magnitude of scatter and their
+        # high-reliability data at the low end. Over a 3 m section a tenth
+        # would be 0.3 m; 0.05 m is a fiftieth, inside the scatter and
+        # deliberately conservative, since dispersion this large would smear
+        # the rind the model exists to show.
         self.dispersivity = 0.05          # longitudinal dispersivity [m]
         # Two ARBITRARY cut-offs on a continuous field, kept for convenience
         # and named badly. Neither word is a fraction dissolved: fresh rock,
