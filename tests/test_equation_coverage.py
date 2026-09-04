@@ -34,8 +34,8 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 13
-EXPECTED_DISTINCT = 11
+EXPECTED_BLOCKS = 14
+EXPECTED_DISTINCT = 12
 
 LEDGER = {
     "R = k(T) * A * (1 - C / C_eq)":
@@ -50,7 +50,7 @@ LEDGER = {
     "div( K grad H ) = 0, H = psi - d (d is depth, positive down)":
         "test_the_head_field_satisfies_the_darcy_equation_cell_by_cell",
 
-    "D = D_molecular / tortuosity + dispersivity * |v|":
+    "D = D_aqueous(T) / tortuosity + dispersivity * |v|":
         "test_the_transport_coefficient_is_molecular_plus_dispersive",
 
     "sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j) + r dx^2 c_i "
@@ -73,6 +73,9 @@ LEDGER = {
     "L = q C_eq / (k A) = (q C_0 / (k_0 A)) exp( -(dH_r - E_a) / R_g T ) "
     "= L_ref exp( +(E_a - dH_r) / R_g ( 1/T - 1/T_ref ) ) *":
         "test_only_the_DIFFERENCE_of_the_two_enthalpies_sets_the_length_scale",
+
+    "mu(T) = 2.414e-5 * 10 ** (247.8 / (T - 140))":
+        "test_the_water_viscosity_correlation_matches_tabulated_water",
 }
 
 

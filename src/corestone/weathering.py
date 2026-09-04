@@ -158,6 +158,24 @@ YEAR = 365.25 * 24 * 3600.0
 ORDERING = "MMD_AT_PLUS_A"
 
 
+def water_viscosity(T):
+    """
+    Dynamic viscosity of liquid water [Pa s], for temperature ``T`` in K.
+
+    The standard engineering correlation,
+
+        mu(T) = 2.414e-5 * 10 ** (247.8 / (T - 140))
+
+    checked here against tabulated values: -2.2 % at 273.15 K, -0.0 % at
+    293.15 K and -0.2 % at 313.15 K, so within a couple of per cent across
+    every temperature this model is used at. It is in the code rather than in
+    a table because it is the only place a *physical property of water*
+    enters, and a student should be able to see that it is not a fit to
+    anything in this model.
+    """
+    return 2.414e-5 * 10.0 ** (247.8 / (T - 140.0))
+
+
 class Weathering(object):
     """
     Weathering of a jointed rock section, driven by infiltrating rainwater.
@@ -238,7 +256,11 @@ class Weathering(object):
         self.R_gas = 8.314                # gas constant [J/mol/K]
         self.tau_ref = 6700.0             # M0/C_eq at T_ref: volumes of
                                           # saturated water per volume of rock
-        self.D_molecular = 1.0e-9         # aqueous diffusivity [m2/s]
+        self.D_molecular = 1.0e-9         # aqueous diffusivity [m2/s] AT
+        self.T_D_ref = 298.15             # this temperature [K]. A dissolved
+                                          # ion at 25 C; scaled to the working
+                                          # temperature by Stokes-Einstein,
+                                          # see diffusivity_factor.
         self.tortuosity = 10.0            # matrix tortuosity [-]
         self.dispersivity = 0.05          # longitudinal dispersivity [m]
         # Two ARBITRARY cut-offs on a continuous field, kept for convenience
@@ -368,6 +390,44 @@ class Weathering(object):
     # a quantity the model already computes implicitly, given a name and a
     # docstring so that a student can ask the model what regime it is in and
     # get an answer instead of inferring it from behaviour.
+
+    @property
+    def diffusivity_factor(self):
+        """
+        ``D(T) / D(T_D_ref)``, Stokes-Einstein.
+
+        A diffusing ion is dragged by the water around it, so its diffusivity
+        goes as ``T / mu(T)`` -- and over the range of a terrestrial climate
+        it is the viscosity that moves, not the absolute temperature. Water is
+        2.6 times as viscous at 275 K as at 315 K, so ``D`` spans a factor of
+        three across the temperatures this demo offers.
+
+        Left constant, this was the one temperature-dependent quantity in the
+        model that was not allowed to depend on temperature. It matters where
+        it would be easiest to assume it does not: in the JOINTS mechanical
+        dispersion is about 95 times molecular diffusion and this is
+        irrelevant, but in the MATRIX the ratio is 0.005 -- molecular
+        diffusion beats dispersion two hundred to one -- and the matrix is
+        where the weathering rind forms and where corners round. This is the
+        term that carries solute out of a block interior.
+
+        Note what it does NOT touch. Viscosity also enters the hydraulic
+        conductivity, so warm water should flow more freely -- but the
+        infiltration here is prescribed at the surface rather than driven by a
+        head gradient, so scaling every conductivity together rescales the
+        head and leaves the flow field identical (verified: a 1.6x change
+        moves the speed field by 7e-8). The effect is not missing from this
+        model; it is unable to act, and that is a property of the boundary
+        condition.
+        """
+        T = np.mean(self.T)
+        return ((T / water_viscosity(T))
+                / (self.T_D_ref / water_viscosity(self.T_D_ref)))
+
+    @property
+    def D_aqueous(self):
+        """Molecular diffusivity at the working temperature [m2/s]."""
+        return self.D_molecular * self.diffusivity_factor
 
     @property
     def apparent_activation_energy(self):
@@ -533,9 +593,10 @@ class Weathering(object):
         """
         Solute transport coefficient on every link [m2/s].
 
-            D = D_molecular / tortuosity  +  dispersivity * |v|
+            D = D_aqueous(T) / tortuosity  +  dispersivity * |v|
 
-        Molecular diffusion plus hydrodynamic (mechanical) dispersion. The
+        Molecular diffusion, at the working temperature, plus hydrodynamic
+        (mechanical) dispersion. The
         second is sometimes called turbulent diffusion and the operator is the
         same, but at these fluxes the Reynolds number is around 3e-5 -- laminar
         by five orders of magnitude. The distinction matters only because it is
@@ -549,10 +610,9 @@ class Weathering(object):
         spheroidal rounding, since a corner sheds solute to two faces and an
         edge to one.
         """
-        dm_v = np.where(self.network.link_v, self.D_molecular,
-                        self.D_molecular / self.tortuosity)
-        dm_h = np.where(self.network.link_h, self.D_molecular,
-                        self.D_molecular / self.tortuosity)
+        D = self.D_aqueous
+        dm_v = np.where(self.network.link_v, D, D / self.tortuosity)
+        dm_h = np.where(self.network.link_h, D, D / self.tortuosity)
         return (dm_v + self.dispersivity * np.abs(self.q_v) / self.dx,
                 dm_h + self.dispersivity * np.abs(self.q_h) / self.dx)
 
@@ -569,7 +629,7 @@ class Weathering(object):
         # changing D_molecular or the dispersivity silently do nothing, which a
         # test caught -- the same shape of defect as a docstring drifting from
         # its code, and one a cache invites.
-        key = (self.D_molecular, self.tortuosity, self.dispersivity,
+        key = (self.D_aqueous, self.tortuosity, self.dispersivity,
                id(self.q_v), float(np.sum(self.q_v)), float(np.sum(self.q_h)))
         if self._T is not None and self._T_key == key:
             return self._T
@@ -597,8 +657,8 @@ class Weathering(object):
         if self.network.periodic_x:
             fwd = np.maximum(self.q_wrap, 0.0)
             rev = np.maximum(-self.q_wrap, 0.0)
-            Dw = np.where(self.network.link_wrap, self.D_molecular,
-                          self.D_molecular / self.tortuosity) \
+            Dw = np.where(self.network.link_wrap, self.D_aqueous,
+                          self.D_aqueous / self.tortuosity) \
                  + self.dispersivity * np.abs(self.q_wrap) / dx
             l, rgt = idx[:, -1], idx[:, 0]
             add(l, l, fwd + Dw);     add(rgt, l, -(fwd + Dw))

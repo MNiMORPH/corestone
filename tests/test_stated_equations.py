@@ -29,6 +29,7 @@ import pytest
 
 from corestone import (FractureNetwork, Weathering, YEAR, orthogonal_grid,
                        periodic_grid_shape)
+from corestone.weathering import water_viscosity
 
 
 def _model(dx=0.10, spacing=1.5, width=12.0, depth=9.0):
@@ -282,7 +283,7 @@ def test_the_head_field_satisfies_the_darcy_equation_cell_by_cell():
 
 def test_the_transport_coefficient_is_molecular_plus_dispersive():
     """
-        D = D_molecular / tortuosity + dispersivity * |v|
+        D = D_aqueous(T) / tortuosity + dispersivity * |v|
 
     Two terms. The second is hydrodynamic dispersion; at these fluxes the
     Reynolds number is about 3e-5, so it is not turbulence, and it is pore and
@@ -291,12 +292,12 @@ def test_the_transport_coefficient_is_molecular_plus_dispersive():
     m = _model()
     D_v, D_h = m.transport_coefficients()
     net = m.network
-    want_v = np.where(net.link_v, m.D_molecular, m.D_molecular / m.tortuosity) \
+    want_v = np.where(net.link_v, m.D_aqueous, m.D_aqueous / m.tortuosity) \
         + m.dispersivity * np.abs(m.q_v) / m.dx
     assert np.allclose(D_v, want_v, rtol=1e-12)
     # both terms actually matter somewhere
-    assert (m.dispersivity * np.abs(m.q_v) / m.dx).max() > m.D_molecular
-    assert (m.dispersivity * np.abs(m.q_v) / m.dx).min() < m.D_molecular / m.tortuosity
+    assert (m.dispersivity * np.abs(m.q_v) / m.dx).max() > m.D_aqueous
+    assert (m.dispersivity * np.abs(m.q_v) / m.dx).min() < m.D_aqueous / m.tortuosity
 
 
 def test_the_solved_concentration_satisfies_the_stated_cell_balance():
@@ -328,8 +329,8 @@ def test_the_solved_concentration_satisfies_the_stated_cell_balance():
     res[:, :-1] += fh
     res[:, 1:] -= fh
     if m.network.periodic_x:
-        Dw = np.where(m.network.link_wrap, m.D_molecular,
-                      m.D_molecular / m.tortuosity) \
+        Dw = np.where(m.network.link_wrap, m.D_aqueous,
+                      m.D_aqueous / m.tortuosity) \
             + m.dispersivity * np.abs(m.q_wrap) / dx
         fw = np.where(m.q_wrap > 0, m.q_wrap * c[:, -1], m.q_wrap * c[:, 0]) \
             + Dw * (c[:, -1] - c[:, 0])
@@ -424,3 +425,29 @@ def test_only_the_DIFFERENCE_of_the_two_enthalpies_sets_the_length_scale(tC):
         b.apparent_activation_energy, rel=1e-12)
     assert float(np.mean(a.saturation_length)) == pytest.approx(
         float(np.mean(b.saturation_length)), rel=1e-12)
+
+
+def test_the_water_viscosity_correlation_matches_tabulated_water():
+    """
+    ``mu(T) = 2.414e-5 * 10 ** (247.8 / (T - 140))``
+
+    The only physical property of water in the model, and the only equation
+    here that is a fit rather than a law -- so it is checked against
+    tabulated viscosities rather than against the code that uses it.
+    """
+    from corestone.weathering import water_viscosity
+    for T, tabulated in ((273.15, 1.792e-3), (293.15, 1.002e-3),
+                         (313.15, 0.653e-3)):
+        assert water_viscosity(T) == pytest.approx(tabulated, rel=0.025)
+
+
+def test_diffusivity_follows_stokes_einstein_and_is_not_constant():
+    """``D(T)`` goes as ``T / mu(T)``: a factor of three across the demo's
+    slider, carried almost entirely by the viscosity."""
+    cold, warm = _thermo(0.0), _thermo(30.0)
+    for m in (cold, warm):
+        T = float(np.mean(m.T))
+        assert m.diffusivity_factor == pytest.approx(
+            (T / water_viscosity(T))
+            / (m.T_D_ref / water_viscosity(m.T_D_ref)), rel=1e-12)
+    assert warm.D_aqueous / cold.D_aqueous == pytest.approx(2.6, rel=0.1)
