@@ -108,25 +108,24 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: to dissolve the section spans two orders of magnitude across the sliders.
 #: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default          75    168     224
-#:     1.0 m, 0.30 m/yr, 30 C   warm             23     53      70
-#:     1.0 m, 0.30 m/yr,  0 C   cold            190    421     566
-#:     1.0 m, 0.05 m/yr, 12 C   dry             255    557     761
-#:     1.0 m, 0.05 m/yr,  0 C   both            605   1361    1986
-#:     3.0 m, 0.05 m/yr,  0 C   and coarse     1338  >2000   >2000
+#:     1.0 m, 0.30 m/yr, 12 C   default         518   1170    1555
+#:     1.0 m, 0.30 m/yr, 30 C   warm            163    373     492
+#:     1.0 m, 0.30 m/yr,  0 C   cold           1310   2913    3910
+#:     1.0 m, 0.05 m/yr, 12 C   dry            1787   3892    5276
+#:     1.0 m, 0.05 m/yr,  0 C   both           4198   9400   13553
+#:     3.0 m, 0.05 m/yr,  0 C   and coarse     9301 >20000  >20000
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
-#: difference, and comparing rates is what the slider is for. 500 carries the
-#: default well past 99 %, and brings the cold case to 97 % and the dry one to
-#: 85 %, both of which look finished. The compound-slow corners it does not
-#: reach; Run does, unbounded.
+#: difference, and comparing rates is what the slider is for. 4000 carries the
+#: default well past 99 % at 1555 kyr and takes the cold case to 99 % at 3910,
+#: which was the criterion that chose the original cap. The compound-slow
+#: corners it does not reach; Run does, unbounded.
 #:
-#: NOTE: the cold case no longer FINISHES inside the cap. Making the
-#: diffusivity temperature-dependent moved its 99 % from 438 kyr to 566, so
-#: 500 shows 97 % rather than a completed section. Raised with Andy and kept
-#: at 500 deliberately: 97 % is visually finished, and the cap also bounds
-#: what Show costs at the fine cell sizes.
+#: The cap moved 500 -> 4000 because the MODEL moved. Deriving tau from the
+#: mineralogy made it seven times slower, so a cap chosen against the old
+#: timescale showed the default section half dissolved. This is the same
+#: criterion applied to the new numbers, not a new judgement.
 #:
 #: Re-measured after E_a and delta_H_r were sourced (oligoclase and quartz).
 #: The 12 C row barely moved, because T_ref is 285 K and both factors are 1
@@ -135,7 +134,7 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: It also bounds what Show costs, since the jump computes the whole run: at
 #: 2 cm, 34.3 s here against 66.2 s for 1000 kyr. And it keeps the default's
 #: interesting range in the first 40 % of a slider stepped in 10 kyr.
-END_KYR = 500.0
+END_KYR = 4000.0
 
 #: How much MODEL TIME one animation frame covers. The same for every setting,
 #: and that is the whole point: it makes a second of watching worth a fixed
@@ -155,9 +154,28 @@ END_KYR = 500.0
 #: Accuracy is unaffected: the frame sub-steps as c_drift_max demands, so this
 #: sets the pace and the controller still sets the step.
 #:
-#: 250 yr rather than 500 because of the frame budget, which is 33 ms. Local
+#: 1 kyr per frame. The model became seven times slower when tau was derived
+#: from the mineralogy rather than calibrated, so the pace had to rise with it
+#: or every run would have taken seven times as long to watch. A round
+#: kiloyear is the cadence, and it restores the watch times almost exactly.
+#:
+#: The reasoning that first chose 250 yr, kept because it is the argument that
+#: sets the ceiling on any pace, and 1 kyr has to clear the same bar. The
+#: frame budget is 33 ms. Local
 #: cost per frame, and the same figure scaled by the 3.0x this app measured
 #: slower under Pyodide in Chrome (Show to 50 kyr: 0.96 s against 0.32 s):
+#:
+#: At 1 kyr/frame, median over 250 frames, and scaled by the 3.0x this app
+#: measured slower under Pyodide in Chrome:
+#:
+#:      5 cm,  12 C      1.05 ms  ->   3.2 ms      inside 33 ms
+#:      5 cm,  30 C      6.89     ->  20.7        inside
+#:      2.5 cm, 12 C    11.30     ->  33.9        over
+#:      2 cm,  12 C     18.47     ->  55.4        over
+#:
+#: So 5 cm keeps time across the whole temperature range, which is the range
+#: the slider offers, and the finer grids do not -- as before. Superseded
+#: measurements at 250 and 500 yr per frame:
 #:
 #:                        500 yr/frame        250 yr/frame
 #:      0 C, default      1.8 ms   5 ms       2.1 ms   6 ms
@@ -176,12 +194,14 @@ END_KYR = 500.0
 #: Uniform within 6 %, so what a reader feels is the model time, which is the
 #: whole claim. With the sourced kinetics that buys, at 90 % dissolved:
 #:
-#:      0 C   421 kyr / 7.52 kyr/s = 56 s of watching
-#:     12 C   168        / 7.48    = 22 s
-#:     30 C    53        / 7.04    =  8 s
+#:      0 C   2913 kyr / 30 kyr/s = 97 s of watching
+#:     12 C   1170        / 30     = 39 s
+#:     30 C    373        / 30     = 12 s
 #:
-#: a 7.5x spread in real seconds against 7.9x in model time -- the gap being
-#: the 6 % the warm end loses to its own arithmetic.
+#: an 7.8x spread, and longer runs than before: the model slowed sevenfold
+#: when tau was derived and the pace rose only fourfold, so watching costs
+#: about 1.7x what it did. That is the price of the timescale being a
+#: prediction rather than a calibration.
 #:
 #: What it costs: twice as many frames as 500, and the slowest corner on offer
 #: (3 m joints, 0.05 m/yr, 0 degrees C) now passes 2000 kyr before reaching
@@ -194,7 +214,7 @@ END_KYR = 500.0
 #: compute to 90 % is 1.19 s at 0 degrees C against 1.54 s at 30, so on a slow
 #: enough laptop the two look equally long. Nothing here can fix that; it is
 #: the frame budget, not the choice of pace.
-YEARS_PER_FRAME = 250.0
+YEARS_PER_FRAME = 1000.0
 
 #: Tighter than the model's own default of 0.03, for two reasons that happen
 #: to agree. One frame is one step, so the budget sets how long the animation
@@ -508,8 +528,8 @@ readout = pn.pane.Markdown("", sizing_mode="stretch_width",
 #: question -- what does the rock look like at 50 kyr? -- answered directly.
 #: It does not reset the model, because it is not a property of the rock.
 at_time = pn.widgets.IntSlider(
-    name="View results at [kyr]", start=10, end=int(END_KYR), step=10,
-    value=50, sizing_mode="stretch_width", max_width=260)
+    name="View results at [kyr]", start=50, end=int(END_KYR), step=50,
+    value=500, sizing_mode="stretch_width", max_width=260)
 
 run = animator(step)
 reset = reset_button(do_reset, name="Fresh rock")
