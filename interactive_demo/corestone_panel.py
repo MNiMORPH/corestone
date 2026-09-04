@@ -64,16 +64,24 @@ LX = LZ = 3.00                  # the section, in metres. Fixed: it is the cell
 #: cells across. Finer is not simply better: what makes a corestone look round
 #: rather than stepped is cells per BLOCK, and a 1 m joint spacing is already
 #: 20 cells at 5 cm. What 2 cm buys is a sharper weathering rind; what it costs
-#: is 6.3x the cells and about 18x the time, measured below.
+#: is 6.3x the cells and about 18x the time.
 #:
-#:     cell    cells   per frame   200 kyr
-#:     5 cm     3600      4.6 ms     1.31 s
-#:     2 cm    22500     82.0 ms    23.94 s
+#:     cell     cells   median ms/step   vs 5 cm
+#:     5 cm      3600        1.75          --
+#:     2.5 cm   14400       17.51        10.0x
+#:     2 cm     22500       31.52        18.0x
 #:
-#: One frame is one step, so at 2 cm a frame costs well over the 33 ms
-#: animation budget here and several times that in a browser. It animates,
-#: slowly; Show is the way to use it, and at a shorter time -- 25 kyr costs
-#: about an eighth of 200.
+#: Measured as the MEDIAN over 250 steps, not as one timed run, and the step
+#: count to a given time is identical at every cell size (800 steps and 86
+#: flow solves to 200 kyr), so this ratio is the whole story. That method is
+#: not fussiness: single timed runs of this on a loaded workstation returned
+#: anywhere from 14x to 30x, and a 15x from one such run was published to the
+#: exercise page before the scatter was noticed. At 5 cm the p90 step is
+#: 13.81 ms against a 1.75 ms median -- contention, not arithmetic.
+#:
+#: Against the 33 ms frame budget, and the 3.0x this app runs slower under
+#: Pyodide, only 5 cm keeps time: 2.5 cm and 2 cm come to roughly 53 and 95 ms
+#: a frame in a browser. They animate, slowly; Show is the way to use them.
 CELL_SIZES = {"5 cm": 0.05, "2.5 cm": 0.025, "2 cm": 0.02}
 
 #: The index cap is not arbitrary: a high-index angle tiles only at a very
