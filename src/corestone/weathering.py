@@ -22,6 +22,65 @@ the e-folding length of the approach to saturation -- *not* a distance at which
 equilibrium is reached, because there is no equilibrium here. ``c`` approaches
 1 asymptotically and never arrives.
 
+THE THERMODYNAMICS, IN FULL, BECAUSE IT IS THE PART MOST OFTEN GOT WRONG
+------------------------------------------------------------------------
+
+Temperature enters twice, with opposite effects on the length scale, and the
+second one is the larger here. Write both in the textbook form:
+
+    k(T)    = k_0 exp(-E_a      / R_g T)          Arrhenius, on the RATE
+    C_eq(T) = C_0 exp(-dH_r     / R_g T)          van 't Hoff, on the CEILING
+
+Warming speeds the reaction. It also raises the ceiling -- which does not make
+the rock dissolve faster where it stands, it lets each litre of water carry
+more away before it stops working. Those are different things and they act on
+different terms.
+
+Now form the saturation length, the only length this chemistry has:
+
+    L = q C_eq / (k A)
+      = (q C_0 / (k_0 A)) exp( -(dH_r - E_a) / R_g T )
+      = L_ref exp( +(E_a - dH_r) / R_g ( 1/T - 1/T_ref ) )      *
+
+``E_a`` and ``dH_r`` enter with OPPOSITE SIGNS and only their difference
+survives. That difference, ``E_a - dH_r``, is the apparent activation energy
+of weathering -- it is what a field study measuring weathering rate against
+temperature actually recovers, and it is NOT ``E_a``. Here it is
+69.8 - 32.9 = 36.9 kJ/mol, so the length scale is about half as
+temperature-sensitive as the rate constant alone would suggest. If ``dH_r``
+exceeded ``E_a``, warming would LENGTHEN L and slow the weathering down. That
+is a real regime and this model does not forbid it; see
+:attr:`Weathering.apparent_activation_energy`.
+
+Two things follow that are easy to miss:
+
+**k_0 and C_0 are gone.** Step * absorbed them into ``L_ref``, and every rate
+in the code is a ratio to the reference state, so the absolute pre-exponential
+factors cancel and are never evaluated. This model has a NORMALISATION where a
+research model would need a thermodynamics. That is why ``L_ref`` can be
+calibrated freely without the chemistry being wrong -- it sets the scale and
+nothing else -- and why ``C_eq`` never appears alone anywhere below.
+
+**C_eq still enters a second time, and not through L.** The rock must supply
+``tau = M0 / C_eq`` volumes of saturated water per volume dissolved, so a
+warmer, more soluble fluid needs fewer of them. That term carries ``dH_r``
+alone, with no ``E_a`` to cancel against it. So temperature is not one dial:
+it moves where weathering happens (through L) and how much water the job takes
+(through tau), and the two do not have to point the same way.
+
+Which limit the section is in is one dimensionless number, the Damkohler group
+``Da = depth / L``, counting the e-foldings of saturation a parcel undergoes
+on the way down. At the reference state it is 6: water reaches the base within
+exp(-6) of saturation, so the section is firmly SATURATION-LIMITED, and that is
+precisely what shelters a block interior and makes a corestone. In the
+opposite limit water crosses barely touched, every block dissolves at the same
+rate, and nothing is sheltered. Corestones are a saturation-limited phenomenon.
+
+(Physical chemistry calls that limit *transport-limited*, for the transport of
+solute. The word is avoided here: in geomorphology it means an erosion rate
+set by the capacity to move sediment, and nothing in this model moves
+sediment.)
+
 Solute moves by advection **and by diffusion**:
 
     div(q c) - div(D grad c) = r (1 - c),      r = k A / C_eq
