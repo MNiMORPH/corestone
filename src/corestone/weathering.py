@@ -93,8 +93,8 @@ dissolved silica from Rebreanu et al. (2008), scaled by Stokes-Einstein; and
 tau and the saturation length from the mineralogy and a 2 mm grain size.
 
 Which makes the weathering timescale a PREDICTION, and it can be checked. The
-default settings -- 1 m joints, 0.30 m/yr, 12 C -- take 1170 kyr to dissolve
-90 % of a 3 m section, a weathering front of about 2.6 m/Myr. Measured
+default settings -- 1 m joints, 0.30 m/yr, 12 C -- take 1191 kyr to dissolve
+90 % of a 3 m section, a weathering front of about 2.5 m/Myr. Measured
 temperate granite regoliths give 7 m/Myr at Panola and 4 m/Myr at Davis Run
 (White et al. 2001); tropical Rio Icacos runs 43-45 m/Myr, which is the right
 direction for a warmer, wetter site. So this lands within a factor of two of

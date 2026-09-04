@@ -108,17 +108,17 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: to dissolve the section spans two orders of magnitude across the sliders.
 #: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default         518   1170    1555
-#:     1.0 m, 0.30 m/yr, 30 C   warm            163    373     492
-#:     1.0 m, 0.30 m/yr,  0 C   cold           1310   2913    3910
-#:     1.0 m, 0.05 m/yr, 12 C   dry            1787   3892    5276
-#:     1.0 m, 0.05 m/yr,  0 C   both           4198   9400   13553
-#:     3.0 m, 0.05 m/yr,  0 C   and coarse     9301 >20000  >20000
+#:     1.0 m, 0.30 m/yr, 12 C   default         526   1191    1581
+#:     1.0 m, 0.30 m/yr, 30 C   warm            161    366     483
+#:     1.0 m, 0.30 m/yr,  0 C   cold           1376   3055    4080
+#:     1.0 m, 0.05 m/yr, 12 C   dry            1790   3914    5308
+#:     1.0 m, 0.05 m/yr,  0 C   both           4230   9590   13794
+#:     3.0 m, 0.05 m/yr,  0 C   and coarse     9668 >20000  >20000
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
 #: difference, and comparing rates is what the slider is for. 4000 carries the
-#: default well past 99 % at 1555 kyr and takes the cold case to 99 % at 3910,
+#: default well past 99 % at 1581 kyr and takes the cold case to 99 % at 4080,
 #: which was the criterion that chose the original cap. The compound-slow
 #: corners it does not reach; Run does, unbounded.
 #:
@@ -194,9 +194,9 @@ END_KYR = 4000.0
 #: Uniform within 6 %, so what a reader feels is the model time, which is the
 #: whole claim. With the sourced kinetics that buys, at 90 % dissolved:
 #:
-#:      0 C   2913 kyr / 30 kyr/s = 97 s of watching
-#:     12 C   1170        / 30     = 39 s
-#:     30 C    373        / 30     = 12 s
+#:      0 C   3055 kyr / 30 kyr/s = 102 s of watching
+#:     12 C   1191        / 30     =  40 s
+#:     30 C    366        / 30     =  12 s
 #:
 #: an 7.8x spread, and longer runs than before: the model slowed sevenfold
 #: when tau was derived and the pace rose only fourfold, so watching costs
