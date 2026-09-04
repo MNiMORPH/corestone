@@ -122,11 +122,11 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: 85 %, both of which look finished. The compound-slow corners it does not
 #: reach; Run does, unbounded.
 #:
-#: NOTE, AND IT IS A DECISION TO REVISIT: the cold case no longer FINISHES
-#: inside the cap. Making the diffusivity temperature-dependent moved its 99 %
-#: from 438 kyr to 569, so 500 now shows 96 % rather than a completed section.
-#: 96 % looks done and the cap also bounds what Show costs, so this may still
-#: be right -- but the argument that chose 500 no longer holds as stated.
+#: NOTE: the cold case no longer FINISHES inside the cap. Making the
+#: diffusivity temperature-dependent moved its 99 % from 438 kyr to 569, so
+#: 500 shows 96 % rather than a completed section. Raised with Andy and kept
+#: at 500 deliberately: 96 % is visually finished, and the cap also bounds
+#: what Show costs at the fine cell sizes.
 #:
 #: Re-measured after E_a and delta_H_r were sourced (oligoclase and quartz).
 #: The 12 C row barely moved, because T_ref is 285 K and both factors are 1
