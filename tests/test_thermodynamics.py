@@ -103,9 +103,11 @@ def test_the_regime_belongs_to_the_SECTION_and_not_to_the_model():
 
     da3, regime3 = da(60)                       # the exercise's 3 m section
     da1, regime1 = da(20)                       # 1 m of the same rock
-    assert da3 == pytest.approx(6.0, rel=1e-9)
+    # 3.0 m / L_ref, with L_ref now derived from grain size rather than
+    # calibrated, so 0.457 m and Da = 6.56 where the round 0.50 gave 6.00.
+    assert da3 == pytest.approx(3.0 / 0.457, rel=1e-3)
     assert regime3 == "saturation-limited"
-    assert da1 == pytest.approx(2.0, rel=1e-9)
+    assert da1 == pytest.approx(1.0 / 0.457, rel=1e-3)
     assert regime1 == "mixed"
     assert da3 == pytest.approx(3.0 * da1, rel=1e-9)
 

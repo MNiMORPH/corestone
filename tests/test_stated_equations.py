@@ -233,15 +233,17 @@ def test_the_head_is_re_solved_as_the_rock_changes():
     tie the answer to the step size, and halving the drift budget would
     silently double how often the flow was updated.
     """
+    # 280 kyr, not 40: sourcing tau slowed the model sevenfold, and this
+    # test needs enough ROCK CHANGE to trigger re-solves, not enough time.
     m = _model()
     m.flow_tolerance = 0.02
-    m.run(years=40e3)
+    m.run(years=280e3)
     assert m.flow_solves > 4, m.flow_solves       # the feedback is live
 
     fine = _model()
     fine.flow_tolerance = 0.02
     fine.c_drift_max = 0.25 * fine.c_drift_max    # four times the steps
-    fine.run(years=40e3)
+    fine.run(years=280e3)
 
     # The ANSWER is what must not depend on the step size, and it does not.
     # The solve COUNT does move -- a coarse step overshoots the tolerance

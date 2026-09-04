@@ -79,7 +79,11 @@ def test_water_enters_fresh_and_saturates_with_depth():
     while the matrix a metre down is at it, and that is a ratio:
     0.05 against 0.99.
     """
-    m = _model().run(years=50e3)
+    # 350 kyr, not 50. The claim is about a profile whose top has given up
+    # most of its soluble phase, and deriving tau from the mineralogy made
+    # the model seven times slower, so reaching that state takes seven times
+    # as long. The assertion is untouched; only the time needed to get there.
+    m = _model().run(years=350e3)
     assert m.c[0, :].max() < 0.1 * np.median(m.c[5, :])   # rain arrives fresh
     assert np.median(m.c[5, :]) > 0.9                # matrix saturates quickly
     assert m.c.max() <= 1.0 + 1e-12
