@@ -303,6 +303,120 @@ class Weathering(object):
         """
         return self.L_ref * self.solubility_factor / self.rate_factor
 
+    # ---- the thermodynamics, named
+    #
+    # These four exist to be READ. None is needed by the solver: every one is
+    # a quantity the model already computes implicitly, given a name and a
+    # docstring so that a student can ask the model what regime it is in and
+    # get an answer instead of inferring it from behaviour.
+
+    @property
+    def apparent_activation_energy(self):
+        """
+        ``E_a - delta_H_r`` [J/mol]: what temperature actually does here.
+
+        The single most misread thing in this model. Warming does two opposing
+        things at once -- it speeds the reaction (Arrhenius, ``E_a``) and it
+        raises the solubility (van 't Hoff, ``delta_H_r``), and the second
+        does not make the rock dissolve faster in place, it lets each litre
+        of water carry more away before it stops. The saturation length goes
+        as ``C_eq / k``, so those two enter it with OPPOSITE signs and only
+        the difference survives.
+
+        That difference is the apparent activation energy of the weathering
+        *length scale*, and it is what a field study measuring weathering
+        against temperature would recover -- not ``E_a``. With the values
+        here, 69.8 - 32.9 = 36.9 kJ/mol, so the length scale is about half as
+        temperature-sensitive as the rate constant alone would suggest.
+
+        It can be zero, or negative. If ``delta_H_r`` exceeded ``E_a`` --
+        which happens if the ceiling on the solute is set by a reaction whose
+        enthalpy is large, and it is what a kaolinite-buffered reading of
+        calcic plagioclase gives -- then warming would LENGTHEN the
+        saturation length and slow the weathering down. Nothing in the model
+        forbids it, and the sign is a consequence of the chemistry, not an
+        assumption.
+        """
+        return self.E_a - self.delta_H_r
+
+    @property
+    def damkohler(self):
+        """
+        Section depth divided by the saturation length [-].
+
+        The dimensionless group that decides which of the two limits this
+        model is in, and therefore what the pictures mean. It counts the
+        e-foldings of the approach to saturation that a parcel of water
+        undergoes on its way down through the section, at the mean
+        infiltration and through fresh rock.
+
+        ``Da >> 1`` -- TRANSPORT-LIMITED. The water saturates long before it
+        runs out of rock, so what limits weathering is how much solute each
+        litre can carry away, and dissolution happens where fresh water
+        arrives. This is the regime that makes corestones, and it is where
+        this model sits by construction: about 6 at the reference state, so
+        water leaving the base is within ``exp(-6)``, a quarter of a percent,
+        of saturation.
+
+        ``Da << 1`` -- REACTION-LIMITED. Water crosses the whole section
+        barely touched, weathering is set by the rate constant everywhere at
+        once, and the section dissolves uniformly. No corestones: there is
+        nothing to shelter a block interior from water that is everywhere
+        undersaturated.
+
+        The number is the SECTION-scale one. Two others matter and are worth
+        forming by hand: the joints carry a higher flux, so their local
+        saturation length is longer and they flush deeper than this suggests;
+        and the ratio of the JOINT SPACING to the saturation length is what
+        decides whether a block interior can be sheltered at all.
+        """
+        return self.network.nz * self.network.dx / self.saturation_length
+
+    @property
+    def regime(self):
+        """Name of the limit the model is currently in; see :attr:`damkohler`."""
+        da = self.damkohler
+        if da > 3.0:
+            return "transport-limited"
+        if da < 1.0 / 3.0:
+            return "reaction-limited"
+        return "mixed"
+
+    def thermo_report(self):
+        """
+        A readable statement of the thermodynamic state. Returns the text.
+
+        Written to be pasted into a lab report or read aloud in class: every
+        number that governs the temperature behaviour, with the arithmetic
+        that produced it visible rather than asserted.
+        """
+        T = float(np.mean(self.T))
+        lines = [
+            "thermodynamic state",
+            "  T                       %8.2f K   (%.2f C)" % (T, T - 273.15),
+            "  T_ref                   %8.2f K   (%.2f C)"
+            % (self.T_ref, self.T_ref - 273.15),
+            "",
+            "  E_a                     %8.1f kJ/mol  Arrhenius, on the rate"
+            % (self.E_a / 1e3),
+            "  delta_H_r               %8.1f kJ/mol  van 't Hoff, on the ceiling"
+            % (self.delta_H_r / 1e3),
+            "  E_a - delta_H_r         %8.1f kJ/mol  what the length scale feels"
+            % (self.apparent_activation_energy / 1e3),
+            "",
+            "  k(T) / k(T_ref)         %8.3f       reaction this much faster"
+            % float(np.mean(self.rate_factor)),
+            "  C_eq(T) / C_eq(T_ref)   %8.3f       each litre carries this much more"
+            % float(np.mean(self.solubility_factor)),
+            "  saturation length       %8.3f m     = L_ref * C_eq-factor / k-factor"
+            % float(np.mean(self.saturation_length)),
+            "",
+            "  Damkohler (section)     %8.2f       depth / saturation length"
+            % float(np.mean(self.damkohler)),
+            "  regime                  %8s" % self.regime,
+        ]
+        return "\n".join(lines)
+
     @property
     def specific_reaction_coefficient(self):
         """
