@@ -396,13 +396,18 @@ class Weathering(object):
         # interpolate tortuosity between the two ends the way
         # link_conductivity interpolates k. Fresh rock therefore diffuses far
         # too freely here, which flatters the early rind.
-        self.tortuosity_weathered = 10.0  # matrix tortuosity [-] at M = 0:
-                                          # saprolite near 30 % porosity gives
-                                          # D_eff/D_0 ~ 0.1
-        self.tortuosity_fresh = 1.0e4     # and at M = 1: intact crystalline
-                                          # rock measures 2e-14 to 1.3e-12
-                                          # m2/s against a free-water 1e-9,
-                                          # so 1e3 to 1e5, centre 1e4
+        # Tortuosity is the cost of the detour. A molecule diffusing through
+        # rock cannot travel in a straight line: it follows the pore network
+        # around every grain, so it covers far more distance than the
+        # separation it achieves. Diffusivity in rock is the free-water value
+        # divided by this. The two ends are the two rocks.
+        self.tortuosity_fresh = 1.0e4     # intact crystalline rock, which has
+                                          # almost no connected porosity:
+                                          # measured 2e-14 to 1.3e-12 m2/s
+                                          # against a free-water 1e-9, so
+                                          # 1e3 to 1e5, centre 1e4
+        self.tortuosity_weathered = 10.0  # saprolite, which is full of holes:
+                                          # near 30 % porosity, D_eff/D_0 ~ 0.1
 
         # Longitudinal dispersivity scales with the transport distance:
         # Gelhar, Welty & Rehfeldt (1992) put it near a tenth of the scale
@@ -612,16 +617,19 @@ class Weathering(object):
 
     def link_tortuosity(self):
         """
-        Matrix tortuosity on each link, interpolated with the rock.
+        Matrix tortuosity on each link: how far a diffusing molecule must
+        detour around grains, and therefore how much slower diffusion is here
+        than in open water.
 
             tortuosity(M) = tortuosity_fresh^M * tortuosity_weathered^(1 - M)
 
-        Geometric, on the mean ``M`` of the two cells a link joins -- the same
-        form as :meth:`link_conductivity`, and for the same reason. Dissolving
-        rock opens connected porosity to diffusion exactly as it opens it to
-        flow, and holding this fixed at the weathered value let fresh granite
-        diffuse a thousand times too freely. That mattered most at the start,
-        when every cell is fresh and the rind is forming.
+        It follows the rock because dissolution is what opens the detour up.
+        Intact granite has almost no connected pore network and a molecule can
+        barely cross it; as the soluble phase goes, the holes it leaves join up
+        and the path straightens out, by three orders of magnitude between the
+        two ends. Geometric interpolation on the mean ``M`` of the two cells a
+        link joins -- the same form as :meth:`link_conductivity`, because it is
+        the same porosity opening to diffusion that opens to flow.
 
         Returns ``(vertical, horizontal)``. Joint links are handled by the
         caller and are never tortuous: an open aperture is not a maze.
