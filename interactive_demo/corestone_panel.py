@@ -29,6 +29,8 @@ Build and view::
 **Every parameter in the model is a placeholder.** None is measured. The
 demo teaches the mechanism, and no number out of it is a result.
 """
+import asyncio
+
 import numpy as np
 import panel as pn
 from bokeh.models import (ColorBar, ColumnDataSource, FixedTicker,
@@ -41,7 +43,7 @@ from artesian.live import animator, reset_button, responsive
 from corestone import (FractureNetwork, Weathering, orthogonal_grid,
                        tiling_angles, tiling_spacings, YEAR)
 
-pn.extension()
+pn.extension(loading_indicator=True)
 
 # ---- the section ------------------------------------------------------------
 # 3.0 x 3.05 m at 5 cm cells. Resolution is chosen for how many cells cross a
@@ -389,8 +391,21 @@ def do_reset():
     _redraw()
 
 
-def show_result(event=None):
+async def show_result(event=None):
     """Jump straight to the state at the chosen time, without animating.
+
+    ASYNC, and the ``await`` below is the whole reason. Show rebuilds from
+    fresh rock and integrates the entire interval, which at the far end of the
+    slider is minutes: 15000 kyr costs about 56 s here and three times that in
+    a browser, and 2 cm is slower again. Run at least redraws every frame, so
+    a reader can see it working; Show used to return nothing at all until it
+    was finished, which is indistinguishable from a hung page.
+    
+    So the figures are put in their loading state, and then control is handed
+    back to the event loop for a moment. Without that yield Panel would send
+    the loading state and the finished result in the same update and the
+    reader would see neither. The model runs in a web worker, so the browser's
+    main thread stays free and the indicator actually turns.
 
     Always from fresh rock, even when the model has not yet reached that time
     and could simply be advanced. Watching it evolve is one question; asking
@@ -400,12 +415,19 @@ def show_result(event=None):
     same time, same answer, every time.
     """
     run.value = False                          # stop animating, if it was
-    do_reset()
-    m = sim["model"]
-    target = at_time.value * 1e3 * YEAR
-    while m.t < target - 1e-9 * YEAR:
-        m.update(dt_limit=target - m.t)
-    _redraw()
+    figures.loading = True
+    jump.disabled = True
+    await asyncio.sleep(0.05)                  # let the indicator reach the page
+    try:
+        do_reset()
+        m = sim["model"]
+        target = at_time.value * 1e3 * YEAR
+        while m.t < target - 1e-9 * YEAR:
+            m.update(dt_limit=target - m.t)
+        _redraw()
+    finally:
+        figures.loading = False
+        jump.disabled = False
 
 
 def _joints():
@@ -531,6 +553,11 @@ fig_left = _panel(speed, joints_left, Blues256[::-1],
 fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
                    "soluble phase dissolved", {0.0: "none", 1.0: "all"})
 
+#: The two figures, named so :func:`show_result` can put them in their
+#: loading state while it computes.
+figures = pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
+                 max_width=DESIGN_WIDTH)
+
 readout = pn.pane.Markdown("", sizing_mode="stretch_width",
                            margin=(0, 10, 0, 10))
 #: Which moment to jump to. It belongs to Show, not to Run: Run animates from
@@ -607,8 +634,7 @@ pn.Column(
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(angle, spacing, infiltration, temperature, cell,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
-    pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
-           max_width=DESIGN_WIDTH),
+    figures,
     # Centred, not jammed left. The cap means the app can be narrower than the
     # frame -- whenever the embedding page has not scaled the frame to the
     # design width -- and left-aligned that reads as a broken layout with a
