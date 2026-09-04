@@ -81,6 +81,33 @@ solute. The word is avoided here: in geomorphology it means an erosion rate
 set by the capacity to move sediment, and nothing in this model moves
 sediment.)
 
+NOTHING IN THE CHEMISTRY OR THE FLOW IS FITTED, AND THE TIMESCALE IS A RESULT
+-----------------------------------------------------------------------------
+
+Every parameter in the reaction and the flow now comes from a measurement or
+from geometry: the rate constant and its activation energy from Palandri &
+Kharaka (2004) for oligoclase; the solute ceiling and its enthalpy from quartz
+saturation; the matrix conductivities from Goodfellow et al. (2016); the joint
+conductivity from a 100 um aperture through the cubic law; the diffusivity of
+dissolved silica from Rebreanu et al. (2008), scaled by Stokes-Einstein; and
+tau and the saturation length from the mineralogy and a 2 mm grain size.
+
+Which makes the weathering timescale a PREDICTION, and it can be checked. The
+default settings -- 1 m joints, 0.30 m/yr, 12 C -- take 1170 kyr to dissolve
+90 % of a 3 m section, a weathering front of about 2.6 m/Myr. Measured
+temperate granite regoliths give 7 m/Myr at Panola and 4 m/Myr at Davis Run
+(White et al. 2001); tropical Rio Icacos runs 43-45 m/Myr, which is the right
+direction for a warmer, wetter site. So this lands within a factor of two of
+the temperate field rate with nothing tuned to it.
+
+That is not an accuracy claim. Two of the inputs -- the 2 mm grain size and
+the 30 % plagioclase -- are ordinary values rather than measurements of any
+particular rock, and the reactive surface area they imply is geometric rather
+than BET, which is a choice worth a paper (White & Brantley 2003). It is a
+consistency claim, and it is the reason the calibrated version that ran seven
+times faster was wrong to keep: 17.9 m/Myr is three times the temperate field
+rate, and nothing was checking.
+
 Solute moves by advection **and by diffusion**:
 
     div(q c) - div(D grad c) = r (1 - c),      r = k A / C_eq
