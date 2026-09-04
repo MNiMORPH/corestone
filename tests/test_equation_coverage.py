@@ -34,8 +34,8 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 14
-EXPECTED_DISTINCT = 12
+EXPECTED_BLOCKS = 15
+EXPECTED_DISTINCT = 13
 
 LEDGER = {
     "R = k(T) * A * (1 - C / C_eq)":
@@ -76,6 +76,9 @@ LEDGER = {
 
     "mu(T) = 2.414e-5 * 10 ** (247.8 / (T - 140))":
         "test_the_water_viscosity_correlation_matches_tabulated_water",
+
+    "k_fracture = rho g a^3 / (12 mu dx)":
+        "test_the_joint_conductivity_is_the_cubic_law_on_its_aperture",
 }
 
 

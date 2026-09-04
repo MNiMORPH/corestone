@@ -451,3 +451,38 @@ def test_diffusivity_follows_stokes_einstein_and_is_not_constant():
             (T / water_viscosity(T))
             / (m.T_D_ref / water_viscosity(m.T_D_ref)), rel=1e-12)
     assert warm.D_aqueous / cold.D_aqueous == pytest.approx(2.6, rel=0.1)
+
+
+def test_the_joint_conductivity_is_the_cubic_law_on_its_aperture():
+    """
+    ``k_fracture = rho g a^3 / (12 mu dx)``
+
+    A joint is a geometry. The conductivity is derived from the aperture, so
+    what the model states is a measurable object rather than the conductivity
+    of a joint smeared over an arbitrary cell.
+    """
+    from corestone.weathering import RHO_WATER, GRAVITY, water_viscosity
+    m = _thermo(11.85)
+    mu = water_viscosity(float(np.mean(m.T)))
+    assert m.k_fracture == pytest.approx(
+        RHO_WATER * GRAVITY * m.joint_aperture ** 3
+        / (12.0 * mu * m.network.dx), rel=1e-12)
+
+
+def test_the_joint_is_the_same_joint_at_every_cell_size():
+    """
+    The defect this derivation removes. Held as a constant CONDUCTIVITY the
+    implied aperture moved with the grid -- 91 um at 5 cm against 67 um at
+    2 cm -- so refining the mesh quietly tightened the joints by a third,
+    while the exercise page promises that cell size is the numerical grid and
+    not the rock. Transmissivity is the invariant.
+    """
+    T = []
+    for dx in (0.05, 0.025, 0.02):
+        n = int(round(3.0 / dx))
+        net = FractureNetwork(n, n, dx, periodic_x=True).seed(
+            sets=orthogonal_grid(1.0), rng=np.random.default_rng(1))
+        m = Weathering(net)
+        m.set_temperature(285.0)
+        T.append(m.k_fracture * dx)
+    assert max(T) / min(T) == pytest.approx(1.0, rel=1e-12), T

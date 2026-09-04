@@ -158,6 +158,11 @@ YEAR = 365.25 * 24 * 3600.0
 ORDERING = "MMD_AT_PLUS_A"
 
 
+#: Water density [kg/m3] and gravity [m/s2], for the cubic law.
+RHO_WATER = 1000.0
+GRAVITY = 9.81
+
+
 def water_viscosity(T):
     """
     Dynamic viscosity of liquid water [Pa s], for temperature ``T`` in K.
@@ -192,8 +197,37 @@ class Weathering(object):
 
         # ---- parameters. ALL PLACEHOLDERS; see design/02-teaching-scope.md
         self.infiltration = 0.30 / YEAR   # recharge at the surface [m/s]
-        self.k_fracture = 1.0e-5          # hydraulic conductivity, jointed
-                                          # rock [m/s]        PLACEHOLDER
+        # A JOINT IS A GEOMETRY, NOT A CONDUCTIVITY. What is set here is the
+        # aperture; the conductivity follows from it by the cubic law, and so
+        # does its dependence on cell size. See :attr:`k_fracture`.
+        #
+        # 100 um is the HYDRAULIC aperture -- the one the cubic law wants --
+        # and not the millimetre-plus opening you can see at an outcrop. The
+        # walls touch at asperities, the surfaces are rough, and near-surface
+        # joints carry clay and grus, so the hydraulic aperture runs one to
+        # two orders below the mechanical one. Bracketed from both sides:
+        #
+        #   Rukavickova et al. (2021) measured fractured granitoid at
+        #   1e-8 to 1e-7 m/s, borehole scale; inverted through the cubic law
+        #   for one joint set at 0.5-2 m spacing that is 20-67 um. Those
+        #   boreholes are deep, where joints are held shut.
+        #
+        #   Laboratory tension fractures in granite run from 250 um down to
+        #   4 um as normal stress rises to 20 MPa, so the unstressed end is
+        #   100-250 um.
+        #
+        # This model is the top three metres, where the normal stress is
+        # essentially nil, so it belongs at the open end of the deep range and
+        # the low end of the unstressed one. 100 um is both.
+        #
+        # PRE-WEATHERING, and it never changes. Spheroidal weathering does not
+        # widen a joint into a void: the wall rock rots to grus and the grus
+        # stays where it is. What opens is the MATRIX beside the joint, which
+        # is k(M) and is modelled -- and that alone drops the joint's
+        # advantage from 20000x to 1.8x over a run. Aperture growth belongs to
+        # a later stage, once grus has been flushed out and there is a cavity;
+        # that is the channelization this model excludes.
+        self.joint_aperture = 100.0e-6    # hydraulic aperture of a joint [m]
         # The two ends of the matrix, and the only two numbers in this model
         # taken from a measurement rather than invented. Goodfellow et al.
         # (2016), JGR Earth Surface 121, 1410-1435, measured the hydraulic
@@ -390,6 +424,37 @@ class Weathering(object):
     # a quantity the model already computes implicitly, given a name and a
     # docstring so that a student can ask the model what regime it is in and
     # get an answer instead of inferring it from behaviour.
+
+    @property
+    def k_fracture(self):
+        """
+        Hydraulic conductivity of a jointed link [m/s], from the cubic law.
+
+            k_fracture = rho g a^3 / (12 mu dx)
+
+        A planar joint of aperture ``a`` carries transmissivity
+        ``rho g a^3 / 12 mu``; smearing it across a cell of width ``dx`` gives
+        a conductivity. Derived rather than set, for two reasons.
+
+        It makes the joint a measurable object. An aperture can be measured
+        and is in the literature; the conductivity of a joint smeared over an
+        arbitrary cell is a modelling artefact and is in nobody's table.
+
+        And it makes the cell size mean what the exercise says it means. Held
+        as a CONSTANT conductivity, the implied aperture moved with the grid
+        -- 91 um at 5 cm against 67 um at 2 cm -- so choosing a finer grid
+        quietly tightened the joints by a third, while the page promised that
+        cell size is the numerical grid and not the rock. Transmissivity is
+        the invariant, so the conductivity has to scale as 1/dx, and now does.
+
+        Temperature enters through the viscosity, which is honest but idle:
+        the infiltration is prescribed at the surface, so scaling every
+        conductivity together rescales the head and leaves the flow field
+        alone. See :attr:`diffusivity_factor`.
+        """
+        mu = water_viscosity(float(np.mean(self.T)))
+        return (RHO_WATER * GRAVITY * self.joint_aperture ** 3
+                / (12.0 * mu * self.network.dx))
 
     @property
     def diffusivity_factor(self):
