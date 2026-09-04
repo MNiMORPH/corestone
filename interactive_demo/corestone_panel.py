@@ -133,9 +133,11 @@ END_KYR = 500.0
 #: The controller holds the visible CHANGE per frame constant, so it hands a
 #: slow-weathering run more years per frame -- measured at 5 cm, 1.84 kyr per
 #: frame at 0 degrees C against 0.19 kyr at 30 -- and a cold section reached
-#: 90 % dissolved in 149 frames where a warm one needed 333. Cold takes 4.2x
+#: 90 % dissolved in 149 frames where a warm one needed 333. Cold took 4.2x
 #: longer in model time and less than half the real time. The animation was
-#: teaching the reverse of the model.
+#: teaching the reverse of the model. (Those five figures describe the old
+#: behaviour and were measured before E_a and delta_H_r were sourced; they are
+#: kept as the record of why this changed, not as current numbers.)
 #:
 #: Accuracy is unaffected: the frame sub-steps as c_drift_max demands, so this
 #: sets the pace and the controller still sets the step.
@@ -159,11 +161,18 @@ END_KYR = 500.0
 #:     30 C   7.04            9 s
 #:
 #: Uniform within 6 %, so what a reader feels is the model time, which is the
-#: whole claim.
+#: whole claim. With the sourced kinetics that buys, at 90 % dissolved:
 #:
-#: What it costs: twice as many frames as 500, so the slowest corner on offer
-#: (3 m joints, 0.05 m/yr, 0 degrees C) is 8207 frames, about four and a half
-#: minutes to 90 %. That is the honest price of a proportional pace -- rock 30x
+#:      0 C   318 kyr / 7.52 kyr/s = 42 s of watching
+#:     12 C   144        / 7.48    = 19 s
+#:     30 C    53        / 7.04    =  8 s
+#:
+#: a 5.6x spread in real seconds against 6.0x in model time -- the gap being
+#: the 6 % the warm end loses to its own arithmetic.
+#:
+#: What it costs: twice as many frames as 500, and the slowest corner on offer
+#: (3 m joints, 0.05 m/yr, 0 degrees C) now passes 2000 kyr before reaching
+#: 90 %, so more than four minutes of watching. That is the honest price of a proportional pace -- rock 30x
 #: slower takes 30x longer to watch -- and Run is pausable.
 #:
 #: The limit, stated plainly: on a machine too slow to hold 30 fps the pace
