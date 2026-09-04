@@ -192,7 +192,15 @@ class Weathering(object):
         # been removed. Set them yourself if you want them to mean something.
         self.x_grus = 0.50                # ARBITRARY: "mostly dissolved"
         self.x_core = 0.05                # ARBITRARY: "barely touched"
-        self.f_inert = 0.30               # quartz: never dissolves, stays sand
+        # No f_inert. Quartz used to be carried here as a 0.30 fraction that
+        # "never dissolves" -- a knob, set by hand, and read by nothing in the
+        # code. It is not a knob. C_eq is quartz saturation, ~6 mg/L as SiO2
+        # at 25 C (llnl.dat: log K -3.999; chalcedony would be 11.2 and
+        # amorphous silica 116.2), so quartz sits exactly AT the ceiling this
+        # model normalises to and its driving force (1 - C/C_eq) is zero by
+        # construction. Quartz is inert here as a CONSEQUENCE of the
+        # saturation choice, not as an assumption laid on top of it, and the
+        # same silica ceiling is what stops the feldspar.
         self.c_drift_max = 0.03           # THE step control: how far c may move
                                           # while it is held across a step.
                                           # This is the model's one time-step
