@@ -66,10 +66,16 @@ LX = LZ = 3.00                  # the section, in metres. Fixed: it is the cell
 #: 20 cells at 5 cm. What 2 cm buys is a sharper weathering rind; what it costs
 #: is 6.3x the cells and about 18x the time.
 #:
-#:     cell     cells   median ms/step   vs 5 cm
-#:     5 cm      3600        1.75          --
-#:     2.5 cm   14400       17.51        10.0x
-#:     2 cm     22500       31.52        18.0x
+#:     cell     cells   median ms/step    vs 5 cm
+#:     5 cm      3600      1.75  1.13        --
+#:     2.5 cm   14400     17.51 10.84    10.0x  9.6x
+#:     2 cm     22500     31.52 18.79    18.0x 16.6x
+#:
+#: Two independent median runs, disagreeing by about 10 % on the ratio. That
+#: is the honest precision of this figure on a shared machine, so it is quoted
+#: as "about eighteen times" and should NOT be re-chased: the scatter is
+#: larger than any improvement worth making, and chasing it is what put a
+#: wrong number on the exercise page once already.
 #:
 #: Measured as the MEDIAN over 250 steps, not as one timed run, and the step
 #: count to a given time is identical at every cell size (800 steps and 86
@@ -102,18 +108,25 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: to dissolve the section spans two orders of magnitude across the sliders.
 #: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default          64    144     193
-#:     1.0 m, 0.30 m/yr, 30 C   warm             23     53      69
-#:     1.0 m, 0.30 m/yr,  0 C   cold            143    318     438
-#:     1.0 m, 0.05 m/yr, 12 C   dry             239    514     706
-#:     1.0 m, 0.05 m/yr,  0 C   both            513   1172    1776
-#:     3.0 m, 0.05 m/yr,  0 C   and coarse      965  >2000   >2000
+#:     1.0 m, 0.30 m/yr, 12 C   default          73    165     219
+#:     1.0 m, 0.30 m/yr, 30 C   warm             22     50      67
+#:     1.0 m, 0.30 m/yr,  0 C   cold            191    423     569
+#:     1.0 m, 0.05 m/yr, 12 C   dry             254    553     755
+#:     1.0 m, 0.05 m/yr,  0 C   both            605   1364    1990
+#:     3.0 m, 0.05 m/yr,  0 C   and coarse     1345  >2000   >2000
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
 #: difference, and comparing rates is what the slider is for. 500 carries the
-#: default and the cold case past 99 % and the dry one to 89 %, which looks
-#: finished. The compound-slow corners it does not reach; Run does, unbounded.
+#: default well past 99 %, and brings the cold case to 96 % and the dry one to
+#: 85 %, both of which look finished. The compound-slow corners it does not
+#: reach; Run does, unbounded.
+#:
+#: NOTE, AND IT IS A DECISION TO REVISIT: the cold case no longer FINISHES
+#: inside the cap. Making the diffusivity temperature-dependent moved its 99 %
+#: from 438 kyr to 569, so 500 now shows 96 % rather than a completed section.
+#: 96 % looks done and the cap also bounds what Show costs, so this may still
+#: be right -- but the argument that chose 500 no longer holds as stated.
 #:
 #: Re-measured after E_a and delta_H_r were sourced (oligoclase and quartz).
 #: The 12 C row barely moved, because T_ref is 285 K and both factors are 1
@@ -163,11 +176,11 @@ END_KYR = 500.0
 #: Uniform within 6 %, so what a reader feels is the model time, which is the
 #: whole claim. With the sourced kinetics that buys, at 90 % dissolved:
 #:
-#:      0 C   318 kyr / 7.52 kyr/s = 42 s of watching
-#:     12 C   144        / 7.48    = 19 s
-#:     30 C    53        / 7.04    =  8 s
+#:      0 C   423 kyr / 7.52 kyr/s = 56 s of watching
+#:     12 C   165        / 7.48    = 22 s
+#:     30 C    50        / 7.04    =  7 s
 #:
-#: a 5.6x spread in real seconds against 6.0x in model time -- the gap being
+#: a 7.9x spread in real seconds against 8.5x in model time -- the gap being
 #: the 6 % the warm end loses to its own arithmetic.
 #:
 #: What it costs: twice as many frames as 500, and the slowest corner on offer
