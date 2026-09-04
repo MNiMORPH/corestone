@@ -50,6 +50,20 @@ soluble phase is gone, 30% of the original solid remains as loose grains. That
 is the difference between grus and a cavity, and it is why the model can claim
 grus at all -- a single soluble phase can only make a smooth dissolution front.
 
+> **THIS WAS NEVER IMPLEMENTED, and the framing was wrong twice over.**
+> `f_inert = 0.30` reached the parameter block and was read by nothing, so the
+> second phase cost one scalar and bought nothing; it is now removed
+> (`43895c9`). And quartz does not need declaring inert: `C_eq` is quartz
+> saturation, so quartz sits at the ceiling and its driving force
+> `(1 - C/C_eq)` is zero by construction. 0.30 was also the wrong number for
+> the framing that replaced it -- it is the fraction for *everything but
+> quartz*, both feldspars and biotite, whereas the kinetics now cited are
+> plagioclase's alone.
+>
+> The paragraph's own argument still stands and is the reason to keep it
+> visible: without grains left behind, this model cannot tell grus from a
+> cavity. That is now recorded in the README as a limitation.
+
 Flow was originally a gravity cascade -- each cell handing its water to the
 three cells below -- chosen to avoid a pressure solve. **That was wrong, and it
 is replaced by steady Darcy flow in design 04.** A cascade cannot move water
@@ -136,10 +150,10 @@ mistaken for a result.
 | domain, `dx` | 20 x 15 m, 0.40 m | grid-independence checked |
 | infiltration | 0.30 m/yr | plausible recharge |
 | `L_EQ_REF` | 0.50 m at 285 K | **calibration choice**, not a measurement |
-| `E_A` | 60 kJ/mol | feldspar-ish; **unverified**, needs Palandri & Kharaka (2004) |
+| `E_A` | 69.8 kJ/mol | oligoclase, neutral mechanism, Palandri & Kharaka (2004) Table 13 (was 60, unverified) |
 | `TAU` = M0/C_eq | 6700 | saturated water volumes per rock volume |
 | `X_GRUS`, `X_CORE` | 0.50, 0.05 | classification thresholds, chosen here |
-| `F_INERT` | 0.30 | quartz fraction |
+| ~~`F_INERT`~~ | -- | removed in `43895c9`; never read, and quartz needs no declaring |
 | K fracture : matrix | 1000 : 1 | routing conductance contrast |
 
 ## Deliberately deferred
