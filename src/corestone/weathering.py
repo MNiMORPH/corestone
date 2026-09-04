@@ -594,23 +594,19 @@ class Weathering(object):
     @property
     def dispersivity(self):
         """
-        Longitudinal dispersivity [m], PORE-scale: the grain diameter.
+        Longitudinal dispersivity [m]: one grain diameter.
 
-        It was 0.05 m, from Gelhar, Welty & Rehfeldt (1992), whose scaling is
-        roughly a tenth of the transport distance. That is a MACROdispersivity
-        and it does not belong here. A macrodispersivity stands in for
-        heterogeneity in the flow paths at the scale of the transport, and the
-        heterogeneity in this model is the joint network -- which is drawn,
-        cell by cell, not parameterised. Using the field value in the matrix
-        counts the joints twice.
+        Water threading a porous medium does not travel at one speed. It takes
+        many paths, of different lengths, through pores of different widths,
+        and a solute front smears out because of it. The dispersivity is the
+        distance over which those paths differ from one another -- so at the
+        pore scale it is the grain size, and it multiplies the local velocity
+        to give a spreading coefficient with the units of a diffusivity.
 
-        What is left for this term is dispersion at the pore scale, whose
-        length is the grain diameter. Twenty-five times smaller, and it
-        settles which term carries solute through the matrix: molecular
-        diffusion beats dispersion 5947:1 in weathered rock and 5.95:1 in
-        fresh, so the mechanism is diffusive at both ends. At 0.05 m the fresh
-        matrix went the other way, 0.24:1, and the rind would have been built
-        by a bulk-aquifer parameter applied at 1e-11 m/s.
+        The scale matters as much as the number. A dispersivity measured in
+        the field is much larger, because it is standing in for heterogeneity
+        the modeller did not draw; here the heterogeneity IS drawn, cell by
+        cell, as the joint network. Design 07 has the arithmetic.
         """
         return self.grain_size
 
