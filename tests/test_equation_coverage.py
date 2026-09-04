@@ -34,8 +34,8 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 15
-EXPECTED_DISTINCT = 13
+EXPECTED_BLOCKS = 16
+EXPECTED_DISTINCT = 14
 
 LEDGER = {
     "R = k(T) * A * (1 - C / C_eq)":
@@ -50,7 +50,7 @@ LEDGER = {
     "div( K grad H ) = 0, H = psi - d (d is depth, positive down)":
         "test_the_head_field_satisfies_the_darcy_equation_cell_by_cell",
 
-    "D = D_aqueous(T) / tortuosity + dispersivity * |v|":
+    "D = D_aqueous(T) / tortuosity(M) + grain_size * |v|":
         "test_the_transport_coefficient_is_molecular_plus_dispersive",
 
     "sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j) + r dx^2 c_i "
@@ -79,6 +79,9 @@ LEDGER = {
 
     "k_fracture = rho g a^3 / (12 mu dx)":
         "test_the_joint_conductivity_is_the_cubic_law_on_its_aperture",
+
+    "tortuosity(M) = tortuosity_fresh^M * tortuosity_weathered^(1 - M)":
+        "test_the_tortuosity_follows_the_rock_like_the_conductivity",
 }
 
 

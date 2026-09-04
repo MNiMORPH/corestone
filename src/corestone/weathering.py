@@ -387,7 +387,13 @@ class Weathering(object):
         # interpolate tortuosity between the two ends the way
         # link_conductivity interpolates k. Fresh rock therefore diffuses far
         # too freely here, which flatters the early rind.
-        self.tortuosity = 10.0            # matrix tortuosity [-], weathered
+        self.tortuosity_weathered = 10.0  # matrix tortuosity [-] at M = 0:
+                                          # saprolite near 30 % porosity gives
+                                          # D_eff/D_0 ~ 0.1
+        self.tortuosity_fresh = 1.0e4     # and at M = 1: intact crystalline
+                                          # rock measures 2e-14 to 1.3e-12
+                                          # m2/s against a free-water 1e-9,
+                                          # so 1e3 to 1e5, centre 1e4
 
         # Longitudinal dispersivity scales with the transport distance:
         # Gelhar, Welty & Rehfeldt (1992) put it near a tenth of the scale
@@ -396,7 +402,10 @@ class Weathering(object):
         # would be 0.3 m; 0.05 m is a fiftieth, inside the scatter and
         # deliberately conservative, since dispersion this large would smear
         # the rind the model exists to show.
-        self.dispersivity = 0.05          # longitudinal dispersivity [m]
+        # Grain size, which does two jobs and must do them consistently. It
+        # sets the reactive surface area behind L_ref above (900 m2/m3 for
+        # 2 mm cubes at 30 % plagioclase) and it sets the dispersivity below.
+        self.grain_size = 2.0e-3          # mean grain diameter [m]
         # Two ARBITRARY cut-offs on a continuous field, kept for convenience
         # and named badly. Neither word is a fraction dissolved: fresh rock,
         # saprock, saprolite and grus are distinguished by fabric and
@@ -438,6 +447,8 @@ class Weathering(object):
         # ---- state
         self.T = self.T_ref               # temperature [K]
         self.t = 0.0                      # model time [s]
+        self._tort = None                 # link tortuosity, refreshed with
+                                          # the head; see solve_flow
         self.M = None                     # soluble mineral remaining, M/M0
         self.c = None                     # normalised concentration C/C_eq
                                           # LEAVING each cell, not entering
@@ -570,6 +581,62 @@ class Weathering(object):
         mu = water_viscosity(float(np.mean(self.T)))
         return (RHO_WATER * GRAVITY * self.joint_aperture ** 3
                 / (12.0 * mu * self.network.dx))
+
+    @property
+    def dispersivity(self):
+        """
+        Longitudinal dispersivity [m], PORE-scale: the grain diameter.
+
+        It was 0.05 m, from Gelhar, Welty & Rehfeldt (1992), whose scaling is
+        roughly a tenth of the transport distance. That is a MACROdispersivity
+        and it does not belong here. A macrodispersivity stands in for
+        heterogeneity in the flow paths at the scale of the transport, and the
+        heterogeneity in this model is the joint network -- which is drawn,
+        cell by cell, not parameterised. Using the field value in the matrix
+        counts the joints twice.
+
+        What is left for this term is dispersion at the pore scale, whose
+        length is the grain diameter. Twenty-five times smaller, and it
+        settles which term carries solute through the matrix: molecular
+        diffusion beats dispersion 5947:1 in weathered rock and 5.95:1 in
+        fresh, so the mechanism is diffusive at both ends. At 0.05 m the fresh
+        matrix went the other way, 0.24:1, and the rind would have been built
+        by a bulk-aquifer parameter applied at 1e-11 m/s.
+        """
+        return self.grain_size
+
+    def link_tortuosity(self):
+        """
+        Matrix tortuosity on each link, interpolated with the rock.
+
+            tortuosity(M) = tortuosity_fresh^M * tortuosity_weathered^(1 - M)
+
+        Geometric, on the mean ``M`` of the two cells a link joins -- the same
+        form as :meth:`link_conductivity`, and for the same reason. Dissolving
+        rock opens connected porosity to diffusion exactly as it opens it to
+        flow, and holding this fixed at the weathered value let fresh granite
+        diffuse a thousand times too freely. That mattered most at the start,
+        when every cell is fresh and the rind is forming.
+
+        Returns ``(vertical, horizontal)``. Joint links are handled by the
+        caller and are never tortuous: an open aperture is not a maze.
+        """
+        M = np.clip(self.M, 0.0, 1.0)
+        lo, hi = np.log(self.tortuosity_fresh), np.log(self.tortuosity_weathered)
+
+        def tort(m):
+            return np.exp(m * lo + (1.0 - m) * hi)
+
+        return (tort(0.5 * (M[:-1, :] + M[1:, :])),
+                tort(0.5 * (M[:, :-1] + M[:, 1:])))
+
+    def link_tortuosity_wrap(self):
+        """Matrix tortuosity on the periodic seam links; see
+        :meth:`link_tortuosity`."""
+        M = np.clip(self.M, 0.0, 1.0)
+        lo, hi = np.log(self.tortuosity_fresh), np.log(self.tortuosity_weathered)
+        m = 0.5 * (M[:, -1] + M[:, 0])
+        return np.exp(m * lo + (1.0 - m) * hi)
 
     @property
     def viscosity_factor(self):
@@ -796,7 +863,7 @@ class Weathering(object):
         """
         Solute transport coefficient on every link [m2/s].
 
-            D = D_aqueous(T) / tortuosity  +  dispersivity * |v|
+            D = D_aqueous(T) / tortuosity(M)  +  grain_size * |v|
 
         Molecular diffusion, at the working temperature, plus hydrodynamic
         (mechanical) dispersion. The
@@ -814,8 +881,9 @@ class Weathering(object):
         edge to one.
         """
         D = self.D_aqueous
-        dm_v = np.where(self.network.link_v, D, D / self.tortuosity)
-        dm_h = np.where(self.network.link_h, D, D / self.tortuosity)
+        tv, th = self._tort if self._tort is not None else self.link_tortuosity()
+        dm_v = np.where(self.network.link_v, D, D / tv)
+        dm_h = np.where(self.network.link_h, D, D / th)
         return (dm_v + self.dispersivity * np.abs(self.q_v) / self.dx,
                 dm_h + self.dispersivity * np.abs(self.q_h) / self.dx)
 
@@ -832,7 +900,9 @@ class Weathering(object):
         # changing D_molecular or the dispersivity silently do nothing, which a
         # test caught -- the same shape of defect as a docstring drifting from
         # its code, and one a cache invites.
-        key = (self.D_aqueous, self.tortuosity, self.dispersivity,
+        tv, th = self._tort if self._tort is not None else self.link_tortuosity()
+        key = (self.D_aqueous, self.dispersivity,
+               float(np.sum(tv)), float(np.sum(th)),
                id(self.q_v), float(np.sum(self.q_v)), float(np.sum(self.q_h)))
         if self._T is not None and self._T_key == key:
             return self._T
@@ -861,7 +931,7 @@ class Weathering(object):
             fwd = np.maximum(self.q_wrap, 0.0)
             rev = np.maximum(-self.q_wrap, 0.0)
             Dw = np.where(self.network.link_wrap, self.D_aqueous,
-                          self.D_aqueous / self.tortuosity) \
+                          self.D_aqueous / self.link_tortuosity_wrap()) \
                  + self.dispersivity * np.abs(self.q_wrap) / dx
             l, rgt = idx[:, -1], idx[:, 0]
             add(l, l, fwd + Dw);     add(rgt, l, -(fwd + Dw))
@@ -1107,6 +1177,13 @@ class Weathering(object):
         """
         nz, nx, dx = self.nz, self.nx, self.dx
         kv, kh, kw = self.link_conductivity()
+        # The tortuosity follows the rock on the SAME trigger, and must: it
+        # depends on M, and the transport operator is cached and refactorised.
+        # Refreshing it every step would rebuild and refactorise the operator
+        # every step. Refreshing it here ties it to the rock-change tolerance
+        # that already governs when the conductivity is allowed to move, so
+        # the two halves of "weathering opens the rock" advance together.
+        self._tort = self.link_tortuosity()
 
         A, b = self.flow_operator()
         H = spl.splu(A, permc_spec=ORDERING).solve(b).reshape(nz, nx)

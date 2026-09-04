@@ -98,7 +98,7 @@ def test_the_step_matrix_is_rebuilt_when_the_transport_coefficients_change():
     r = m.reaction_coefficient
     before = m._step_matrix(r).copy()
     m.D_molecular = 0.0
-    m.dispersivity = 0.0
+    m.grain_size = 0.0
     after = m._step_matrix(r)
     assert (before - after).nnz > 0
     assert after.shape == before.shape
@@ -174,9 +174,17 @@ def test_the_base_conductance_reaches_the_matrix_through_the_triplets():
         kw = np.where(net.link_wrap, m.k_fracture, m.k_matrix)
         links[-1] += kw[-1]
         links[0] += kw[-1]
-    assert np.allclose(d[-1, :] - links, m._k_base, rtol=1e-12)
+    # UNEXPLAINED, AND LEFT VISIBLE. This match is good to 1.4e-5 relative,
+    # not to machine precision, and it is not floating-point cancellation --
+    # subtracting two numbers near 2e-5 to get 6.6e-6 costs about four digits,
+    # nowhere near this. It predates the tortuosity work and was invisible
+    # until np.allclose's default atol=1e-8 was removed from this file, which
+    # swamped every conductance in it. Tolerance set where the claim actually
+    # holds rather than where it looks tidy; the residual is a real question
+    # about the base-conductance bookkeeping and has not been chased.
+    assert np.allclose(d[-1, :] - links, m._k_base, rtol=1e-4, atol=0.0)
     assert np.allclose(rhs.reshape(m.nz, m.nx)[-1, :],
-                       m._k_base * m._h_base, rtol=1e-12)
+                       m._k_base * m._h_base, rtol=1e-12, atol=0.0)
 
 
 def test_the_step_control_makes_the_error_a_dial():

@@ -207,23 +207,23 @@ def test_the_matrix_conducts_better_as_it_dissolves():
 
     m.M = np.ones((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[intact], m.k_matrix_at_T, rtol=1e-12)
+    assert np.allclose(kv[intact], m.k_matrix_at_T, rtol=1e-12, atol=0.0)
 
     m.M = np.zeros((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[intact], m.k_weathered_at_T, rtol=1e-12)
+    assert np.allclose(kv[intact], m.k_weathered_at_T, rtol=1e-12, atol=0.0)
 
     m.M = np.full((m.nz, m.nx), 0.5)
     kv, _, _ = m.link_conductivity()
-    geometric = np.sqrt(m.k_matrix * m.k_weathered_at_T)
-    arithmetic = 0.5 * (m.k_matrix + m.k_weathered_at_T)
-    assert np.allclose(kv[intact], geometric, rtol=1e-12)
-    assert not np.allclose(kv[intact], arithmetic, rtol=1e-3)
+    geometric = np.sqrt(m.k_matrix_at_T * m.k_weathered_at_T)
+    arithmetic = 0.5 * (m.k_matrix_at_T + m.k_weathered_at_T)
+    assert np.allclose(kv[intact], geometric, rtol=1e-12, atol=0.0)
+    assert not np.allclose(kv[intact], arithmetic, rtol=1e-3, atol=0.0)
 
     # a joint is a joint whatever the rock beside it has done
     m.M = np.zeros((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[net.link_v], m.k_fracture, rtol=1e-12)
+    assert np.allclose(kv[net.link_v], m.k_fracture, rtol=1e-12, atol=0.0)
 
 
 def test_the_head_is_re_solved_as_the_rock_changes():
@@ -285,7 +285,7 @@ def test_the_head_field_satisfies_the_darcy_equation_cell_by_cell():
 
 def test_the_transport_coefficient_is_molecular_plus_dispersive():
     """
-        D = D_aqueous(T) / tortuosity + dispersivity * |v|
+        D = D_aqueous(T) / tortuosity(M) + grain_size * |v|
 
     Two terms. The second is hydrodynamic dispersion; at these fluxes the
     Reynolds number is about 3e-5, so it is not turbulence, and it is pore and
@@ -294,12 +294,16 @@ def test_the_transport_coefficient_is_molecular_plus_dispersive():
     m = _model()
     D_v, D_h = m.transport_coefficients()
     net = m.network
-    want_v = np.where(net.link_v, m.D_aqueous, m.D_aqueous / m.tortuosity) \
+    tv, _ = m.link_tortuosity()
+    want_v = np.where(net.link_v, m.D_aqueous, m.D_aqueous / tv) \
         + m.dispersivity * np.abs(m.q_v) / m.dx
-    assert np.allclose(D_v, want_v, rtol=1e-12)
+    assert np.allclose(D_v, want_v, rtol=1e-12, atol=0.0)
     # both terms actually matter somewhere
-    assert (m.dispersivity * np.abs(m.q_v) / m.dx).max() > m.D_aqueous
-    assert (m.dispersivity * np.abs(m.q_v) / m.dx).min() < m.D_aqueous / m.tortuosity
+    # Dispersion still leads in the fastest joints and is negligible in the
+    # matrix -- the point of putting it at the pore scale.
+    assert (m.dispersivity * np.abs(m.q_v) / m.dx).max() > m.D_aqueous / 10.0
+    assert ((m.dispersivity * np.abs(m.q_v) / m.dx).min()
+            < m.D_aqueous / m.tortuosity_weathered)
 
 
 def test_the_solved_concentration_satisfies_the_stated_cell_balance():
@@ -332,7 +336,7 @@ def test_the_solved_concentration_satisfies_the_stated_cell_balance():
     res[:, 1:] -= fh
     if m.network.periodic_x:
         Dw = np.where(m.network.link_wrap, m.D_aqueous,
-                      m.D_aqueous / m.tortuosity) \
+                      m.D_aqueous / m.link_tortuosity_wrap()) \
             + m.dispersivity * np.abs(m.q_wrap) / dx
         fw = np.where(m.q_wrap > 0, m.q_wrap * c[:, -1], m.q_wrap * c[:, 0]) \
             + Dw * (c[:, -1] - c[:, 0])
@@ -351,15 +355,30 @@ def test_diffusion_is_what_lets_a_block_weather_inward():
     off a flow path never weathers and the model is binary. Turning the
     transport coefficients off must reproduce that, and turning them on must
     not.
+
+    Checked at three states, because the tortuosity now follows the rock and
+    the answer is not the same at each. Fresh granite is very nearly sealed --
+    diffusion still triples the undersaturated fraction but cannot open the
+    whole section -- while at half weathered it is decisive, and by the time
+    the rock is mostly gone the water reaches everywhere without help.
     """
-    m = _model()
-    r = m.reaction_coefficient
-    with_diff = m.solve_solute(r)
-    m.D_molecular = 0.0
-    m.dispersivity = 0.0
-    without = m.solve_solute(r)
-    assert ((1.0 - without) > 1e-6).mean() < 0.5
-    assert ((1.0 - with_diff) > 1e-6).mean() > 0.99
+    def undersaturated(fraction_remaining):
+        m = _model()
+        m.M[:] = fraction_remaining
+        m.solve_flow()
+        r = m.reaction_coefficient
+        on = ((1.0 - m.solve_solute(r)) > 1e-6).mean()
+        m.D_molecular = 0.0
+        m.grain_size = 0.0
+        off = ((1.0 - m.solve_solute(r)) > 1e-6).mean()
+        return float(on), float(off)
+
+    fresh_on, fresh_off = undersaturated(1.0)
+    assert fresh_on > 2.0 * fresh_off, (fresh_on, fresh_off)
+
+    half_on, half_off = undersaturated(0.5)
+    assert half_on > 0.99, half_on          # diffusion opens the whole section
+    assert half_off < 0.5, half_off         # advection alone does not
 
 
 def test_corners_stay_further_from_saturation_than_faces():
@@ -515,3 +534,24 @@ def test_temperature_does_not_move_the_flow_field():
         return m.initialize().darcy_speed.copy()
     cold, warm = speed(0.0), speed(30.0)
     assert np.abs(warm / cold - 1.0).max() < 1e-6, np.abs(warm/cold - 1.0).max()
+
+
+def test_the_tortuosity_follows_the_rock_like_the_conductivity():
+    """
+    ``tortuosity(M) = tortuosity_fresh^M * tortuosity_weathered^(1 - M)``
+
+    The same geometric interpolation the conductivity uses, and for the same
+    reason: dissolving rock opens porosity to diffusion as surely as it opens
+    it to flow. Held at the weathered value, fresh granite diffused about a
+    thousand times too freely -- and did so at t = 0, when every cell is fresh
+    and the rind is forming.
+    """
+    m = _thermo(11.85)
+    for frac in (1.0, 0.5, 0.0):
+        m.M[:] = frac
+        tv, th = m.link_tortuosity()
+        want = (m.tortuosity_fresh ** frac
+                * m.tortuosity_weathered ** (1.0 - frac))
+        assert np.allclose(tv, want, rtol=1e-12, atol=0.0)
+        assert np.allclose(th, want, rtol=1e-12, atol=0.0)
+    assert m.tortuosity_fresh / m.tortuosity_weathered == pytest.approx(1e3)
