@@ -108,24 +108,24 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: to dissolve the section spans two orders of magnitude across the sliders.
 #: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default          73    165     219
-#:     1.0 m, 0.30 m/yr, 30 C   warm             22     50      67
-#:     1.0 m, 0.30 m/yr,  0 C   cold            191    423     569
-#:     1.0 m, 0.05 m/yr, 12 C   dry             254    553     755
-#:     1.0 m, 0.05 m/yr,  0 C   both            605   1364    1990
-#:     3.0 m, 0.05 m/yr,  0 C   and coarse     1345  >2000   >2000
+#:     1.0 m, 0.30 m/yr, 12 C   default          75    168     224
+#:     1.0 m, 0.30 m/yr, 30 C   warm             23     53      70
+#:     1.0 m, 0.30 m/yr,  0 C   cold            190    421     566
+#:     1.0 m, 0.05 m/yr, 12 C   dry             255    557     761
+#:     1.0 m, 0.05 m/yr,  0 C   both            605   1361    1986
+#:     3.0 m, 0.05 m/yr,  0 C   and coarse     1338  >2000   >2000
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
 #: difference, and comparing rates is what the slider is for. 500 carries the
-#: default well past 99 %, and brings the cold case to 96 % and the dry one to
+#: default well past 99 %, and brings the cold case to 97 % and the dry one to
 #: 85 %, both of which look finished. The compound-slow corners it does not
 #: reach; Run does, unbounded.
 #:
 #: NOTE: the cold case no longer FINISHES inside the cap. Making the
-#: diffusivity temperature-dependent moved its 99 % from 438 kyr to 569, so
-#: 500 shows 96 % rather than a completed section. Raised with Andy and kept
-#: at 500 deliberately: 96 % is visually finished, and the cap also bounds
+#: diffusivity temperature-dependent moved its 99 % from 438 kyr to 566, so
+#: 500 shows 97 % rather than a completed section. Raised with Andy and kept
+#: at 500 deliberately: 97 % is visually finished, and the cap also bounds
 #: what Show costs at the fine cell sizes.
 #:
 #: Re-measured after E_a and delta_H_r were sourced (oligoclase and quartz).
@@ -176,11 +176,11 @@ END_KYR = 500.0
 #: Uniform within 6 %, so what a reader feels is the model time, which is the
 #: whole claim. With the sourced kinetics that buys, at 90 % dissolved:
 #:
-#:      0 C   423 kyr / 7.52 kyr/s = 56 s of watching
-#:     12 C   165        / 7.48    = 22 s
-#:     30 C    50        / 7.04    =  7 s
+#:      0 C   421 kyr / 7.52 kyr/s = 56 s of watching
+#:     12 C   168        / 7.48    = 22 s
+#:     30 C    53        / 7.04    =  8 s
 #:
-#: a 7.9x spread in real seconds against 8.5x in model time -- the gap being
+#: a 7.5x spread in real seconds against 7.9x in model time -- the gap being
 #: the 6 % the warm end loses to its own arithmetic.
 #:
 #: What it costs: twice as many frames as 500, and the slowest corner on offer
