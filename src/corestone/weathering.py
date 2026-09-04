@@ -266,6 +266,15 @@ class Weathering(object):
         # measurement is -- the most weathered samples in a granodiorite
         # suite. Grus is a particular material with a particular fabric, and
         # naming a conductivity after it claims more than the number carries.
+        # AT T_K_ref. A hydraulic conductivity is k_intrinsic rho g / mu, so
+        # a measured one belongs to the temperature it was measured at;
+        # Goodfellow et al.'s permeameter work is laboratory temperature.
+        # Corrected to the working temperature by viscosity_factor, exactly
+        # as the joint is through the cubic law -- if only one of them
+        # carried the viscosity the joint-to-matrix contrast would depend on
+        # temperature, which is an artefact and not a physics.
+        self.T_K_ref = 293.15             # temperature of the measured
+                                          # conductivities [K]
         self.k_matrix = 5.0e-10           # intact granite [m/s]
         self.k_weathered = 5.0e-6         # fully weathered matrix [m/s]
         self.flow_tolerance = 0.01        # re-solve the head once the rock has
@@ -523,6 +532,15 @@ class Weathering(object):
 
             k_fracture = rho g a^3 / (12 mu dx)
 
+        The "cubic law" is not a law of its own. It is the Navier-Stokes
+        solution for steady laminar flow between two parallel plates -- plane
+        Poiseuille flow -- integrated across the gap, which puts discharge in
+        proportion to the cube of the separation. The name and its
+        applicability to real, rough, deformable rock fractures come from
+        Witherspoon, Wang, Iwai & Gale (1980), Water Resources Research 16,
+        1016-1024, who showed it holds down to apertures of a few microns
+        provided the aperture is the HYDRAULIC one rather than the visible gap.
+
         A planar joint of aperture ``a`` carries transmissivity
         ``rho g a^3 / 12 mu``; smearing it across a cell of width ``dx`` gives
         a conductivity. Derived rather than set, for two reasons.
@@ -538,14 +556,43 @@ class Weathering(object):
         cell size is the numerical grid and not the rock. Transmissivity is
         the invariant, so the conductivity has to scale as 1/dx, and now does.
 
-        Temperature enters through the viscosity, which is honest but idle:
-        the infiltration is prescribed at the surface, so scaling every
-        conductivity together rescales the head and leaves the flow field
-        alone. See :attr:`diffusivity_factor`.
+        Temperature enters through the viscosity, and the MATRIX ends carry
+        it too -- see :attr:`k_matrix_at_T`. That matters more than it looks.
+        Hydraulic conductivity is ``k_intrinsic rho g / mu`` for any medium,
+        so warming raises joints and matrix alike and leaves their ratio
+        alone; with the infiltration prescribed at the surface rather than
+        driven by a head gradient, an unchanged ratio means an unchanged flow
+        field. Letting only the joint carry the viscosity, which this model
+        did briefly, doubled the joint-to-matrix contrast between 0 and 30 C
+        and moved the speed field by 55 % -- a temperature effect on the flow
+        that has no physical basis and was purely an asymmetry in the code.
         """
         mu = water_viscosity(float(np.mean(self.T)))
         return (RHO_WATER * GRAVITY * self.joint_aperture ** 3
                 / (12.0 * mu * self.network.dx))
+
+    @property
+    def viscosity_factor(self):
+        """
+        ``mu(T_K_ref) / mu(T)``: what warming does to any hydraulic
+        conductivity.
+
+        ``K = k_intrinsic rho g / mu``, so a conductivity measured at one
+        temperature applies at another only after this correction. Water is
+        2.2 times as viscous at 0 C as at 30 C, so it is not a small one.
+        """
+        return (water_viscosity(self.T_K_ref)
+                / water_viscosity(float(np.mean(self.T))))
+
+    @property
+    def k_matrix_at_T(self):
+        """Intact-matrix conductivity at the working temperature [m/s]."""
+        return self.k_matrix * self.viscosity_factor
+
+    @property
+    def k_weathered_at_T(self):
+        """Fully weathered matrix conductivity at the working temperature."""
+        return self.k_weathered * self.viscosity_factor
 
     @property
     def diffusivity_factor(self):
@@ -948,7 +995,7 @@ class Weathering(object):
         -- linearly in the logarithm, which is how conductivity varies --
         between intact granite and fully dissolved rock:
 
-            k(M) = k_matrix^M * k_weathered^(1 - M)
+            k(M) = k_matrix(T)^M * k_weathered(T)^(1 - M)
 
         on the mean of the two cells a link joins. A jointed link keeps
         ``k_fracture``: an open joint is an open joint whatever the rock beside
@@ -974,7 +1021,7 @@ class Weathering(object):
         this module is still a placeholder.
         """
         net = self.network
-        lo, hi = np.log(self.k_matrix), np.log(self.k_weathered)
+        lo, hi = np.log(self.k_matrix_at_T), np.log(self.k_weathered_at_T)
 
         def k_of(m):
             return np.exp(m * lo + (1.0 - m) * hi)
@@ -1036,7 +1083,7 @@ class Weathering(object):
         # which cost about half a percent in the solute balance while the water
         # balance stayed exact, because water is solved and solute is swept.
         self._k_base = np.where(self.network.cell[-1, :],
-                                self.k_fracture, self.k_matrix)
+                                self.k_fracture, self.k_matrix_at_T)
         self._h_base = -(nz - 0.5) * dx - 0.5 * dx
         rows.append(idx[-1, :]); cols.append(idx[-1, :])
         vals.append(self._k_base)

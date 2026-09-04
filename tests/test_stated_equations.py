@@ -190,7 +190,7 @@ def test_tau_falls_as_solubility_rises():
 
 def test_the_matrix_conducts_better_as_it_dissolves():
     """
-        k(M) = k_matrix^M * k_weathered^(1 - M)
+        k(M) = k_matrix(T)^M * k_weathered(T)^(1 - M)
 
     Geometric interpolation: linear in the LOGARITHM of conductivity, which is
     how conductivity varies and why the endpoints span four orders of
@@ -207,16 +207,16 @@ def test_the_matrix_conducts_better_as_it_dissolves():
 
     m.M = np.ones((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[intact], m.k_matrix, rtol=1e-12)
+    assert np.allclose(kv[intact], m.k_matrix_at_T, rtol=1e-12)
 
     m.M = np.zeros((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[intact], m.k_weathered, rtol=1e-12)
+    assert np.allclose(kv[intact], m.k_weathered_at_T, rtol=1e-12)
 
     m.M = np.full((m.nz, m.nx), 0.5)
     kv, _, _ = m.link_conductivity()
-    geometric = np.sqrt(m.k_matrix * m.k_weathered)
-    arithmetic = 0.5 * (m.k_matrix + m.k_weathered)
+    geometric = np.sqrt(m.k_matrix * m.k_weathered_at_T)
+    arithmetic = 0.5 * (m.k_matrix + m.k_weathered_at_T)
     assert np.allclose(kv[intact], geometric, rtol=1e-12)
     assert not np.allclose(kv[intact], arithmetic, rtol=1e-3)
 
@@ -488,3 +488,30 @@ def test_the_joint_is_the_same_joint_at_every_cell_size():
         m.set_temperature(285.0)
         T.append(m.k_fracture * dx)
     assert max(T) / min(T) == pytest.approx(1.0, rel=1e-12), T
+
+
+def test_temperature_does_not_move_the_flow_field():
+    """
+    A regression, and the bug was mine.
+
+    Hydraulic conductivity is ``k_intrinsic rho g / mu`` for any medium, so
+    warming raises the joints and the matrix alike and leaves their ratio
+    alone. The infiltration is prescribed at the surface rather than driven by
+    a head gradient, so an unchanged ratio means an unchanged flow field:
+    temperature must not move the water at all, only the chemistry.
+
+    Deriving the joint conductivity from an aperture introduced the viscosity
+    on the joints alone while the matrix ends stayed fixed. That doubled the
+    joint-to-matrix contrast between 0 and 30 C -- 18653 to 41017 -- and moved
+    the speed field by 55 %, a temperature effect on the flow with no physical
+    basis whatever.
+    """
+    def speed(tC):
+        net = FractureNetwork(30, 30, 0.05, periodic_x=True).seed(
+            sets=orthogonal_grid(0.5), rng=np.random.default_rng(12345))
+        m = Weathering(net)
+        m.set_infiltration(0.30 / YEAR)
+        m.set_temperature(tC + 273.15)
+        return m.initialize().darcy_speed.copy()
+    cold, warm = speed(0.0), speed(30.0)
+    assert np.abs(warm / cold - 1.0).max() < 1e-6, np.abs(warm/cold - 1.0).max()
