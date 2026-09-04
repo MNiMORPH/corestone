@@ -34,8 +34,8 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 11
-EXPECTED_DISTINCT = 9
+EXPECTED_BLOCKS = 13
+EXPECTED_DISTINCT = 11
 
 LEDGER = {
     "R = k(T) * A * (1 - C / C_eq)":
@@ -65,6 +65,14 @@ LEDGER = {
 
     "k(M) = k_matrix^M * k_weathered^(1 - M)":
         "test_the_matrix_conducts_better_as_it_dissolves",
+
+    "k(T) = k_0 exp(-E_a / R_g T) Arrhenius, on the RATE "
+    "C_eq(T) = C_0 exp(-dH_r / R_g T) van 't Hoff, on the CEILING":
+        "test_the_factors_are_the_textbook_arrhenius_and_van_t_hoff",
+
+    "L = q C_eq / (k A) = (q C_0 / (k_0 A)) exp( -(dH_r - E_a) / R_g T ) "
+    "= L_ref exp( +(E_a - dH_r) / R_g ( 1/T - 1/T_ref ) ) *":
+        "test_only_the_DIFFERENCE_of_the_two_enthalpies_sets_the_length_scale",
 }
 
 

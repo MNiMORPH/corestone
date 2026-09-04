@@ -376,3 +376,51 @@ def test_corners_stay_further_from_saturation_than_faces():
     face = u[(r0 + r1) // 2, c0 + k]
     corner = u[r0 + k, c0 + k]
     assert corner > face
+
+
+# -- the thermodynamic pair, registered in the coverage ledger ------------
+
+R_GAS = 8.314
+
+
+def _thermo(tC=11.85, **kw):
+    """A small model at a chosen temperature, for the two temperature laws."""
+    net = FractureNetwork(20, 20, 0.05, periodic_x=True).seed(
+        sets=orthogonal_grid(0.5), rng=np.random.default_rng(0))
+    m = Weathering(net)
+    for k, v in kw.items():
+        setattr(m, k, v)
+    m.set_infiltration(0.30 / YEAR)
+    m.set_temperature(tC + 273.15)
+    return m.initialize()
+
+
+@pytest.mark.parametrize("tC", [0.0, 11.85, 30.0])
+def test_the_factors_are_the_textbook_arrhenius_and_van_t_hoff(tC):
+    """Computed here from the equations as they appear on the exercise page,
+    independently of how the model forms them."""
+    m = _thermo(tC)
+    T = tC + 273.15
+    assert float(np.mean(m.rate_factor)) == pytest.approx(
+        np.exp(-(m.E_a / R_GAS) * (1.0 / T - 1.0 / m.T_ref)), rel=1e-12)
+    assert float(np.mean(m.solubility_factor)) == pytest.approx(
+        np.exp(-(m.delta_H_r / R_GAS) * (1.0 / T - 1.0 / m.T_ref)), rel=1e-12)
+
+
+@pytest.mark.parametrize("tC", [0.0, 5.0, 20.0, 30.0])
+def test_only_the_DIFFERENCE_of_the_two_enthalpies_sets_the_length_scale(tC):
+    """
+    The central claim, and the one most easily lost in an edit.
+
+    The saturation length goes as ``C_eq / k``, so ``E_a`` and ``delta_H_r``
+    enter it with opposite signs. Two completely different pairs sharing a
+    difference must give the same length at every temperature -- which is why
+    the pair may not be chosen one at a time, and why a field study of
+    weathering against temperature recovers the difference rather than E_a.
+    """
+    a = _thermo(tC, E_a=69.8e3, delta_H_r=32.9e3)     # difference 36.9
+    b = _thermo(tC, E_a=100.0e3, delta_H_r=63.1e3)    # difference 36.9
+    assert a.apparent_activation_energy == pytest.approx(
+        b.apparent_activation_energy, rel=1e-12)
+    assert float(np.mean(a.saturation_length)) == pytest.approx(
+        float(np.mean(b.saturation_length)), rel=1e-12)
