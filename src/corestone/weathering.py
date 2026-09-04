@@ -145,15 +145,37 @@ class Weathering(object):
         self.L_ref = 0.50                 # saturation length at T_ref, mean
                                           # infiltration, fresh rock [m]
         self.T_ref = 285.0                # reference temperature [K]
-        self.E_a = 60.0e3                 # activation energy [J/mol]
-                                          # feldspar-ish, UNVERIFIED: needs
-                                          # Palandri & Kharaka (2004)
-        self.delta_H_r = 25.0e3           # enthalpy of the dissolution
-                                          # reaction [J/mol], van 't Hoff.
-                                          # UNVERIFIED. Only the DIFFERENCE
-                                          # (E_a - delta_H_r) sets the length
-                                          # scale, so the two must not be
-                                          # picked independently.
+        # The soluble phase is PLAGIOCLASE -- oligoclase, the An10-30 the
+        # feldspar of a granite usually is. Not because it is the most
+        # abundant phase (by the IUGS definition granite is 10-65 % of its
+        # feldspar as plagioclase, so K-feldspar often wins on volume) but
+        # because it sets the rate: at 25 C and neutral pH it dissolves 3.7x
+        # faster than K-feldspar, and given equal surface areas it still
+        # carries 79 % of the dissolution. Taking the resistant phase's
+        # kinetics would describe a rock paced by what survives, and what
+        # makes grus is the phase that goes.
+        self.E_a = 69.8e3                 # activation energy [J/mol]:
+                                          # oligoclase, neutral mechanism,
+                                          # Palandri & Kharaka (2004) Table 13
+                                          # (K-feldspar, Table 15, is 38.0e3)
+        # Enthalpy of the equilibrium that stops the reaction [J/mol], van 't
+        # Hoff. NOT a property of the dissolving mineral: it is a statement
+        # about WHAT saturates. Quartz is treated as inert here and silica
+        # saturates readily, so the ceiling on the solute is silica, and this
+        # is quartz's dissolution enthalpy.
+        #
+        # The alternative reading -- solution buffered by kaolinite -- gives a
+        # NEGATIVE value for calcic plagioclase, computed from llnl.dat as
+        # +24.0 kJ/mol for albite to kaolinite and -151.3 for anorthite,
+        # so -11 at An20 and -46 at An40. That flips the sign of the
+        # temperature effect on C_eq: at An40 the section takes 124 kyr to
+        # reach 90 % dissolved at 0 C and 308 kyr at 30 C, i.e. warming the
+        # rock slows it down. A real regime, and not this model's.
+        self.delta_H_r = 32.9e3           # quartz, llnl.dat at 25 C
+        # Both matter twice over. (E_a - delta_H_r) alone sets how the
+        # saturation length moves with temperature, and C_eq enters tau
+        # separately, so the pair has to come from one consistent story
+        # rather than being picked one at a time.
         self.R_gas = 8.314                # gas constant [J/mol/K]
         self.tau_ref = 6700.0             # M0/C_eq at T_ref: volumes of
                                           # saturated water per volume of rock
