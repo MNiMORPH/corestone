@@ -102,17 +102,22 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: to dissolve the section spans two orders of magnitude across the sliders.
 #: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default          65    145     194
-#:     1.0 m, 0.30 m/yr,  0 C   cold            123    274     377
-#:     1.0 m, 0.05 m/yr, 12 C   dry             240    517     710
-#:     1.0 m, 0.05 m/yr,  0 C   both            440   1001    1508
-#:     3.0 m, 0.05 m/yr,  0 C   and coarse      827  >2000   >2000
+#:     1.0 m, 0.30 m/yr, 12 C   default          64    144     193
+#:     1.0 m, 0.30 m/yr, 30 C   warm             23     53      69
+#:     1.0 m, 0.30 m/yr,  0 C   cold            143    318     438
+#:     1.0 m, 0.05 m/yr, 12 C   dry             239    514     706
+#:     1.0 m, 0.05 m/yr,  0 C   both            513   1172    1776
+#:     3.0 m, 0.05 m/yr,  0 C   and coarse      965  >2000   >2000
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
 #: difference, and comparing rates is what the slider is for. 500 carries the
-#: default and the cold case past 99 % and the dry one to 88 %, which looks
+#: default and the cold case past 99 % and the dry one to 89 %, which looks
 #: finished. The compound-slow corners it does not reach; Run does, unbounded.
+#:
+#: Re-measured after E_a and delta_H_r were sourced (oligoclase and quartz).
+#: The 12 C row barely moved, because T_ref is 285 K and both factors are 1
+#: there by construction; the ends spread, which is the point of sourcing them.
 #:
 #: It also bounds what Show costs, since the jump computes the whole run: at
 #: 2 cm, 34.3 s here against 66.2 s for 1000 kyr. And it keeps the default's
