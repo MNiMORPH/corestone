@@ -93,20 +93,29 @@ dissolved silica from Rebreanu et al. (2008), scaled by Stokes-Einstein; and
 tau and the saturation length from the mineralogy and a 2 mm grain size.
 
 Which makes the weathering timescale a PREDICTION, and it can be checked. The
-default settings -- 1 m joints, 0.30 m/yr, 12 C -- take 1191 kyr to dissolve
-90 % of a 3 m section, a weathering front of about 2.5 m/Myr. Measured
+default settings -- 1 m joints, 0.30 m/yr, 12 C -- take 3798 kyr to dissolve
+90 % of a 3 m section, a weathering front of about 0.79 m/Myr. Measured
 temperate granite regoliths give 7 m/Myr at Panola and 4 m/Myr at Davis Run
 (White et al. 2001); tropical Rio Icacos runs 43-45 m/Myr, which is the right
-direction for a warmer, wetter site. So this lands within a factor of two of
-the temperate field rate with nothing tuned to it.
+direction for a warmer, wetter site. So this runs five to nine times SLOWER
+than the temperate field rate, with nothing tuned to it.
 
-That is not an accuracy claim. Two of the inputs -- the 2 mm grain size and
-the 30 % plagioclase -- are ordinary values rather than measurements of any
-particular rock, and the reactive surface area they imply is geometric rather
-than BET, which is a choice worth a paper (White & Brantley 2003). It is a
-consistency claim, and it is the reason the calibrated version that ran seven
-times faster was wrong to keep: 17.9 m/Myr is three times the temperate field
-rate, and nothing was checking.
+The gap is worth stating precisely, because it is not evenly distributed
+across the inputs. It sits in the reactive surface area, which is here the
+GEOMETRIC area of 2 mm grains, 900 m2/m3, while BET for granite is 3e5 to
+3e6 -- two to three orders higher. Closing the rate gap needs a factor of
+five, which is still five hundred times below BET. So the discrepancy lives
+inside a range the field has not resolved (White & Brantley 2003), and it is
+reported rather than removed: choosing a surface area to make the rate come
+out is the one move that would make this number meaningless.
+
+Two earlier versions got closer and were wrong to. The calibrated model ran at
+17.9 m/Myr, three times too FAST, with nothing checking it. Deriving tau
+brought it to 2.5, which looked like agreement within a factor of two -- but
+30 % of the section was part-dissolved at once, so it was not advancing a
+front at all, and dividing 3 m by t90 was not measuring one. Only with the
+matrix transport corrected, and the part-dissolved zone down to 4.6 %, is the
+number a front rate at all. It is a worse match and a better measurement.
 
 Solute moves by advection **and by diffusion**:
 

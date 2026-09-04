@@ -108,24 +108,24 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: to dissolve the section spans two orders of magnitude across the sliders.
 #: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default         526   1191    1581
-#:     1.0 m, 0.30 m/yr, 30 C   warm            161    366     483
-#:     1.0 m, 0.30 m/yr,  0 C   cold           1376   3055    4080
-#:     1.0 m, 0.05 m/yr, 12 C   dry            1790   3914    5308
-#:     1.0 m, 0.05 m/yr,  0 C   both           4230   9590   13794
-#:     3.0 m, 0.05 m/yr,  0 C   and coarse     9668 >20000  >20000
+#:     1.0 m, 0.30 m/yr, 12 C   default        1708   3798    5532
+#:     1.0 m, 0.30 m/yr, 30 C   warm            462   1040    1512
+#:     1.0 m, 0.30 m/yr,  0 C   cold           4666  10274   14996
+#:     1.0 m, 0.05 m/yr, 12 C   dry            5011  11068   14566
+#:     1.0 m, 0.05 m/yr,  0 C   both          14543 >20000  >20000
+#:     3.0 m, 0.05 m/yr,  0 C   and coarse   >20000 >20000  >20000
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
-#: difference, and comparing rates is what the slider is for. 4000 carries the
-#: default well past 99 % at 1581 kyr and takes the cold case to 99 % at 4080,
+#: difference, and comparing rates is what the slider is for. 15000 carries
+#: the default well past 99 % at 5532 kyr and the cold case to 99 % at 14996,
 #: which was the criterion that chose the original cap. The compound-slow
 #: corners it does not reach; Run does, unbounded.
 #:
-#: The cap moved 500 -> 4000 because the MODEL moved. Deriving tau from the
-#: mineralogy made it seven times slower, so a cap chosen against the old
-#: timescale showed the default section half dissolved. This is the same
-#: criterion applied to the new numbers, not a new judgement.
+#: The cap has moved 500 -> 4000 -> 15000 because the MODEL moved, twice:
+#: deriving tau from the mineralogy, then correcting the matrix transport.
+#: Each time it is the same criterion applied to new numbers, not a new
+#: judgement.
 #:
 #: Re-measured after E_a and delta_H_r were sourced (oligoclase and quartz).
 #: The 12 C row barely moved, because T_ref is 285 K and both factors are 1
@@ -134,7 +134,7 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: It also bounds what Show costs, since the jump computes the whole run: at
 #: 2 cm, 34.3 s here against 66.2 s for 1000 kyr. And it keeps the default's
 #: interesting range in the first 40 % of a slider stepped in 10 kyr.
-END_KYR = 4000.0
+END_KYR = 15000.0
 
 #: How much MODEL TIME one animation frame covers. The same for every setting,
 #: and that is the whole point: it makes a second of watching worth a fixed
@@ -154,10 +154,11 @@ END_KYR = 4000.0
 #: Accuracy is unaffected: the frame sub-steps as c_drift_max demands, so this
 #: sets the pace and the controller still sets the step.
 #:
-#: 1 kyr per frame. The model became seven times slower when tau was derived
-#: from the mineralogy rather than calibrated, so the pace had to rise with it
-#: or every run would have taken seven times as long to watch. A round
-#: kiloyear is the cadence, and it restores the watch times almost exactly.
+#: 2 kyr per frame. The pace has risen twice with the physics: once when tau
+#: was derived from the mineralogy rather than calibrated (sevenfold slower),
+#: and again when the matrix transport was corrected -- the tortuosity made to
+#: follow the rock and the dispersivity dropped to the pore scale, which is
+#: another threefold. Without it the default run would take four minutes.
 #:
 #: The reasoning that first chose 250 yr, kept because it is the argument that
 #: sets the ceiling on any pace, and 1 kyr has to clear the same bar. The
@@ -165,16 +166,21 @@ END_KYR = 4000.0
 #: cost per frame, and the same figure scaled by the 3.0x this app measured
 #: slower under Pyodide in Chrome (Show to 50 kyr: 0.96 s against 0.32 s):
 #:
-#: At 1 kyr/frame, median over 250 frames, and scaled by the 3.0x this app
+#: At 2 kyr/frame, median over 250 frames, and scaled by the 3.0x this app
 #: measured slower under Pyodide in Chrome:
 #:
-#:      5 cm,  12 C      1.05 ms  ->   3.2 ms      inside 33 ms
-#:      5 cm,  30 C      6.89     ->  20.7        inside
-#:      2.5 cm, 12 C    11.30     ->  33.9        over
-#:      2 cm,  12 C     18.47     ->  55.4        over
+#:      5 cm,  12 C      0.97 ms  ->   2.9 ms      inside 33 ms
+#:      5 cm,  30 C     15.34     ->  46.0        OVER
+#:      2.5 cm, 12 C    16.07     ->  48.2        over
+#:      2 cm,  12 C     45.46     -> 136.4        over
 #:
-#: So 5 cm keeps time across the whole temperature range, which is the range
-#: the slider offers, and the finer grids do not -- as before. Superseded
+#: THE WARM END NOW MISSES THE BUDGET, and that is the price of 2 kyr rather
+#: than 1: a longer frame gathers more sub-steps, and at 30 C the rock is
+#: changing fastest. At 1 kyr the warm end came to 20.7 ms and fitted. The
+#: overrun is 1.4x, so a warm run stretches from about 17 s of watching to
+#: 24 -- still far short of the 171 s a cold one takes, so the comparison the
+#: pace exists to protect survives. It is a real cost and not a rounding
+#: error, and 1 kyr is the setting that avoids it. Superseded
 #: measurements at 250 and 500 yr per frame:
 #:
 #:                        500 yr/frame        250 yr/frame
@@ -194,9 +200,9 @@ END_KYR = 4000.0
 #: Uniform within 6 %, so what a reader feels is the model time, which is the
 #: whole claim. With the sourced kinetics that buys, at 90 % dissolved:
 #:
-#:      0 C   3055 kyr / 30 kyr/s = 102 s of watching
-#:     12 C   1191        / 30     =  40 s
-#:     30 C    366        / 30     =  12 s
+#:      0 C  10274 kyr / 60 kyr/s = 171 s of watching
+#:     12 C   3798        / 60     =  63 s
+#:     30 C   1040        / 60     =  17 s
 #:
 #: an 7.8x spread, and longer runs than before: the model slowed sevenfold
 #: when tau was derived and the pace rose only fourfold, so watching costs
@@ -214,7 +220,7 @@ END_KYR = 4000.0
 #: compute to 90 % is 1.19 s at 0 degrees C against 1.54 s at 30, so on a slow
 #: enough laptop the two look equally long. Nothing here can fix that; it is
 #: the frame budget, not the choice of pace.
-YEARS_PER_FRAME = 1000.0
+YEARS_PER_FRAME = 2000.0
 
 #: Tighter than the model's own default of 0.03, for two reasons that happen
 #: to agree. One frame is one step, so the budget sets how long the animation
@@ -528,8 +534,8 @@ readout = pn.pane.Markdown("", sizing_mode="stretch_width",
 #: question -- what does the rock look like at 50 kyr? -- answered directly.
 #: It does not reset the model, because it is not a property of the rock.
 at_time = pn.widgets.IntSlider(
-    name="View results at [kyr]", start=50, end=int(END_KYR), step=50,
-    value=500, sizing_mode="stretch_width", max_width=260)
+    name="View results at [kyr]", start=250, end=int(END_KYR), step=250,
+    value=2000, sizing_mode="stretch_width", max_width=260)
 
 run = animator(step)
 reset = reset_button(do_reset, name="Fresh rock")
