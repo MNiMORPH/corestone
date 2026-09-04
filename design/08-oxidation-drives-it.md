@@ -76,7 +76,7 @@ wrong changes which modulus the model needs.
 | `V_goethite` | 20.82 cm3/mol | same table, same page |
 | `dV/V` | **0.735** | the two above. Both are single-Fe formula units, so no factor-of-2 ambiguity |
 | `E`, `nu` | 76 GPa, 0.24 | SKB R-05-83 Tables 2-7/2-9: 52 intact granite-granodiorite cores, Forsmark. Near-surface cracked granite is softer -- 40 GPa is the more defensible choice here, and the model is about rock that is cracking |
-| `Gamma` | **1-200 J/m2, a bracket** | bounded below by 2 gamma (Brace & Walsh 1962) and above by specimen-scale G_c (Friedman et al. 1972). See below: it does not close |
+| `x_c` | **0.10** | **calibration.** The oxidation extent at which cracking begins, from Goodfellow et al. (2016). Implies Gamma = 7.3 J/m2, against a floor of 1-2 (Brace & Walsh 1962) and a specimen-scale ceiling of 200-500 (Friedman et al. 1972) |
 
 **The product is goethite, not ferrihydrite.** Fletcher's footnote quotes 0.7
 for "wustite to ferrihydrite" citing Robie & Hemingway -- but that compilation
@@ -110,14 +110,43 @@ justification for the low end is contradicted by direct measurement on
 granite, while the high end is a specimen-scale quantity that a grain-scale
 crack cannot possibly develop. The truth is in between and nothing locates it.
 
-**What this costs, and it is the honest cost.** Goodfellow's observed ~10 %
-sits inside the bracket. The model is therefore CONSISTENT with the
-observation and does not predict it. An earlier draft of this document claimed
-a prediction of 12 % landing on their 10 %; that rested on Fletcher's
-f_FeO = 0.05, which is wrong for granite by a factor of 4.5 and too high even
-for Fletcher's own rock, and on a fracture energy chosen from one end of a
-14-fold range. Both halves of the coincidence were errors. It is recorded here
-because it was the strongest sentence in the document and it was not true.
+**So the model anchors on the measurement and reports the fracture energy as
+a by-product.** Rather than choose a Gamma from a 200-fold range and predict a
+threshold, take the threshold from the one direct observation there is --
+Goodfellow's ~10 % rise in Fe(III) accompanying one to three orders of
+magnitude in hydraulic conductivity -- and report what fracture energy it
+implies:
+
+    x_c = 10 %   =>   Gamma = 7.3 J/m2
+
+That number is checkable, and it checks out:
+
+    2 gamma, thermodynamic floor              1 - 2 J/m2   Brace & Walsh (1962)
+    Fletcher's own single-crystal estimate    2 - 5        0.01 x their 200-500
+    THIS MODEL                                7.3
+    specimen-scale G_c                      200 - 500      Friedman et al. (1972)
+
+One order above the floor and one to two below specimen scale, which is where
+a crack spanning a process zone measured at 2 to 9 grain diameters (Zang et
+al. 2000) should sit -- above pure surface creation, far below a mature
+fracture's full dissipation. And within about 1.5x of Fletcher's own
+single-crystal estimate, arrived at independently. That agreement is a
+consistency check, not a fit: nothing in this chain was adjusted to produce
+it.
+
+**This is calibration, and it is labelled as calibration.** x_c is the one
+number in the cracking criterion taken from an observation rather than derived,
+and the page must say so. What it buys is that the uncertainty now sits in one
+visible place instead of propagating through five inputs, and that the model
+makes a statement about fracture energy which a reader can check against the
+rock-mechanics literature.
+
+An earlier draft of this document claimed the opposite direction -- that the
+criterion PREDICTS 12 % against Goodfellow's 10 %. That rested on Fletcher's
+f_FeO = 0.05, wrong for granite by 4.5x and too high even for his own rock,
+and on a Gamma taken from one end of the bracket. Both halves were errors
+pulling opposite ways, so the product looked right. Recorded because it was
+the strongest sentence here and it was false.
 
 Two documents would close this and neither is open access: Zang et al. (2000)
 in full, and its companion Janssen, Wagner, Zang & Dresen (2001), Int. J.
