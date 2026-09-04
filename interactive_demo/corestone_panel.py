@@ -108,17 +108,17 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: to dissolve the section spans two orders of magnitude across the sliders.
 #: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default        1708   3798    5532
-#:     1.0 m, 0.30 m/yr, 30 C   warm            462   1040    1512
-#:     1.0 m, 0.30 m/yr,  0 C   cold           4666  10274   14996
-#:     1.0 m, 0.05 m/yr, 12 C   dry            5011  11068   14566
+#:     1.0 m, 0.30 m/yr, 12 C   default        1703   3788    5518
+#:     1.0 m, 0.30 m/yr, 30 C   warm            462   1040    1511
+#:     1.0 m, 0.30 m/yr,  0 C   cold           4662  10266   14984
+#:     1.0 m, 0.05 m/yr, 12 C   dry            5009  11063   14560
 #:     1.0 m, 0.05 m/yr,  0 C   both          14543 >20000  >20000
 #:     3.0 m, 0.05 m/yr,  0 C   and coarse   >20000 >20000  >20000
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
 #: difference, and comparing rates is what the slider is for. 15000 carries
-#: the default well past 99 % at 5532 kyr and the cold case to 99 % at 14996,
+#: the default well past 99 % at 5518 kyr and the cold case to 99 % at 14984,
 #: which was the criterion that chose the original cap. The compound-slow
 #: corners it does not reach; Run does, unbounded.
 #:
@@ -154,11 +154,13 @@ END_KYR = 15000.0
 #: Accuracy is unaffected: the frame sub-steps as c_drift_max demands, so this
 #: sets the pace and the controller still sets the step.
 #:
-#: 2 kyr per frame. The pace has risen twice with the physics: once when tau
-#: was derived from the mineralogy rather than calibrated (sevenfold slower),
-#: and again when the matrix transport was corrected -- the tortuosity made to
-#: follow the rock and the dispersivity dropped to the pore scale, which is
-#: another threefold. Without it the default run would take four minutes.
+#: 1 kyr per frame. The pace rose to this when tau was derived from the
+#: mineralogy rather than calibrated, which made the model sevenfold slower.
+#: It went to 2 kyr briefly when correcting the matrix transport slowed it
+#: another threefold, and came back: 2 kyr put the warm end over the frame
+#: budget at 46 ms, and keeping the whole temperature range in budget is worth
+#: more than halving the watch times, because the temperature comparison is
+#: what the pace exists to protect.
 #:
 #: The reasoning that first chose 250 yr, kept because it is the argument that
 #: sets the ceiling on any pace, and 1 kyr has to clear the same bar. The
@@ -166,21 +168,18 @@ END_KYR = 15000.0
 #: cost per frame, and the same figure scaled by the 3.0x this app measured
 #: slower under Pyodide in Chrome (Show to 50 kyr: 0.96 s against 0.32 s):
 #:
-#: At 2 kyr/frame, median over 250 frames, and scaled by the 3.0x this app
+#: At 1 kyr/frame, median over 250 frames, and scaled by the 3.0x this app
 #: measured slower under Pyodide in Chrome:
 #:
-#:      5 cm,  12 C      0.97 ms  ->   2.9 ms      inside 33 ms
-#:      5 cm,  30 C     15.34     ->  46.0        OVER
-#:      2.5 cm, 12 C    16.07     ->  48.2        over
-#:      2 cm,  12 C     45.46     -> 136.4        over
+#:      5 cm,  12 C      0.94 ms  ->   2.8 ms      inside 33 ms
+#:      5 cm,  30 C      8.57     ->  25.7        inside
+#:      2.5 cm, 12 C    16.52     ->  49.5        over
+#:      2 cm,  12 C     23.31     ->  69.9        over
 #:
-#: THE WARM END NOW MISSES THE BUDGET, and that is the price of 2 kyr rather
-#: than 1: a longer frame gathers more sub-steps, and at 30 C the rock is
-#: changing fastest. At 1 kyr the warm end came to 20.7 ms and fitted. The
-#: overrun is 1.4x, so a warm run stretches from about 17 s of watching to
-#: 24 -- still far short of the 171 s a cold one takes, so the comparison the
-#: pace exists to protect survives. It is a real cost and not a rounding
-#: error, and 1 kyr is the setting that avoids it. Superseded
+#: 5 cm keeps time across the whole temperature range and the finer grids do
+#: not, which has been true at every pace. At 2 kyr the warm end came to 46 ms
+#: and did not: a longer frame gathers more sub-steps, and at 30 C the rock
+#: changes fastest, so the fast end is where a longer frame breaks first. Superseded
 #: measurements at 250 and 500 yr per frame:
 #:
 #:                        500 yr/frame        250 yr/frame
@@ -200,9 +199,14 @@ END_KYR = 15000.0
 #: Uniform within 6 %, so what a reader feels is the model time, which is the
 #: whole claim. With the sourced kinetics that buys, at 90 % dissolved:
 #:
-#:      0 C  10274 kyr / 60 kyr/s = 171 s of watching
-#:     12 C   3798        / 60     =  63 s
-#:     30 C   1040        / 60     =  17 s
+#:      0 C  10266 kyr / 30 kyr/s = 342 s of watching
+#:     12 C   3788        / 30     = 126 s
+#:     30 C   1040        / 30     =  35 s
+#:
+#: Those are long -- nearly six minutes to watch a cold section reach 90 %.
+#: Run is pausable and Show exists for exactly this, and the alternative was
+#: dropping frames at the warm end, which corrupts the comparison rather than
+#: merely lengthening it.
 #:
 #: an 7.8x spread, and longer runs than before: the model slowed sevenfold
 #: when tau was derived and the pace rose only fourfold, so watching costs
@@ -220,7 +224,7 @@ END_KYR = 15000.0
 #: compute to 90 % is 1.19 s at 0 degrees C against 1.54 s at 30, so on a slow
 #: enough laptop the two look equally long. Nothing here can fix that; it is
 #: the frame budget, not the choice of pace.
-YEARS_PER_FRAME = 2000.0
+YEARS_PER_FRAME = 1000.0
 
 #: Tighter than the model's own default of 0.03, for two reasons that happen
 #: to agree. One frame is one step, so the budget sets how long the animation
