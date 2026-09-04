@@ -335,7 +335,7 @@ class Weathering(object):
         ``C_eq(T) / C_eq_ref``, van 't Hoff.
 
         Solubility is temperature dependent too, and treating it as constant
-        was not a small error: in the transport-limited regime -- which is most
+        was not a small error: in the saturation-limited regime -- which is most
         of this model -- the amount dissolved scales with ``C_eq`` and not with
         the rate constant at all, so holding it fixed removed the half of the
         temperature dependence that dominates.
@@ -409,7 +409,7 @@ class Weathering(object):
         undergoes on its way down through the section, at the mean
         infiltration and through fresh rock.
 
-        ``Da >> 1`` -- TRANSPORT-LIMITED. The water saturates long before it
+        ``Da >> 1`` -- SATURATION-LIMITED. The water saturates long before it
         runs out of rock, so what limits weathering is how much solute each
         litre can carry away, and dissolution happens where fresh water
         arrives. This is the regime that makes corestones, and it is where
@@ -422,6 +422,16 @@ class Weathering(object):
         once, and the section dissolves uniformly. No corestones: there is
         nothing to shelter a block interior from water that is everywhere
         undersaturated.
+
+        A NOTE ON THE NAME. Physical chemistry calls the ``Da >> 1`` limit
+        *transport-limited*, meaning the transport of solute. That name is
+        not usable here: in geomorphology transport-limited means a landscape
+        whose erosion is set by the capacity to move sediment, and the
+        companion exercise on the same teaching site is about exactly that.
+        Nothing in this model transports sediment. What runs out is the
+        water's capacity to hold solute, so it is called saturation-limited
+        here, and a reader meeting *transport-limited* in a chemistry text
+        should know it is the same limit.
 
         The number is the SECTION-scale one. Two others matter and are worth
         forming by hand: the joints carry a higher flux, so their local
@@ -436,7 +446,7 @@ class Weathering(object):
         """Name of the limit the model is currently in; see :attr:`damkohler`."""
         da = self.damkohler
         if da > 3.0:
-            return "transport-limited"
+            return "saturation-limited"
         if da < 1.0 / 3.0:
             return "reaction-limited"
         return "mixed"

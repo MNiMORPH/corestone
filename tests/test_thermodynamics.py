@@ -107,7 +107,7 @@ def test_the_damkohler_number_counts_e_foldings_across_the_section():
 def test_the_regime_belongs_to_the_SECTION_and_not_to_the_model():
     """
     Written the other way round first, asserting the model is always
-    transport-limited, and it failed -- correctly. The Damkohler number is
+    saturation-limited, and it failed -- correctly. The Damkohler number is
     depth divided by a length, so it is a property of how much rock you are
     looking at, not of the rock.
 
@@ -127,7 +127,7 @@ def test_the_regime_belongs_to_the_SECTION_and_not_to_the_model():
     da3, regime3 = da(60)                       # the exercise's 3 m section
     da1, regime1 = da(20)                       # 1 m of the same rock
     assert da3 == pytest.approx(6.0, rel=1e-9)
-    assert regime3 == "transport-limited"
+    assert regime3 == "saturation-limited"
     assert da1 == pytest.approx(2.0, rel=1e-9)
     assert regime1 == "mixed"
     assert da3 == pytest.approx(3.0 * da1, rel=1e-9)
