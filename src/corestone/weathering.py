@@ -288,7 +288,23 @@ class Weathering(object):
         # separately, so the pair has to come from one consistent story
         # rather than being picked one at a time.
         self.R_gas = 8.314                # gas constant [J/mol/K]
-        self.tau_ref = 6700.0             # M0/C_eq at T_ref: volumes of
+        # DERIVED, not calibrated. tau = M0 / C_eq, and both come from
+        # elsewhere in this file:
+        #
+        #   M0: oligoclase An20 has M = 265.4 g/mol at 2640 kg/m3, so a molar
+        #       volume of 100.5 cm3/mol. At 30 % of the rock by volume that is
+        #       2984 mol/m3 of plagioclase. Dissolving incongruently to
+        #       kaolinite releases 2 Si per albite and 0 per anorthite -- the
+        #       anorthite silicon stays in the clay -- so 1.6 Si per formula
+        #       unit at An20, giving M0 = 4774 mol Si per m3 of rock.
+        #
+        #   C_eq: quartz saturation, 1.0e-4 mol/kg, i.e. 0.10 mol Si/m3. The
+        #       same ceiling that sets delta_H_r, so the two agree.
+        #
+        # tau = 4774 / 0.10 = 47744. The placeholder was 6700, seven times
+        # too few volumes, and the model therefore weathered seven times too
+        # fast. See the note on validation in the module docstring.
+        self.tau_ref = 47744.0            # M0/C_eq at T_ref: volumes of
                                           # saturated water per volume of rock
         # MEASURED, and of the right species. The solute here is silica --
         # C_eq is quartz saturation -- and the diffusion coefficient of
