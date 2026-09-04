@@ -51,8 +51,12 @@ Simplifications made on purpose, and recorded with their costs in `design/`:
   There is no unsaturated (Richards) flow: under partial saturation, wide
   joints can act as capillary *barriers* rather than conduits, which this model
   cannot represent. That is a real loss and it is deliberate.
-- **Two solid phases**, one soluble and one inert, with no aqueous speciation,
-  no secondary minerals, no oxygen, and no biotite oxidation.
+- **One soluble phase**, plagioclase, with no aqueous speciation, no secondary
+  minerals, no oxygen, and no biotite oxidation. Quartz does not dissolve, but
+  nothing here declares it inert: `C_eq` is quartz saturation, so quartz sits
+  at the ceiling and its driving force is zero by construction. What the model
+  does not have is a second solid phase left behind as loose grains, so it
+  cannot tell grus from a cavity.
 - **No aperture evolution**, so no dissolution-driven channelization.
 - **Disaggregation is a threshold**, not mechanics.
 
