@@ -589,3 +589,63 @@ def test_the_oxygen_solubility_correlation_matches_tabulated_water():
     pO2 = (1.0 - 0.03126) * 0.20946                  # atm, 25 C
     henry = 1.3e-3 * pO2 * M_O2 * 1000.0             # mg/L
     assert oxygen_solubility(298.15) * M_O2 == pytest.approx(henry, rel=0.03)
+
+
+def test_warming_drives_oxygen_out_of_solution_and_silica_into_it():
+    """
+    The sign reversal, which is the whole reason the driver matters.
+
+    Every ceiling in this model until now rose with temperature: warm water
+    dissolves more silica, so each litre carries more away and weathering
+    speeds up. Oxygen is a GAS, and a gas comes out of solution as the water
+    warms. So the oxygen budget gets WORSE with warming while the silica
+    budget gets better, and a model paced by oxygen has a temperature response
+    that need not point the same way as one paced by silica.
+
+    Not a modelling choice -- the two correlations were written independently
+    of each other and of this test.
+    """
+    cold, warm = _thermo(0.0), _thermo(30.0)
+    assert warm.C_O2 < cold.C_O2
+    assert cold.C_O2 / warm.C_O2 == pytest.approx(1.93, rel=0.02)
+    assert warm.solubility_factor > cold.solubility_factor
+    # ...and therefore the two taus move in opposite directions.
+    assert warm.tau_oxidation > cold.tau_oxidation
+    assert warm.tau < cold.tau
+
+
+def test_tau_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubility():
+    """
+    ``tau_O2 = f_FeO / (4 V_FeO C_O2(T))``
+
+    Four Fe(II) per O2. Transcribed independently of the property, and pinned
+    at the reference state, because the whole case for design 08 is that this
+    number is much smaller than the silica ``tau`` -- so if it is wrong, the
+    case is wrong.
+    """
+    m = _thermo(11.85)
+    iron = m.f_FeO / m.V_FeO                       # mol Fe per m3 of rock
+    assert iron == pytest.approx(916.7, rel=1e-3)
+    assert m.tau_oxidation == pytest.approx(0.25 * iron / m.C_O2, rel=1e-12)
+    assert m.tau_oxidation == pytest.approx(678.1, rel=1e-3)
+    # The comparison design 08 rests on. NOT 15x: that figure was computed
+    # with Fletcher's f_FeO = 0.05, which the same document rejects.
+    assert m.tau / m.tau_oxidation == pytest.approx(70.4, rel=1e-2)
+
+
+def test_the_front_ceiling_is_the_flux_over_tau():
+    """
+    ``front ceiling = q / tau``
+
+    Stoichiometry alone: water arriving saturated and leaving stripped. A rate
+    no mechanism can beat, which is what makes it worth stating -- the silica
+    version, 6.3 m/Myr, is barely above the 4 to 7 m/Myr measured in the
+    field, so this model has been running against its own budget.
+    """
+    m = _thermo(11.85)
+    m.set_infiltration(0.30 / YEAR)
+    assert m.oxidation_front_ceiling == pytest.approx(
+        m.infiltration / m.tau_oxidation, rel=1e-12)
+    per_Myr = m.oxidation_front_ceiling * YEAR * 1e6
+    assert per_Myr == pytest.approx(442.4, rel=1e-3)
+    assert m.infiltration / m.tau * YEAR * 1e6 == pytest.approx(6.28, rel=1e-2)

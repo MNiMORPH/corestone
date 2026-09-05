@@ -34,8 +34,8 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 17
-EXPECTED_DISTINCT = 15
+EXPECTED_BLOCKS = 19
+EXPECTED_DISTINCT = 17
 
 LEDGER = {
     "R = k(T) * A * (1 - C / C_eq)":
@@ -86,6 +86,12 @@ LEDGER = {
     "ln C = -139.34411 + 1.575701e5 / T - 6.642308e7 / T^2 "
     "+ 1.2438e10 / T^3 - 8.621949e11 / T^4":
         "test_the_oxygen_solubility_correlation_matches_tabulated_water",
+
+    "tau_O2 = f_FeO / (4 V_FeO C_O2(T))":
+        "test_tau_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubility",
+
+    "front ceiling = q / tau":
+        "test_the_front_ceiling_is_the_flux_over_tau",
 }
 
 

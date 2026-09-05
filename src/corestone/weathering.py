@@ -419,6 +419,25 @@ class Weathering(object):
         # fast. See the note on validation in the module docstring.
         self.tau_ref = 47744.0            # M0/C_eq at T_ref: volumes of
                                           # saturated water per volume of rock
+        # ---- the oxidation, design 08. NOT YET WIRED INTO THE SOLVER.
+        #
+        # These describe the reaction the literature says actually paces
+        # spheroidal weathering -- oxidation of structural Fe(II) in biotite by
+        # dissolved O2 -- and design/08-BUILD.md is the plan that puts them in
+        # charge. Read by thermo_report and by the cracking criterion; read by
+        # nothing that moves rock. Placed here now so that the numbers can be
+        # checked before the model is rebuilt around them.
+        #
+        # f_FeO is the VOLUME FRACTION of the rock that is FeO component, all
+        # iron counted as FeO. USGS reference granites G-1, G-2 and G-3 give
+        # 0.0083 to 0.0116, and Goodfellow et al.'s granodiorite 0.0107.
+        # Fletcher, Buss & Brantley (2006) use 0.05, which implies 10.9 wt%
+        # FeO -- too high for granite by four and a half times, and too high
+        # even for their own rock, which measures 4.6.
+        self.f_FeO = 0.011                # FeO component, volume fraction [-]
+        # Molar volume of the FeO component [m3/mol Fe]. Robie & Hemingway
+        # (1995), USGS Bulletin 2131, p. 16.
+        self.V_FeO = 12.00e-6             # FeO [m3/mol Fe]
         # MEASURED, and of the right species. The solute here is silica --
         # C_eq is quartz saturation -- and the diffusion coefficient of
         # dissolved silica is (1.02 +/- 0.02)e-9 m2/s at 25 C (Rebreanu,
@@ -845,6 +864,64 @@ class Weathering(object):
         if da < 1.0 / 3.0:
             return "reaction-limited"
         return "mixed"
+
+    # ---- the oxidation, named. Design 08; nothing below moves rock yet.
+
+    @property
+    def C_O2(self):
+        """Dissolved oxygen at the working temperature [mol/m3]; see
+        :func:`oxygen_solubility`."""
+        return oxygen_solubility(float(np.mean(self.T)))
+
+    @property
+    def tau_oxidation(self):
+        """
+        Volumes of air-saturated water per volume of rock, to oxidise all of
+        the iron in it [-]. The oxygen counterpart of :attr:`tau`.
+
+            tau_O2 = f_FeO / (4 V_FeO C_O2(T))
+
+        The 4 is stoichiometry: four Fe(II) are oxidised per O2. ``f_FeO /
+        V_FeO`` is moles of iron per cubic metre of rock, 917 at the granite
+        value, so 229 mol of O2 are needed and each cubic metre of water
+        brings 0.34.
+
+        WHY IT IS WORTH FORMING. The silica ``tau`` is 47744: dissolving the
+        plagioclase out of a cubic metre of granite takes forty-eight thousand
+        cubic metres of quartz-saturated water, which is a punishing budget and
+        is what makes this model slow. Oxidising its iron takes about 679, one
+        seventieth of it. The brake on spheroidal weathering is therefore not
+        the solute budget at all; it is how fast O2 can diffuse into a block,
+        which is the mechanism Fletcher, Buss & Brantley describe and this
+        model does not yet have.
+
+        Its temperature dependence runs BACKWARDS relative to the silica one,
+        because gas solubility falls as water warms. Warm rock oxidises with
+        less oxygen per litre, not more.
+        """
+        return 0.25 * self.f_FeO / (self.V_FeO * self.C_O2)
+
+    @property
+    def oxidation_front_ceiling(self):
+        """
+        Fastest a weathering front could advance if every drop of water gave
+        up all of its oxygen [m/s].
+
+            front ceiling = q / tau
+
+        A stoichiometric ceiling and nothing more: no kinetics, no transport,
+        no rock. It is useful precisely because it cannot be beaten -- a model
+        or a field site running near it is supply-limited, and one running far
+        below it is limited by something else, which is the more interesting
+        case and is this model's.
+
+        At 0.30 m/yr and 12 C it is 442 m/Myr on oxygen, against 6.3 m/Myr on
+        silica and 4 to 7 m/Myr measured in temperate granite regoliths. The
+        silica ceiling is barely above the measurement, so this model has been
+        running against its own stoichiometry; the oxygen one leaves two
+        orders of magnitude of room.
+        """
+        return self.infiltration / self.tau_oxidation
 
     def thermo_report(self):
         """
