@@ -69,7 +69,7 @@ matplotlib` reports all three bundled by Pyodide.
 
 ## (c) Key current data and objects
 
-Branch `master`, HEAD `8c3be28`, **everything committed and pushed** across all
+Branch `master`, **everything committed and pushed** as of 2026-09-05 across all
 three repositories (corestone, artesian, GeomorphOnline.github.io). Working
 trees clean.
 
