@@ -41,18 +41,35 @@ matplotlib` reports all three bundled by Pyodide.
    conductivity, the diffusivity and the pace. Nearly every number in those
    documents is stale.
 
-3. `P21` carries a systematic +8 % bias from counting wall joints at full
+3. **`flow_tolerance = 0.05` IS NOT CONVERGED, and it ships.** Against a 0.01
+   reference the shipped setting gives `max|dM| = 0.336` on a field in [0, 1];
+   0.02 gives 0.096 at 2.3x the cost and 0.01 is converged at 3.7x. It was
+   converged when it only gated the head; correcting the matrix transport on
+   2026-09-04 made transport almost purely advective, so the flow field now
+   matters far more and the old tolerance no longer holds. Measured, not
+   inferred: refreshing the tortuosity every step changes nothing (0.336
+   either way), so the error is entirely the stale head.
+
+   **The fix is measured and unimplemented.** The flow matrix is exactly
+   symmetric with a positive diagonal, so warm-started CG from the previous
+   head, preconditioned by a stale factorisation, gives the converged answer
+   (`max|dM| = 4.9e-4`) in 10.41 s against 13.94 s for the direct route at the
+   same tolerance -- 21 refactorisations instead of 850. That would buy
+   `flow_tolerance = 0.01` for about 1.3x the current cost instead of 3.7x.
+   This is the highest-value unimplemented thing in the repository.
+
+4. `P21` carries a systematic +8 % bias from counting wall joints at full
    length; `test_a_full_orthogonal_grid_has_the_analytic_intensity` hides it
    behind `rel=0.15`. Untouched.
 
-4. **Three interlibrary requests would close real uncertainties.** White & Yee
+5. **Three interlibrary requests would close real uncertainties.** White & Yee
    (1985), GCA 49:1263-1275 -- the primary behind the only biotite oxidation
    rate, whose two secondary renderings disagree by 1.5-2.4x and reverse a
    rank order. Zang et al. (2000), JGR 105:23651-23661, and its companion
    Janssen et al. (2001), Int. J. Earth Sci. 90:46-59 -- these would turn the
    fracture-energy bracket into a number.
 
-5. Done and struck from this list: `f_inert` removed (`43895c9`); `E_a` and
+6. Done and struck from this list: `f_inert` removed (`43895c9`); `E_a` and
    `delta_H_r` sourced (`bdaab2f`); the demo built and deployed.
 
 ## (c) Key current data and objects
@@ -197,6 +214,18 @@ case. Table in the `solve_solute` docstring.
   7124 yr held the error at 1.1e-2 however tight the budget; controlled, the
   same run reached 6.3e-5. This is why the step control rejects rather than
   merely predicts.
+- **Reusing the LU across a transport-operator rebuild is 2.1x SLOWER.** It is
+  only a preconditioner, so keeping it looked free: 146 factorisations avoided
+  out of 385, answer identical to 3e-10. It cost 10.51 s against 4.92, because
+  the stale preconditioner costs more in extra BiCGSTAB iterations than the
+  factorisation saves. Do not retry this.
+- **Raising the step cap for Show trades the front for the speed.** Show does
+  not animate, so stepping at the animation frame length looks wasteful:
+  raising `dt_max` from 1 kyr to 50 is 2.3x faster and the bulk answer barely
+  moves (0.9760 to 0.9746 dissolved). But `max|dM| = 0.22` -- the weathering
+  front lands somewhere else, which is the thing a reader is looking at.
+  Tightening the drift budget to compensate gives back the speed and not the
+  accuracy.
 - **Count solves, not steps.** The step control cut steps by 30 % and the run
   took exactly as long, because it was paying two solves per step in
   rejections.
