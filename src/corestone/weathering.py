@@ -1,44 +1,60 @@
 #! /usr/bin/python3
 
 """
-Rot granite along its joints, and see what is left.
+Dissolve granite along its joints, and see what is left.
 
-TWO REACTIONS, ONE TRANSPORT PROBLEM. The model can be paced by either, and
-``Weathering.driver`` chooses; everything else is shared. See :attr:`DRIVERS`.
+The model is one equation. Dissolution runs at an Arrhenius rate constant
+multiplied by how far the pore water is from equilibrium,
 
-    OXIDATION (the default). Dissolved O2 arrives in the rain, diffuses into
-    the rock and oxidises the Fe(II) in biotite to goethite. The iron swells
-    by three quarters of its volume and cracks the rock, which lets water in.
-    This is what the literature says actually paces spheroidal weathering:
-    Buss, Sak, Webb & Brantley (2008) imaged oxidised biotite 2.7 cm inside
-    nominally fresh corestone with NO plagioclase weathering there, and
-    Goodfellow et al. (2016) add the sentence that matters most -- "major
-    changes in rock properties can occur with only minor element leaching."
+    R = k(T) * A * (1 - C / C_eq)
 
-    DISSOLUTION. Plagioclase dissolves into water that is approaching quartz
-    saturation. This is what the model did until design 08, and it is kept
-    because it is the clean textbook case of a solute that STOPS the reaction
-    by accumulating, and because being able to switch is what makes the
-    comparison between the two mechanisms a measurement rather than a claim.
+so water that has equilibrated stops weathering rock, however soluble the rock
+and however warm the water. Fresh water descends the joints; the joints
+therefore decide where weathering happens, and rock the water never reached --
+or reached already saturated -- survives as a corestone.
 
-The difference is one of sign, and it is the whole of design 08. A PRODUCT
-enters at zero, accumulates, and shuts the reaction off at saturation. A
-REACTANT enters at its ceiling, is consumed, and the reaction stops where it
-runs out. Both say a corestone is not tougher rock -- the water never got
-there -- but they do not say it the same way, and they do not draw the same
-picture (prototypes/probe_j_flip_the_solute.py).
+The soluble phase is plagioclase, and the ceiling on the solute is quartz
+saturation. Working in normalised concentration ``c = C / C_eq`` removes the
+need to assert a solubility. The scale it sets is the **saturation length**
 
-    R = k(T) * A * (1 - C / C_eq)       dissolving: a product, driven by
-                                        how far the water is from saturation
-    R = k_ox * A * C                    oxidising: a reactant, driven by
-                                        how much of it there is
+    saturation_length = q * C_eq / (k(T) * A)
 
-Working in normalised concentration ``c`` -- ``C / C_eq`` dissolving,
-``C / C_sat`` oxidising -- removes the need to assert a solubility. The scale
-it sets is a length: the **saturation length** ``q C_eq / (k A)`` for the
-product, the **oxidation length** ``q / (k_ox A)`` for the reactant. Neither
-is a distance at which the reaction stops -- ``c`` approaches its limit
-asymptotically and never arrives.
+the e-folding length of the approach to saturation -- *not* a distance at which
+equilibrium is reached, because there is no equilibrium here. ``c`` approaches
+1 asymptotically and never arrives.
+
+A SECOND REACTION IS BUILT IN, AND IT IS NOT THE DEFAULT ON PURPOSE
+-------------------------------------------------------------------
+
+``Weathering.driver`` switches between two reactions that are the same
+transport problem with the solute pointing opposite ways:
+
+    R = k(T) * A * (1 - C / C_eq)   "dissolution", the default: plagioclase
+                                    into water approaching quartz saturation.
+                                    A PRODUCT -- it accumulates until it stops
+                                    the reaction.
+    R = k_ox * A * C                "oxidation": biotite Fe(II) by dissolved
+                                    O2. A REACTANT -- it is consumed until
+                                    there is none left.
+
+Oxidation is what actually paces spheroidal weathering, and the evidence is
+not thin. Goodfellow et al. (2016) -- the source of ``k_matrix`` and
+``k_weathered`` below -- put a synchrotron microprobe on 26 biotite crystals
+and found that "biotite weathering begins with oxidation of parts of biotite
+crystals that are being accessed by diffusing oxygen", that interlayer K+ is
+released "to maintain charge balance during Fe oxidation", and that the most
+weathered crystals "have fragmented along cleavage planes". Buss et al. (2008)
+imaged oxidised biotite 2.7 cm inside nominally fresh corestone with no
+plagioclase weathering there. Behrens et al. (2015) measured the O2
+consumption front BELOW the plagioclase front. Designs 08 and 09 carry the
+whole case.
+
+It is not the default because this model exists to teach basic chemical
+weathering -- rate times affinity, a solubility ceiling, Arrhenius -- and the
+dissolution driver has all three in their textbook form. The oxidation driver
+replaces the ceiling with a gas-solubility story that INVERTS the temperature
+intuition, and it rests on the least defensible parameter in this file. Both
+of those are good things to meet second.
 
 THE TWO DO NOT PUT THE MODEL IN THE SAME LIMIT, AND THAT IS THE FINDING
 ----------------------------------------------------------------------

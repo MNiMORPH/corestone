@@ -34,20 +34,18 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 22
+EXPECTED_BLOCKS = 24
 EXPECTED_DISTINCT = 21
 
 LEDGER = {
-    "R = k_ox * A * C oxidising, the default: biotite Fe(II) by "
-    "dissolved O2, driven by how much oxygen is there R = k(T) * "
-    "A * (1 - C / C_eq) dissolving: plagioclase into water "
-    "approaching quartz saturation, driven by how far it is from "
-    "the ceiling":
+    "R = k(T) * A * (1 - C / C_eq)":
         "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
 
-    "R = k(T) * A * (1 - C / C_eq) dissolving: a product, driven by how far "
-    "the water is from saturation R = k_ox * A * C oxidising: a reactant, "
-    "driven by how much of it there is":
+    "R = k(T) * A * (1 - C / C_eq) \"dissolution\", the default: "
+    "plagioclase into water approaching quartz saturation. A "
+    "PRODUCT -- it accumulates until it stops the reaction. R = "
+    "k_ox * A * C \"oxidation\": biotite Fe(II) by dissolved O2. A "
+    "REACTANT -- it is consumed until there is none left.":
         "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
 
     "saturation_length = q * C_eq / (k(T) * A)":

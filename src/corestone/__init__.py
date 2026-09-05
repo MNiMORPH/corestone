@@ -6,20 +6,19 @@ is the same granite, the same minerals, the same temperature. It survives
 because the water never reached it, or reached it spent. The rock around it,
 which the water did reach, falls apart into grus.
 
-The physics, in one line, and the model carries two versions of it:
+The physics, in one line: dissolution runs at an Arrhenius rate constant
+multiplied by how far the pore water is from equilibrium,
 
-    R = k_ox * A * C                    oxidising, the default: biotite Fe(II)
-                                        by dissolved O2, driven by how much
-                                        oxygen is there
-    R = k(T) * A * (1 - C / C_eq)       dissolving: plagioclase into water
-                                        approaching quartz saturation, driven
-                                        by how far it is from the ceiling
+    R = k(T) * A * (1 - C / C_eq)
 
-A REACTANT runs out; a PRODUCT accumulates until it stops the reaction. Either
-way the water can stop doing work, and rock the water never reached -- or
-reached spent -- survives. Fresh water descends the joints, so the joints
-decide where weathering happens; ``Weathering.driver`` decides which reaction
-it is. See ``weathering.py`` for why the default changed.
+so water that has equilibrated stops weathering rock however soluble the rock
+and however warm the water. Fresh water descends the joints; the joints
+therefore decide where weathering happens.
+
+A second reaction -- oxidation of biotite Fe(II) by dissolved O2, which is
+what actually paces spheroidal weathering -- is built in and switched on with
+``Weathering.driver``. It is deliberately not the default; ``weathering.py``
+says why, and designs 08 and 09 carry the evidence.
 
 The pieces:
 
