@@ -1036,6 +1036,9 @@ class Weathering(object):
         against temperature would recover -- not ``E_a``. With the values
         here, 69.8 - 32.9 = 36.9 kJ/mol, so the length scale is about half as
         temperature-sensitive as the rate constant alone would suggest.
+        (The whole model's response is not that number: measured, the time to
+        90 % dissolved gives +52.7 kJ/mol, because ``tau`` carries ``C_eq``
+        a second time and the section is not at either limit everywhere.)
 
         It can be zero, or negative. If ``delta_H_r`` exceeded ``E_a`` --
         which happens if the ceiling on the solute is set by a reaction whose
@@ -1044,8 +1047,53 @@ class Weathering(object):
         saturation length and slow the weathering down. Nothing in the model
         forbids it, and the sign is a consequence of the chemistry, not an
         assumption.
+
+        UNDER OXIDATION IT IS EXACTLY ZERO, and that is not a gap in the
+        model. The oxidation length is ``q / (k_ox A)``: the rate constant has
+        no measured temperature dependence and none is assumed, the
+        infiltration is prescribed, and the surface area is geometry. So
+        nothing in that length moves with temperature. All of the oxidation
+        driver's temperature response sits in the budget instead --
+        ``tau_O2`` goes as ``1 / C_O2`` -- and that is
+        :attr:`oxygen_dissolution_enthalpy`.
         """
+        if self.driver == "oxidation":
+            return 0.0
         return self.E_a - self.delta_H_r
+
+    @property
+    def oxygen_dissolution_enthalpy(self):
+        """
+        van 't Hoff enthalpy of dissolving O2 in water [J/mol]: about
+        -14.5 kJ/mol, and NEGATIVE.
+
+        Differentiated from :func:`oxygen_solubility` rather than tabulated,
+        so it cannot drift from the correlation it describes. A gas comes out
+        of solution as water warms, so this has the opposite sign to every
+        other ceiling in the model, and under oxidation there is no activation
+        energy on the other side of the ledger to cancel it.
+
+        IT IS THEREFORE THE WHOLE OF THE OXIDATION DRIVER'S TEMPERATURE
+        RESPONSE, AND THE MODEL SAYS SO WHEN ASKED. Measured on the 3 m
+        section, time to 90 % of the iron oxidised: 653 kyr at 0 C, 869 at
+        11.85, 1238 at 30 -- an apparent activation energy of -14.6 kJ/mol
+        against this quantity's -14.5. Diffusivity pulls the other way at
+        +20.0 kJ/mol (Stokes-Einstein) and very nearly does not show, because
+        the section is not diffusion-limited as a whole: Da is 0.023, so the
+        budget decides and the transport does not.
+
+        **Cold rock oxidises faster in this model, and that is a real
+        prediction rather than a bug.** Under dissolution the same measurement
+        gives +52.7 kJ/mol -- 10133 kyr at 0 C against 1017 at 30 -- so
+        switching the driver reverses the sign of the temperature response.
+        What it does NOT contradict is that tropical weathering is faster in
+        the field: Rio Icacos gets 4000 mm of rain a year against a temperate
+        few hundred, and infiltration is a separate slider that this number
+        says nothing about.
+        """
+        T = np.linspace(273.15, 313.15, 41)
+        slope = np.polyfit(1.0 / T, np.log(oxygen_solubility(T)), 1)[0]
+        return -slope * self.R_gas
 
     @property
     def damkohler(self):
@@ -1282,50 +1330,58 @@ class Weathering(object):
         that produced it visible rather than asserted.
         """
         T = float(np.mean(self.T))
+        mark = lambda d: " <== DRIVING" if self.driver == d else ""
         lines = [
             "thermodynamic state",
+            "  driver                  %8s" % self.driver,
             "  T                       %8.2f K   (%.2f C)" % (T, T - 273.15),
             "  T_ref                   %8.2f K   (%.2f C)"
             % (self.T_ref, self.T_ref - 273.15),
             "",
-            "  E_a                     %8.1f kJ/mol  Arrhenius, on the rate"
-            % (self.E_a / 1e3),
-            "  delta_H_r               %8.1f kJ/mol  van 't Hoff, on the ceiling"
-            % (self.delta_H_r / 1e3),
-            "  E_a - delta_H_r         %8.1f kJ/mol  what the length scale feels"
-            % (self.apparent_activation_energy / 1e3),
-            "",
-            "  k(T) / k(T_ref)         %8.3f       reaction this much faster"
-            % float(np.mean(self.rate_factor)),
-            "  C_eq(T) / C_eq(T_ref)   %8.3f       each litre carries this much more"
-            % float(np.mean(self.solubility_factor)),
-            "  saturation length       %8.3f m     = L_ref * C_eq-factor / k-factor"
-            % float(np.mean(self.saturation_length)),
-            "",
-            "  Damkohler (section)     %8.2f       depth / saturation length"
-            % float(np.mean(self.damkohler)),
-            "  regime                  %8s" % self.regime,
-            "",
-            "  the oxygen budget, for comparison -- design 08, not yet wired:",
-            "  C_O2(T)                 %8.4f mol/m3  falls as water warms"
+            "OXIDATION -- biotite Fe(II) by dissolved O2%s" % mark("oxidation"),
+            "  C_O2(T)                 %8.4f mol/m3 falls as the water warms"
             % self.C_O2,
-            "  tau, silica             %8.0f       volumes of water per volume"
-            % float(np.mean(self.tau)),
-            "  tau, oxygen             %8.0f       of rock; %.0fx less to find"
-            % (self.tau_oxidation, float(np.mean(self.tau)) / self.tau_oxidation),
-            "  front ceiling, silica   %8.2f m/Myr stoichiometry alone, q/tau"
-            % (self.infiltration / float(np.mean(self.tau)) * YEAR * 1e6),
-            "  front ceiling, oxygen   %8.2f m/Myr (field: 4-7 m/Myr)"
-            % (self.oxidation_front_ceiling * YEAR * 1e6),
+            "  dH, O2 dissolution      %+8.1f kJ/mol NEGATIVE: a gas leaves "
+            "warm water" % (self.oxygen_dissolution_enthalpy / 1e3),
+            "  E_a                          none      no Arrhenius pair is "
+            "measured for this",
+            "  tau_O2                  %8.0f       volumes of water per "
+            "volume of rock" % self.tau_oxidation,
             "  oxidation length        %8.1f m     q / k_ox A -- advective"
             % self.oxidation_length,
-            "  Damkohler, oxygen       %8.4f       %s"
+            "  Damkohler (section)     %8.4f       %s"
             % (self.oxidation_damkohler,
-               "reaction-limited" if self.oxidation_damkohler < 1.0 / 3.0
-               else "NOT reaction-limited"),
+               "reaction-limited: O2 crosses barely consumed"
+               if self.oxidation_damkohler < 1.0 / 3.0 else "NOT reaction-limited"),
             "  O2 penetration          %8.4f m     into INTACT rock; %.1f cells"
             % (self.oxidation_penetration_depth,
                self.oxidation_penetration_depth / self.dx),
+            "  front ceiling           %8.1f m/Myr stoichiometry alone, q/tau"
+            % (self.infiltration / self.tau_oxidation * YEAR * 1e6),
+            "",
+            "DISSOLUTION -- plagioclase into water near quartz saturation%s"
+            % mark("dissolution"),
+            "  E_a                     %8.1f kJ/mol Arrhenius, on the rate"
+            % (self.E_a / 1e3),
+            "  delta_H_r               %8.1f kJ/mol van 't Hoff, on the ceiling"
+            % (self.delta_H_r / 1e3),
+            "  E_a - delta_H_r         %8.1f kJ/mol what the length scale feels"
+            % ((self.E_a - self.delta_H_r) / 1e3),
+            "  k(T) / k(T_ref)         %8.3f       reaction this much faster"
+            % float(np.mean(self.rate_factor)),
+            "  C_eq(T) / C_eq(T_ref)   %8.3f       each litre carries this "
+            "much more" % float(np.mean(self.solubility_factor)),
+            "  tau, silica             %8.0f       %.0fx the oxygen budget"
+            % (self.silica_tau, self.silica_tau / self.tau_oxidation),
+            "  saturation length       %8.3f m     L_ref * C_eq-factor / "
+            "k-factor" % float(np.mean(self.saturation_length)),
+            "  Damkohler (section)     %8.2f       %s"
+            % (float(np.mean(self.damkohler)), self.regime),
+            "  front ceiling           %8.2f m/Myr (field: 4-7 m/Myr)"
+            % (self.infiltration / self.silica_tau * YEAR * 1e6),
+            "",
+            "  warming therefore %s the oxidation and %s the dissolution."
+            % ("SLOWS", "SPEEDS"),
         ]
         return "\n".join(lines)
 

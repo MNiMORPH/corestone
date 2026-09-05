@@ -123,8 +123,12 @@ def test_the_thermo_report_states_every_governing_number():
     m = model()
     text = m.thermo_report()
     for token in ("E_a", "delta_H_r", "E_a - delta_H_r", "Damkohler",
-                  "saturation length", "regime", "T_ref"):
+                  "saturation length", "T_ref", "driver"):
         assert token in text, token
+    # ...and the regime by name, taken from the model rather than spelled
+    # here: this fixture is a 1 m section, so it is "mixed", not the 3 m
+    # demo's "saturation-limited".
+    assert m.regime in text, (m.regime, text)
 
 
 def test_the_thermo_report_puts_the_two_budgets_side_by_side():
@@ -137,10 +141,87 @@ def test_the_thermo_report_puts_the_two_budgets_side_by_side():
     m = model()
     m.set_infiltration(0.30 / YEAR)
     text = m.thermo_report()
-    for token in ("C_O2", "tau, silica", "tau, oxygen",
-                  "front ceiling, silica", "front ceiling, oxygen"):
+    for token in ("OXIDATION --", "DISSOLUTION --", "<== DRIVING",
+                  "C_O2", "tau_O2", "tau, silica", "oxidation length",
+                  "O2 penetration", "reaction-limited", "front ceiling"):
         assert token in text, token
-    assert "  678 " in text and "442.38" in text, text
-    for token in ("oxidation length", "Damkohler, oxygen", "O2 penetration",
-                  "reaction-limited"):
-        assert token in text, token
+
+    # The regression this exists for: when tau became driver-aware, the line
+    # labelled "tau, silica" started printing the OXYGEN value, and so did
+    # both front ceilings. A report that mislabels a number is worse than no
+    # report, so the two are pinned apart.
+    ox, diss = text.split("DISSOLUTION --")
+    assert "678" in ox and "442" in ox, ox
+    assert "47744" in diss and "6.28" in diss, diss
+    assert "47744" not in ox and "678 " not in diss, text
+    assert "SLOWS the oxidation" in text and "SPEEDS the dissolution" in text
+
+
+def test_the_oxidation_drivers_whole_temperature_response_is_the_gas_law():
+    """
+    No Arrhenius term is in the oxidation rate constant, and none is measured
+    -- verified across 55 local PDFs, of which nine mention activation energy
+    or Arrhenius and NONE in an oxidation context. (The one apparent hit is
+    Svante Arrhenius cited as an author, 1954, which is why one reads the
+    sentence.) Hogg & Meads (1975), a dedicated Mossbauer kinetics study of
+    exactly this reaction, contains "activation energ", "Arrhenius", "kJ" and
+    "kcal" zero times in 4303 words.
+
+    So the driver still has a temperature response, and it is entirely the van
+    't Hoff enthalpy of dissolving oxygen. The sign is NEGATIVE, because a gas
+    leaves solution as water warms, and there is no activation energy on the
+    other side to cancel it -- so cold rock oxidises faster.
+
+    Checked analytically here rather than by three runs to 90 %: tau_O2 goes
+    as 1/C_O2 and carries the whole of it. The runs agree -- 653, 869 and
+    1238 kyr at 0, 11.85 and 30 C, an apparent -14.6 kJ/mol against this
+    quantity's -14.5 -- and are too slow to be a unit test.
+    """
+    m = model()
+    assert m.driver == "oxidation"
+    dH = m.oxygen_dissolution_enthalpy
+    assert dH < 0.0
+    assert dH / 1e3 == pytest.approx(-14.5, abs=0.2)
+
+    # ...and tau_O2 carries exactly that enthalpy, which is what makes it the
+    # model's whole response: r has no temperature dependence at all.
+    temps = np.array([273.15, 288.15, 303.15])
+    taus = []
+    for T in temps:
+        m.set_temperature(T)
+        taus.append(m.tau_oxidation)
+        assert m.specific_oxidation_coefficient == \
+            pytest.approx(m.k_oxidation * m.biotite_surface_area, rel=1e-12)
+    slope = np.polyfit(1.0 / temps, np.log(1.0 / np.array(taus)), 1)[0]
+    # 6 %, not 2 %: the solubility correlation is a five-term polynomial in
+    # 1/T, not a straight line in van 't Hoff coordinates, so the effective
+    # enthalpy depends on the interval fitted. Three points over 273-303 K
+    # give -15.2 kJ/mol where the property's 41 points over 273-313 give
+    # -14.5. Both are right; a single van 't Hoff enthalpy is the
+    # approximation, and the tolerance should say so rather than hide it by
+    # fitting the same interval the code does.
+    assert -slope * R_GAS == pytest.approx(dH, rel=0.06)
+
+    # The oxidation LENGTH, by contrast, does not move at all.
+    lengths = []
+    for T in temps:
+        m.set_temperature(T)
+        lengths.append(m.oxidation_length)
+    assert max(lengths) == pytest.approx(min(lengths), rel=1e-12)
+    assert m.apparent_activation_energy == 0.0
+
+
+def test_the_two_drivers_disagree_about_whether_warm_means_weathered():
+    """
+    The sign reversal, stated as the comparison a student would make. Under
+    dissolution the saturation length shortens with warming and each litre
+    carries more away; under oxidation each litre carries LESS oxygen and
+    nothing speeds up to compensate.
+    """
+    cold, warm = model(0.0), model(30.0)
+    for m in (cold, warm):
+        m.set_driver("oxidation")
+    assert warm.tau > cold.tau                 # warm water brings less oxygen
+    for m in (cold, warm):
+        m.set_driver("dissolution")
+    assert warm.tau < cold.tau                 # warm water carries more silica
