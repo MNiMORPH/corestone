@@ -7,7 +7,7 @@ sentence in the paper named. Where a source is calibrated rather than
 measured, that is said.
 
 Sources read for this: Fletcher, Buss & Brantley (2006) in full including
-Table 1; Bazilevskaya et al., *Reviews in Mineralogy & Geochemistry*; Behrens
+Table 1; Navarre-Sitchler, Brantley & Rother (2015), *Reviews in Mineralogy & Geochemistry* **80**, 331-354; Behrens
 et al. (2015); Buss et al. (2010), *Chemical Geology* 269:52-61.
 
 ## 1. Oxidation is the FIRST and DEEPEST weathering reaction, and it is measured
@@ -36,8 +36,8 @@ They also state the mechanism this model now runs on:
 
 The flip to oxidation removed the model's weathering profile with depth: at
 t90 the extent runs 0.95, 0.90, 0.94, 0.89, 0.94, 0.89 down a 3 m section,
-which is flat. That looked like a defect. It is not, and Bazilevskaya et al.
-say so directly:
+which is flat. That looked like a defect. It is not, and Navarre-Sitchler
+et al. say so directly, reviewing Bazilevskaya's work:
 
 > "In rocks with low FeO concentrations, oxygen may not be consumed at shallow
 > depths, and oxidation may therefore be the deepest weathering reaction."
@@ -192,7 +192,7 @@ order, and neither was tuned.
 
 ## 6. The fracture feedback decides the answer, and there is a natural experiment
 
-Bazilevskaya et al., on paired sites of contrasting lithology:
+Navarre-Sitchler et al., on paired sites of contrasting lithology:
 
 > "both the regolith itself and the plagioclase weathering front are 20-times
 > thicker on the metagranite ... than on a nearby diabase"
@@ -317,7 +317,7 @@ Fletcher. Worth a clean read of Table 3-1 from the original.
 **The product is ferrihydrite, not goethite.** Goodfellow: "ferrihydrite
 precipitates in voids", and "ferrihydrite is also ubiquitous in weathered
 samples, as further indicated by our SRPD data". Ferrihydrite appears in ten
-papers in this corpus, including Buss, Fletcher and Bazilevskaya.
+papers in this corpus, including Buss, Fletcher and Navarre-Sitchler.
 
 Design 08 ruled it out, and its argument was checked here and is CORRECT AS
 FAR AS IT GOES: Robie & Hemingway (1995) really does contain no ferrihydrite
@@ -352,3 +352,24 @@ fracture energy reported across that bracket (1.0 to 7.3 J/m2) rather than as
 a single number. That is a wider claim than design 08 makes and a better
 supported one, and the wide part is honest: Goodfellow measured the layer and
 saw the voids, and nobody has partitioned them.
+
+
+---
+
+## CORRECTION, 2026-09-05: an attribution in this document was wrong
+
+Every quotation above that this document first credited to "Bazilevskaya et
+al." is from **Navarre-Sitchler, A., Brantley, S.L. & Rother, G. (2015), "How
+Porosity Increases During Incipient Weathering of Crystalline Silicate Rocks",
+*Reviews in Mineralogy & Geochemistry* 80, 331-354**, who review Bazilevskaya's
+work and cite it as Bazilevskaya et al. (2013a, 2013b).
+
+The cause was mundane and worth naming: the local PDF had been saved as
+`bazilevskaya_rimg.pdf`, named after a reference INSIDE it, and the filename
+was trusted instead of the title page. The quotations themselves are real and
+were read in the source; only the name on them was wrong.
+
+It nearly reached the exercise page with an invented journal reference
+attached -- "*Soil Science Society of America Journal* 79, 55-73" -- written
+from memory and belonging to a different paper. Caught by opening the PDF
+header before publishing. **Read the title page, not the filename.**
