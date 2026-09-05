@@ -27,8 +27,12 @@ matplotlib` reports all three bundled by Pyodide.
 
 1. **Next: implement design 08. `design/08-BUILD.md` is the ordered,
    self-contained plan -- start there.** Rationale in
-   `design/08-oxidation-drives-it.md`. Designed in full,
-   corrected against sources, not one line written. Biotite Fe(II) oxidation
+   `design/08-oxidation-drives-it.md`. **Step 1 is DONE** (`3323bae`,
+   `c1532cc`, `3befa2e`, `4235b1f`): the O2 solubility correlation, the iron
+   budget, the volume expansion, and both checks the plan asked for --
+   `tau_O2` 678 and the front ceiling 442 m/Myr. **Step 2 is NOT started, and
+   probe I changed what it means -- read `prototypes/probe_i_oxygen_regime.py`
+   before writing it.** Biotite Fe(II) oxidation
    by dissolved O2 replaces plagioclase dissolution as the driver; `M` becomes
    the unoxidised fraction, so the existing `k(M)` and `tortuosity(M)`
    interpolations index on Goodfellow's own variable. The solute flips from
@@ -108,6 +112,27 @@ before the matrix transport was corrected. Real rindlet zones run 20-60 cm.
 Watching to 90 % dissolved: 342 s at 0 C, 126 s at 12, 35 s at 30, at 1 kyr a
 frame. **That is a slower demo than it was, and better science.** Whether the
 trade is right for a teaching page is a live question, not a settled one.
+
+**PROBE I, 2026-09-05: flipping the driver to oxygen INVERTS THE REGIME, and
+that was not anticipated.** `prototypes/probe_i_oxygen_regime.py`, a 1-D
+scaling analysis across the full parameter bracket, not the model:
+
+- Section Damkohler 6.56 on silica, **0.004 to 0.11 on oxygen** -- from
+  saturation-limited to reaction-limited. The module docstring's headline,
+  "Corestones are a saturation-limited phenomenon", stops being true. The
+  block is still sheltered, but by O2 failing to DIFFUSE in.
+- The reaction-diffusion front is **2.4 to 13 cm**, so 0.5 to 2.7 cells at the
+  demo's 5 cm. The front the exercise shows would sit at the grid scale.
+- Front speed 0.07-0.41 m/Myr through fresh rock; the same expression at the
+  weathered tortuosity gives 5.2, a factor of 32. **Cracking decides the
+  answer.** Caveat: at that tortuosity the penetration is 1.87 m against a 3 m
+  section, so the sharp-front assumption fails and only the ratio survives.
+- Gaps marked not filled: biotite volume fraction bracketed 3-10 %; the rate
+  good to a factor of three.
+
+**Design 08's own table was stale and it was corrected (`fabb81c`).** It read
+tau_O2 = 3086 and a 97.2 m/Myr ceiling, both computed with Fletcher's
+f_FeO = 0.05 -- the value the same document rejects. Correct: 678 and 442.
 
 **WARNING -- designs 02 to 06 contain numbers measured before three corrections
 and are not to be trusted without re-measurement.** In order: `a505892` made the
@@ -265,6 +290,14 @@ day: a regex on a provenance SHA rewrote GRLP's and artesian's rows, a rename
 of `m.k_weathered` missed `m.k_matrix *` and left a test comparing corrected
 against uncorrected values, and a blanket rename of "transport-limited"
 rewrote the sentence that defined the term. Anchor them, then diff.
+
+**A design document that corrects a parameter must recompute everything
+downstream of it in the same pass.** Design 08 rejected Fletcher's
+f_FeO = 0.05 in its parameter table and then made its own case for the change
+with a tau and a front ceiling still computed from it -- shipping the
+correction and the consequence of the error side by side, four and a half fold
+out, in one document. Nothing caught it for a day; forming the number in code
+did, immediately.
 
 **Send an agent to attack a result, not to confirm it.** Asked to confirm the
 cracking criterion, an agent instead found that `f_FeO` was wrong by 4.5x and
