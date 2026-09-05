@@ -77,3 +77,32 @@ def test_the_frame_respects_the_drift_budget():
     assert drifts, "the frame took no step at all"
     assert all(d is not None and d <= m.c_drift_max * 1.001 for d in drifts), \
         drifts
+
+
+def test_the_reaction_control_switches_the_model_and_relabels_the_figure():
+    """
+    The demo carries two assignments: feldspar dissolution for the in-class
+    activity, biotite oxidation for the problem set. The control that switches
+    them has to change BOTH the equation and the label, because the
+    right-hand field is the same array either way -- 1 - M -- and it does not
+    mean the same thing.
+
+    Dissolving, it is mass that has left the rock. Oxidising, it is iron that
+    has rusted IN PLACE without leaving; Goodfellow et al. (2016) put that as
+    "major changes in rock properties can occur with only minor element
+    leaching". A picture relabelled wrongly would teach the second as the
+    first.
+    """
+    for label, expected in demo.DRIVER_LABELS.items():
+        demo.driver.value = label
+        assert demo.sim["model"].driver == expected, label
+        assert demo.bar_right.title == demo.EXTENT_LABEL[expected], label
+    demo.driver.value = "Feldspar dissolution"     # leave it as found
+    assert demo.sim["model"].driver == "dissolution"
+
+
+def test_the_demo_opens_on_the_in_class_activity():
+    """Feldspar, because that is the reaction the exercise teaches first.
+    Pinned so that it cannot drift; see the library's own default test."""
+    assert demo.driver.value == "Feldspar dissolution"
+    assert demo.DRIVER_LABELS[demo.driver.value] == "dissolution"

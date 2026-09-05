@@ -346,6 +346,22 @@ spacing = pn.widgets.DiscreteSlider(
     name="Joint spacing [m]",
     options={"%.2f m" % s: s for s in _spacings(0.0, 0.05)}, value=1.0,
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
+# WHICH REACTION. Two assignments live in this one app: the in-class activity
+# runs feldspar dissolution, which is the textbook case -- an Arrhenius rate
+# constant, a solubility ceiling, and water that stops working once it is full
+# -- and the problem set runs biotite oxidation, where the solute is a
+# REACTANT that runs out instead of a product that fills up.
+#
+# It is a radio group and not a slider because it is not a parameter. Nothing
+# about it is continuous: it changes which equation the model is solving, and
+# every label on the right-hand figure changes with it.
+DRIVER_LABELS = {"Feldspar dissolution": "dissolution",
+                 "Biotite oxidation": "oxidation"}
+driver = pn.widgets.RadioButtonGroup(
+    name="Reaction", options=list(DRIVER_LABELS), value="Feldspar dissolution",
+    button_type="default", sizing_mode="stretch_width",
+    max_width=2 * SLIDER_WIDTH)
+
 infiltration = pn.widgets.FloatSlider(
     name="Infiltration [m/yr]", start=0.05, end=1.00, step=0.05,
     value=0.30, format="0.00",
@@ -367,6 +383,7 @@ def _build():
         sets=orthogonal_grid(spacing.value, rotation=angle.value),
         rng=np.random.default_rng(12345))
     m = Weathering(net)
+    m.set_driver(DRIVER_LABELS[driver.value])
     m.set_infiltration(infiltration.value / YEAR)
     m.set_temperature(temperature.value + 273.15)
     m.c_drift_max = C_DRIFT_MAX
@@ -400,8 +417,20 @@ def step():
     _redraw()
 
 
+def _retitle():
+    """Point the right-hand colour bar at whichever reaction is running.
+
+    The field is the same array either way -- 1 - M -- and it does not mean
+    the same thing, so the label is not decoration. Dissolving, it is mass
+    that has left the rock; oxidising, it is iron that has rusted in place
+    without leaving.
+    """
+    bar_right.title = EXTENT_LABEL[DRIVER_LABELS[driver.value]]
+
+
 def do_reset():
     """Rebuild from the sliders. Every slider here is structural."""
+    _retitle()
     net, m = _build()
     sim["net"], sim["model"] = net, m
     _joints()
@@ -507,8 +536,9 @@ def _redraw():
     # has gone, since every cell starts with the same amount, so this needs no
     # "mean" qualifier to be exact.
     readout.object = (
-        "**%.0f kyr** &nbsp;·&nbsp; **%.0f %%** soluble phase dissolved"
-        % (m.t / YEAR / 1e3, 100 * m.dissolved_fraction.mean()))
+        "**%.0f kyr** &nbsp;·&nbsp; **%.0f %%** %s"
+        % (m.t / YEAR / 1e3, 100 * m.dissolved_fraction.mean(),
+           EXTENT_LABEL[m.driver]))
 
 
 # ---- figures ----------------------------------------------------------------
@@ -554,21 +584,35 @@ def _panel(source, joints, palette, label, labels, low=0.0, high=1.0,
     # to 2400 -- far wider than the app is laid out for.
     responsive(fig, aspect_ratio=float(FIG_W) / FIG_H,
                max_width=DESIGN_WIDTH // 2)
-    return fig
+    # The BAR comes back too, because the right-hand one is retitled when the
+    # reaction changes. Returned rather than dug out of the figure: bokeh
+    # models do not take arbitrary attributes, and hiding it in ``tags``
+    # worked but read as a trick.
+    return fig, bar
 
 
 # Palettes reversed so that 0 is pale and 1 is saturated: bokeh's 256-step
 # ramps run dark to light.
 # Water, so blue. The bar is labelled in metres per year, undoing the
 # logarithm, so the numbers on it are speeds and not exponents.
-fig_left = _panel(speed, joints_left, Blues256[::-1],
+fig_left, _ = _panel(speed, joints_left, Blues256[::-1],
                   "water speed [m/yr]",
                   {-4.0: "0.0001", -3.0: "0.001", -2.0: "0.01",
                    -1.0: "0.1", 0.0: "1", 1.0: "10"},
                   low=SPEED_LOG_LOW, high=SPEED_LOG_HIGH,
                   ticks=(-4.0, -3.0, -2.0, -1.0, 0.0, 1.0))
-fig_right = _panel(dissolved, joints_right, Oranges256[::-1],
-                   "soluble phase dissolved", {0.0: "none", 1.0: "all"})
+#: What the right-hand field MEANS, which is not the same in the two modes.
+#: Dissolving, M is the soluble phase remaining and 1 - M is mass that has
+#: left the rock. Oxidising, M is unoxidised Fe(II) and 1 - M is iron that has
+#: rusted IN PLACE -- Goodfellow et al. (2016) put it as "major changes in
+#: rock properties can occur with only minor element leaching". The same
+#: picture, and not the same claim, so the label has to follow the driver.
+EXTENT_LABEL = {"dissolution": "soluble phase dissolved",
+                "oxidation": "biotite iron oxidised"}
+
+fig_right, bar_right = _panel(
+    dissolved, joints_right, Oranges256[::-1],
+    EXTENT_LABEL["dissolution"], {0.0: "none", 1.0: "all"})
 
 #: The two figures, named so :func:`show_result` can put them in their
 #: loading state while it computes.
@@ -594,7 +638,10 @@ jump.on_click(show_result)
 # infiltration rate sets a flow field that is solved once and held. None of
 # them is a forcing that can be turned while the rock evolves, so changing one
 # starts the clock again rather than pretending otherwise.
-for w in (angle, spacing, infiltration, temperature):
+# ...and so does the driver, which is more than a rebuild: it changes which
+# equation is being solved, so the cached operator and factorisation go with
+# it. set_driver does that; this only has to start the clock again.
+for w in (angle, spacing, infiltration, temperature, driver):
     w.param.watch(lambda event: do_reset(), "value")
 
 
@@ -638,9 +685,8 @@ pn.Column(
     pn.pane.Markdown(
         "**Why a corestone survives** – press **▶** and watch the blocks "
         "round inward, or set **View results at** and press **Show** to go "
-        "straight there. Left is where the water goes; right is what it has "
-        "taken. *Every parameter is a placeholder; this teaches the "
-        "mechanism, not a rate.*",
+        "straight there. Left is where the water goes; right is how far the "
+        "reaction has got.",
         margin=(0, 10, 5, 10), sizing_mode="stretch_width"),
     # One row per way of driving the model: watch it happen, or ask what it
     # looks like at one moment. The state readout rides with the first, where
@@ -648,6 +694,14 @@ pn.Column(
     pn.Row(run, reset, readout,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(at_time, jump, align="end",
+           sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
+    # The reaction gets its own line and sits above the sliders, because it
+    # is not one of them: the sliders move parameters, this changes the
+    # equation. It is also the line that switches between the two
+    # assignments -- feldspar in class, biotite for the problem set.
+    pn.Row(pn.pane.Markdown("**Reaction**", margin=(5, 8, 0, 10),
+                            width=80),
+           driver, pn.Spacer(sizing_mode="stretch_width"),
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(angle, spacing, infiltration, temperature, cell,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
