@@ -41,22 +41,15 @@ matplotlib` reports all three bundled by Pyodide.
    conductivity, the diffusivity and the pace. Nearly every number in those
    documents is stale.
 
-3. **`flow_tolerance = 0.05` IS NOT CONVERGED, and it ships.** Against a 0.01
-   reference the shipped setting gives `max|dM| = 0.336` on a field in [0, 1];
-   0.02 gives 0.096 at 2.3x the cost and 0.01 is converged at 3.7x. It was
-   converged when it only gated the head; correcting the matrix transport on
-   2026-09-04 made transport almost purely advective, so the flow field now
-   matters far more and the old tolerance no longer holds. Measured, not
-   inferred: refreshing the tortuosity every step changes nothing (0.336
-   either way), so the error is entirely the stale head.
-
-   **The fix is measured and unimplemented.** The flow matrix is exactly
-   symmetric with a positive diagonal, so warm-started CG from the previous
-   head, preconditioned by a stale factorisation, gives the converged answer
-   (`max|dM| = 4.9e-4`) in 10.41 s against 13.94 s for the direct route at the
-   same tolerance -- 21 refactorisations instead of 850. That would buy
-   `flow_tolerance = 0.01` for about 1.3x the current cost instead of 3.7x.
-   This is the highest-value unimplemented thing in the repository.
+3. Done 2026-09-05: the head solve is warm-started (`e141329`) and
+   `flow_tolerance` is converged to 0.02 (`cc4098d`). Flow factorisations fell
+   from 850 to 21 over 2000 kyr, which is what made the tolerance affordable.
+   Error against a 0.005 reference: 0.381 at the old 0.05, 0.141 now, 0.045 at
+   0.01 -- which was rejected because it puts the warm end at 61 ms against a
+   33 ms frame budget. **0.02 leaves the warm end ON the budget** (32 and
+   35 ms in two measurements), so 30 C drops the occasional frame. Tolerable
+   only because artesian's animator now yields every frame, so a dropped frame
+   stretches the run instead of freezing the controls.
 
 4. `P21` carries a systematic +8 % bias from counting wall joints at full
    length; `test_a_full_orthogonal_grid_has_the_analytic_intensity` hides it
