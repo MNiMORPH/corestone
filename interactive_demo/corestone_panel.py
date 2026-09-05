@@ -110,17 +110,17 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: to dissolve the section spans two orders of magnitude across the sliders.
 #: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default        1703   3788    5518
-#:     1.0 m, 0.30 m/yr, 30 C   warm            462   1040    1511
-#:     1.0 m, 0.30 m/yr,  0 C   cold           4662  10266   14984
-#:     1.0 m, 0.05 m/yr, 12 C   dry            5009  11063   14560
-#:     1.0 m, 0.05 m/yr,  0 C   both          14543 >20000  >20000
+#:     1.0 m, 0.30 m/yr, 12 C   default        1670   3713    5414
+#:     1.0 m, 0.30 m/yr, 30 C   warm            455   1025    1490
+#:     1.0 m, 0.30 m/yr,  0 C   cold           4563  10044   14678
+#:     1.0 m, 0.05 m/yr, 12 C   dry            4933  10876   14340
+#:     1.0 m, 0.05 m/yr,  0 C   both          14286 >20000  >20000
 #:     3.0 m, 0.05 m/yr,  0 C   and coarse   >20000 >20000  >20000
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
 #: difference, and comparing rates is what the slider is for. 15000 carries
-#: the default well past 99 % at 5518 kyr and the cold case to 99 % at 14984,
+#: the default well past 99 % at 5414 kyr and the cold case to 99 % at 14678,
 #: which was the criterion that chose the original cap. The compound-slow
 #: corners it does not reach; Run does, unbounded.
 #:
@@ -173,10 +173,17 @@ END_KYR = 15000.0
 #: At 1 kyr/frame, median over 250 frames, and scaled by the 3.0x this app
 #: measured slower under Pyodide in Chrome:
 #:
-#:      5 cm,  12 C      0.94 ms  ->   2.8 ms      inside 33 ms
-#:      5 cm,  30 C      8.57     ->  25.7        inside
-#:      2.5 cm, 12 C    16.52     ->  49.5        over
-#:      2 cm,  12 C     23.31     ->  69.9        over
+#:      5 cm,  12 C      2.97 ms  ->   8.9 ms     inside 33 ms
+#:      5 cm,  30 C     11.78     ->  35.3        AT the budget
+#:      2.5 cm, 12 C    55.16     -> 165.5        over
+#:      2 cm,  12 C    137.65     -> 412.9        over
+#:
+#: The warm end now sits ON the budget rather than inside it -- two
+#: measurements of the same thing gave 32 and 35 ms against 33 -- so 30 C will
+#: drop the occasional frame. That is the price of converging the flow
+#: tolerance, and it is affordable in a way it was not before artesian's
+#: animator began yielding every frame: a dropped frame now stretches the run
+#: instead of freezing the controls.
 #:
 #: 5 cm keeps time across the whole temperature range and the finer grids do
 #: not, which has been true at every pace. At 2 kyr the warm end came to 46 ms
@@ -201,9 +208,9 @@ END_KYR = 15000.0
 #: Uniform within 6 %, so what a reader feels is the model time, which is the
 #: whole claim. With the sourced kinetics that buys, at 90 % dissolved:
 #:
-#:      0 C  10266 kyr / 30 kyr/s = 342 s of watching
-#:     12 C   3788        / 30     = 126 s
-#:     30 C   1040        / 30     =  35 s
+#:      0 C  10044 kyr / 30 kyr/s = 335 s of watching
+#:     12 C   3713        / 30     = 124 s
+#:     30 C   1025        / 30     =  34 s
 #:
 #: Those are long -- nearly six minutes to watch a cold section reach 90 %.
 #: Run is pausable and Show exists for exactly this, and the alternative was
@@ -252,7 +259,17 @@ C_DRIFT_MAX = 0.01
 #: browser being several times slower, and 0.027 on a field in [0, 1] is far
 #: inside the uncertainty on the conductivities themselves, which span an
 #: order of magnitude in the measurements they come from.
-FLOW_TOLERANCE = 0.05
+# Converged from 0.05 on 2026-09-05. At 0.05 the head lagged the rock enough
+# to move the answer by max|dM| = 0.381 against a 0.005 reference -- visibly
+# wrong pictures. 0.02 gives 0.141 and 0.01 gives 0.045, but 0.01 puts the
+# warm end well over the frame budget at 61 ms. 0.02 is the tightest tolerance
+# that keeps the whole temperature range near it.
+#
+# It was 0.05 because it had to be: re-solving the head was half the run at
+# 0.01. Warm-started CG cut the flow factorisations from 850 to 21 over
+# 2000 kyr, which is what made converging it affordable. See
+# Weathering._solve_head.
+FLOW_TOLERANCE = 0.02
 
 # Lay the app out to look right at this width; the embedding page scales the
 # whole thing above it, so everything enlarges together rather than the figures
