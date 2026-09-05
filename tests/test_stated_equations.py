@@ -555,3 +555,37 @@ def test_the_tortuosity_follows_the_rock_like_the_conductivity():
         assert np.allclose(tv, want, rtol=1e-12, atol=0.0)
         assert np.allclose(th, want, rtol=1e-12, atol=0.0)
     assert m.tortuosity_fresh / m.tortuosity_weathered == pytest.approx(1e3)
+
+
+# ------------------------------------------------------------ the oxidation
+#
+# Design 08. These parameters do not yet move rock; the transcriptions are
+# here from the moment the numbers are, so that a value can be checked before
+# a model is built on it.
+
+def test_the_oxygen_solubility_correlation_matches_tabulated_water():
+    """
+    ``ln C = -139.34411 + 1.575701e5 / T - 6.642308e7 / T^2
+    + 1.2438e10 / T^3 - 8.621949e11 / T^4``
+
+    The second fit in this model rather than a law, so like the viscosity it
+    is checked against a table and not against the code that uses it. The
+    correlation returns mol/m3; the table is in mg/L, which is the same number
+    divided by the molar mass.
+
+    Checked a second, independent way as well, because the coefficients were
+    written from memory and a mistranscribed one would still produce a smooth
+    curve. Henry's law at 25 C, with a constant from nowhere near this
+    correlation, agrees to 2 % -- see :func:`oxygen_solubility`.
+    """
+    from corestone.weathering import oxygen_solubility, M_O2
+    for tC, mg_per_L in ((0.0, 14.62), (5.0, 12.77), (10.0, 11.29),
+                         (15.0, 10.08), (20.0, 9.09), (25.0, 8.26),
+                         (30.0, 7.56)):
+        got = oxygen_solubility(tC + 273.15) * M_O2
+        assert got == pytest.approx(mg_per_L, rel=5e-4), (tC, got)
+
+    # Independent of the table: Henry's law on moist air at one atmosphere.
+    pO2 = (1.0 - 0.03126) * 0.20946                  # atm, 25 C
+    henry = 1.3e-3 * pO2 * M_O2 * 1000.0             # mg/L
+    assert oxygen_solubility(298.15) * M_O2 == pytest.approx(henry, rel=0.03)

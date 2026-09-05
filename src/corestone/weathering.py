@@ -216,6 +216,54 @@ def water_viscosity(T):
     """
     return 2.414e-5 * 10.0 ** (247.8 / (T - 140.0))
 
+#: Molar mass of dioxygen [g/mol]. Present because every water-chemistry table
+#: of dissolved oxygen is in mg/L and this model is in mol/m3, which are the
+#: same units divided by this number.
+M_O2 = 32.0
+
+
+def oxygen_solubility(T):
+    """
+    Dissolved oxygen in fresh water in equilibrium with the atmosphere
+    [mol/m3], for temperature ``T`` in K at one atmosphere.
+
+    The standard freshwater saturation correlation, which is stated in mg/L:
+
+        ln C = -139.34411 + 1.575701e5 / T - 6.642308e7 / T^2
+        + 1.2438e10 / T^3 - 8.621949e11 / T^4
+
+    **Warming LOWERS this**, which is the opposite of what temperature does to
+    every other ceiling in this model. A gas is driven out of solution as the
+    water warms: 0.457 mol/m3 at 0 C against 0.236 at 30 C, a factor of 1.93
+    the wrong way. So where a warmer, more soluble silica fluid carries more
+    away per litre, warmer water carries LESS oxygen in, and the two
+    temperature effects on the weathering rate point in opposite directions.
+    That is a physical fact about oxygen and not a modelling choice.
+
+    Provenance, marked honestly because the two halves are not equally sure.
+    The coefficients are the standard ones (Benson & Krause, in the form used
+    by APHA Standard Methods 4500-O and the USGS DOTABLES tool) and are
+    written here from memory: THE ATTRIBUTION HAS NOT BEEN CHECKED AGAINST THE
+    PRIMARY. What has been checked, in the session that added this, is that
+    they are not mistranscribed, two independent ways.
+
+    Against the tabulated freshwater saturation values, 0 to 30 C: this
+    returns 14.621, 12.771, 11.288, 10.084, 9.092, 8.263 and 7.559 mg/L at 0,
+    5, 10, 15, 20, 25 and 30 C, every one within 0.04 % of the table.
+
+    And against Henry's law, with a constant that has nothing to do with this
+    correlation. Moist air at one atmosphere and 25 C carries an oxygen
+    partial pressure of 0.20291 atm; at a Henry constant of 1.3e-3 mol per
+    litre per atmosphere that is 8.44 mg/L, against this correlation's 8.263.
+    Two per cent apart, on a constant good to two significant figures.
+
+    A five-term polynomial in 1/T that lands on a table at seven temperatures
+    and on Henry's law independently is the right polynomial. Whose it is, is
+    the part still to confirm.
+    """
+    return np.exp(-139.34411 + 1.575701e5 / T - 6.642308e7 / T ** 2
+                  + 1.2438e10 / T ** 3 - 8.621949e11 / T ** 4) / M_O2
+
 
 class Weathering(object):
     """

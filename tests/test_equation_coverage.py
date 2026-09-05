@@ -34,8 +34,8 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 16
-EXPECTED_DISTINCT = 14
+EXPECTED_BLOCKS = 17
+EXPECTED_DISTINCT = 15
 
 LEDGER = {
     "R = k(T) * A * (1 - C / C_eq)":
@@ -82,6 +82,10 @@ LEDGER = {
 
     "tortuosity(M) = tortuosity_fresh^M * tortuosity_weathered^(1 - M)":
         "test_the_tortuosity_follows_the_rock_like_the_conductivity",
+
+    "ln C = -139.34411 + 1.575701e5 / T - 6.642308e7 / T^2 "
+    "+ 1.2438e10 / T^3 - 8.621949e11 / T^4":
+        "test_the_oxygen_solubility_correlation_matches_tabulated_water",
 }
 
 
