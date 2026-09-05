@@ -20,10 +20,14 @@ matplotlib` reports all three bundled by Pyodide.
 
 ## (b) Plan and trajectory -- as the next action
 
-0. **Two decisions wait on Andy.** Does the colour bar become oxidation extent
-   once design 08 lands -- that changes what the exercise is *about*. And the
-   "What to do" section on both exercise pages is still `*(To be written.)*`,
-   which is the only thing between this and a usable assignment.
+0. **One decision waits on Andy: the "What to do" section on both exercise
+   pages is still `*(To be written.)*`**, which is the only thing between this
+   and a usable assignment.
+
+   The colour-bar question is NOT a blocker and was never Andy's; it was
+   raised in design 08 by its own author and lifted on 2026-09-05. It is a
+   caption, to be decided with a rendered figure in hand. The decision that
+   IS load-bearing is the regime inversion probe I found -- see (e).
 
 1. **Next: implement design 08. `design/08-BUILD.md` is the ordered,
    self-contained plan -- start there.** Rationale in

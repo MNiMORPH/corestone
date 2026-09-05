@@ -9,19 +9,31 @@ in order, with what verifies each step.
 
 ---
 
-## 0. BLOCKED until Andy answers two questions
+## 0. Not blocked. What was recorded here as a blocker, and why it is not one
 
-Do not start step 3 without these. Both change what the exercise means, and
-neither is the implementer's to decide.
+This section used to say "BLOCKED until Andy answers two questions" and to
+forbid step 3. Both questions were raised in the design document by its own
+author and neither came from Andy; on 2026-09-05 he read them and the block
+was lifted. They are still open, and they are page decisions rather than code
+decisions:
 
-- **Does the colour bar become oxidation extent?** It currently reads "soluble
-  phase dissolved". After this change `M` is unoxidised biotite Fe(II), so the
-  bar means something else. That changes what the exercise is *about*.
+- **Does the colour bar become oxidation extent?** The demo's right panel is
+  labelled "soluble phase dissolved". After the flip the same field means how
+  much of the iron has rusted, not how much mineral has left the rock. A
+  caption and a paragraph, best decided with a rendered figure in hand rather
+  than in the abstract -- which is why it should never have stopped the code.
 - **Does the page keep a sentence on plagioclase dissolution**, the mass loss
   this model will not track? A note already exists on the page ("One mineral,
   where a rock has many") and may only need rewording.
 
-Steps 1 and 2 are unblocked and can proceed meanwhile.
+**The decision that IS load-bearing was found later and is not either of
+these.** Probe I (`prototypes/probe_i_oxygen_regime.py`) measured the
+section-scale Damkohler at 0.0227 on oxygen against 6.56 on silica, so the
+model changes limit: from saturation-limited to reaction-limited. The page's
+central claim -- a corestone survives because the water arrived spent --
+becomes false, and is replaced by a corestone surviving because O2 cannot
+diffuse in over 4.5 cm. Both are "the water never got there"; they are not the
+same lesson. Read probe I before writing step 2.
 
 ---
 
@@ -80,7 +92,7 @@ Gamma as a checkable output -- 7.3 J/m2.
 
 ## 4. Order of work, with the check for each
 
-1. **Parameters and the O2 solubility function.** Check: `thermo_report()`
+1. **DONE 2026-09-05.** Parameters and the O2 solubility function. Check: `thermo_report()`
    prints `tau_O2` near 679 at 12 C and the oxygen ceiling on front advance
    near 442 m/Myr.
 2. **Flip the solute.** Check: with `M = 1` everywhere, `c` is 1 at the
