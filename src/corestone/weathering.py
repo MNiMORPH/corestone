@@ -979,6 +979,18 @@ class Weathering(object):
             "  Damkohler (section)     %8.2f       depth / saturation length"
             % float(np.mean(self.damkohler)),
             "  regime                  %8s" % self.regime,
+            "",
+            "  the oxygen budget, for comparison -- design 08, not yet wired:",
+            "  C_O2(T)                 %8.4f mol/m3  falls as water warms"
+            % self.C_O2,
+            "  tau, silica             %8.0f       volumes of water per volume"
+            % float(np.mean(self.tau)),
+            "  tau, oxygen             %8.0f       of rock; %.0fx less to find"
+            % (self.tau_oxidation, float(np.mean(self.tau)) / self.tau_oxidation),
+            "  front ceiling, silica   %8.2f m/Myr stoichiometry alone, q/tau"
+            % (self.infiltration / float(np.mean(self.tau)) * YEAR * 1e6),
+            "  front ceiling, oxygen   %8.2f m/Myr (field: 4-7 m/Myr)"
+            % (self.oxidation_front_ceiling * YEAR * 1e6),
         ]
         return "\n".join(lines)
 

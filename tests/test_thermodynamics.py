@@ -125,3 +125,19 @@ def test_the_thermo_report_states_every_governing_number():
     for token in ("E_a", "delta_H_r", "E_a - delta_H_r", "Damkohler",
                   "saturation length", "regime", "T_ref"):
         assert token in text, token
+
+
+def test_the_thermo_report_puts_the_two_budgets_side_by_side():
+    """
+    The comparison design 08 turns on, printed where a student can read it
+    rather than buried in a document. Silica caps the front at 6.3 m/Myr,
+    which is barely above the 4-7 m/Myr the field measures, so the model has
+    been running against its own stoichiometry; oxygen caps it at 442.
+    """
+    m = model()
+    m.set_infiltration(0.30 / YEAR)
+    text = m.thermo_report()
+    for token in ("C_O2", "tau, silica", "tau, oxygen",
+                  "front ceiling, silica", "front ceiling, oxygen"):
+        assert token in text, token
+    assert "  678 " in text and "442.38" in text, text
