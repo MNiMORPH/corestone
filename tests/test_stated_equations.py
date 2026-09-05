@@ -41,9 +41,13 @@ def _model(dx=0.10, spacing=1.5, width=12.0, depth=9.0):
 
 # ---------------------------------------------------------------- rate law
 
-def test_the_dissolution_rate_per_unit_volume_does_not_depend_on_the_flux():
+@pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
+def test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux(driver):
     """
-        R = k(T) * A * (1 - C / C_eq)
+        R = k(T) * A * (1 - C / C_eq) dissolving: a product, driven by
+        how far the water is from saturation
+        R = k_ox * A * C oxidising: a reactant, driven by how much of it
+        there is
 
     The rate per unit volume is a property of the rock. It may not depend on
     how fast water moves past it. This is the invariant the original bug broke:
@@ -55,6 +59,7 @@ def test_the_dissolution_rate_per_unit_volume_does_not_depend_on_the_flux():
     check: r must be uniform across cells that differ in flux by 1000x.
     """
     m = _model()
+    m.set_driver(driver)
     r = m.reaction_coefficient
     # The flux distribution is bimodal, so select by structure, not quantile.
     fast, slow = m.network.cell, ~m.network.cell
@@ -63,22 +68,39 @@ def test_the_dissolution_rate_per_unit_volume_does_not_depend_on_the_flux():
     assert np.ptp(r) / r.mean() < 1e-12                     # yet r is uniform
 
 
-def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base():
+@pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
+def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     """
-        d(M/M0)/dt = - r (1 - c) / tau
+        d(M/M0)/dt = - r f(c) / tau,  f = 1 - c dissolving, f = c oxidising
 
-    No solute enters at the surface, so in steady transport everything
-    dissolved must leave through the base. Checked against the export, not
-    against a restatement of the same expression.
+    Solute is conserved, and the books balance the same way whichever
+    direction it points: what comes in equals what is consumed plus what
+    leaves through the base.
+
+    Under DISSOLUTION nothing comes in -- rain is clean -- and every cell is a
+    source, so the statement collapses to "everything dissolved leaves through
+    the base". Under OXIDATION the rain is the only source and the rock is the
+    sink, so it reads "the oxygen that arrives is either used or exported".
+    The second is the sharper test of the two, because a source at one
+    boundary can be lost silently in a way a volumetric one cannot.
+
+    The source is written out here rather than taken from
+    ``_solute_source``, so the test cannot pass by agreeing with the code.
     """
     m = _model()
+    m.set_driver(driver)
     r = m.reaction_coefficient
     c = m.solve_solute(r)
-    produced = (r * (1.0 - c) * m.dx * m.dx).sum()
-    exported = (m.q_out_base * c[-1, :]).sum()
-    assert produced == pytest.approx(exported, rel=1e-9)
 
-    rate = r * (1.0 - c) / m.tau
+    if driver == "oxidation":
+        supplied = m.infiltration * m.dx * m.nx    # rain, at c = 1
+    else:
+        supplied = (r * m.dx * m.dx).sum()         # rock, in every cell
+    consumed = (r * c * m.dx * m.dx).sum()
+    exported = (m.q_out_base * c[-1, :]).sum()
+    assert supplied == pytest.approx(consumed + exported, rel=1e-9)
+
+    rate = r * m.driving_force(c) / m.tau
     assert rate.shape == m.M.shape
     assert (rate >= 0.0).all()
 
@@ -179,13 +201,20 @@ def test_tau_falls_as_solubility_rises():
     ``tau = M0 / C_eq`` is the second place C_eq enters: a warmer, more soluble
     fluid carries more away per unit volume. Held constant, the model had no
     solubility response at all.
+
+    A statement about the DISSOLUTION driver, so it names it. Oxygen runs the
+    other way -- a gas leaves solution as the water warms -- and that
+    opposition is checked in
+    ``test_warming_drives_oxygen_out_of_solution_and_silica_into_it``.
     """
     m = _model()
+    m.set_driver("dissolution")
     m.set_temperature(m.T_ref)
     base = m.tau
     m.set_temperature(m.T_ref + 20.0)
     assert m.tau < base
     assert m.tau == pytest.approx(m.tau_ref / m.solubility_factor, rel=1e-12)
+    assert m.tau == m.silica_tau
 
 
 def test_the_matrix_conducts_better_as_it_dissolves():
@@ -378,13 +407,14 @@ def test_diffusion_is_what_lets_a_block_weather_inward():
     """
     def undersaturated(fraction_remaining):
         m = _model()
+        m.set_driver("dissolution")
         m.M[:] = fraction_remaining
         m.solve_flow()
         r = m.reaction_coefficient
-        on = ((1.0 - m.solve_solute(r)) > 1e-6).mean()
-        m.D_molecular = 0.0
+        on = (m.driving_force(m.solve_solute(r)) > 1e-6).mean()
+        m.D_molecular = m.D_O2_molecular = 0.0
         m.grain_size = 0.0
-        off = ((1.0 - m.solve_solute(r)) > 1e-6).mean()
+        off = (m.driving_force(m.solve_solute(r)) > 1e-6).mean()
         return float(on), float(off)
 
     fresh_on, fresh_off = undersaturated(1.0)
@@ -393,6 +423,57 @@ def test_diffusion_is_what_lets_a_block_weather_inward():
     half_on, half_off = undersaturated(0.5)
     assert half_on > 0.99, half_on          # diffusion opens the whole section
     assert half_off < 0.5, half_off         # advection alone does not
+
+
+def test_diffusion_is_what_gives_the_oxidation_rind_its_width():
+    """
+    The oxidation counterpart, and it is a different statement.
+
+    Under dissolution the test above works because a block interior reaches
+    c = 1 EXACTLY and the driving force vanishes, so "what fraction of the
+    domain is still reacting" is a clean binary. A reactant has no such
+    shut-off: pure advection still carries some oxygen everywhere, so that
+    measure saturates at 1.0 and says nothing.
+
+    What diffusion does is set the LEVEL of oxygen in the matrix, not the
+    shape of its decline. Measured on this fixture at t = 0, mean c one cell
+    and three cells from a joint:
+
+        with diffusion     0.2728    0.0694
+        without            0.0368    0.0132
+
+    -- a factor of 7.4 and 5.3. The far/near RATIO actually rises slightly
+    when diffusion is removed, 0.25 to 0.36, because what is left is
+    advection carrying oxygen down THROUGH the matrix rather than sideways
+    from the joint, and a through-flow does not decay with distance from a
+    joint the way a diffusive gradient does. The first draft of this test
+    asserted the ratio and had the sign backwards; the level is the claim,
+    and it is the one that matters -- without diffusion the matrix is nearly
+    anoxic and there is no rind to speak of.
+    """
+    def rind(with_diffusion):
+        m = _model()
+        m.set_driver("oxidation")
+        if not with_diffusion:
+            m.D_molecular = m.D_O2_molecular = 0.0
+            # NOT grain_size = 0, which is what the dissolution version does.
+            # Under oxidation the grain size also sets the reactive surface
+            # area, so zeroing it removes the reaction as well as the
+            # dispersion -- and divides by zero on the way. Molecular
+            # diffusion is the term that matters here regardless: in the
+            # matrix it beats mechanical dispersion by about two hundred to
+            # one, which :attr:`diffusivity_factor` states and this relies on.
+        m.solve_flow()
+        c = m.solve_solute(m.reaction_coefficient)
+        d = m.network.distance_to_fracture()
+        near = c[np.isclose(d, m.dx)].mean()
+        far = c[np.isclose(d, 3.0 * m.dx)].mean()
+        return float(near), float(far)
+
+    on_near, on_far = rind(True)
+    off_near, off_far = rind(False)
+    assert on_near > 3.0 * off_near, (on_near, off_near)
+    assert on_far > 3.0 * off_far, (on_far, off_far)
 
 
 def test_corners_stay_further_from_saturation_than_faces():
@@ -404,7 +485,7 @@ def test_corners_stay_further_from_saturation_than_faces():
     """
     m = _model()
     c = m.solve_solute(m.reaction_coefficient)
-    u = 1.0 - c
+    u = m.driving_force(c)      # where the water can still do work
     jc = np.nonzero(m.network.link_v[m.nz // 2, :])[0]
     jr = np.nonzero(m.network.link_h.mean(axis=1) > 0.5)[0]
     c0, r0, r1 = jc[1], jr[1], jr[2]
@@ -625,7 +706,7 @@ def test_warming_drives_oxygen_out_of_solution_and_silica_into_it():
     assert warm.solubility_factor > cold.solubility_factor
     # ...and therefore the two taus move in opposite directions.
     assert warm.tau_oxidation > cold.tau_oxidation
-    assert warm.tau < cold.tau
+    assert warm.silica_tau < cold.silica_tau
 
 
 def test_the_volume_expansion_is_the_ratio_of_the_molar_volumes():
@@ -662,7 +743,7 @@ def test_tau_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubility():
     assert m.tau_oxidation == pytest.approx(678.1, rel=1e-3)
     # The comparison design 08 rests on. NOT 15x: that figure was computed
     # with Fletcher's f_FeO = 0.05, which the same document rejects.
-    assert m.tau / m.tau_oxidation == pytest.approx(70.4, rel=1e-2)
+    assert m.silica_tau / m.tau_oxidation == pytest.approx(70.4, rel=1e-2)
 
 
 def test_the_front_ceiling_is_the_flux_over_tau():
@@ -680,7 +761,8 @@ def test_the_front_ceiling_is_the_flux_over_tau():
         m.infiltration / m.tau_oxidation, rel=1e-12)
     per_Myr = m.oxidation_front_ceiling * YEAR * 1e6
     assert per_Myr == pytest.approx(442.4, rel=1e-3)
-    assert m.infiltration / m.tau * YEAR * 1e6 == pytest.approx(6.28, rel=1e-2)
+    assert (m.infiltration / m.silica_tau * YEAR * 1e6
+            == pytest.approx(6.28, rel=1e-2))
 
 
 def test_the_reactive_surface_area_is_six_phi_over_d():

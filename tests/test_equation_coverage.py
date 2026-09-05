@@ -35,16 +35,26 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
 EXPECTED_BLOCKS = 22
-EXPECTED_DISTINCT = 20
+EXPECTED_DISTINCT = 21
 
 LEDGER = {
-    "R = k(T) * A * (1 - C / C_eq)":
-        "test_the_dissolution_rate_per_unit_volume_does_not_depend_on_the_flux",
+    "R = k_ox * A * C oxidising, the default: biotite Fe(II) by "
+    "dissolved O2, driven by how much oxygen is there R = k(T) * "
+    "A * (1 - C / C_eq) dissolving: plagioclase into water "
+    "approaching quartz saturation, driven by how far it is from "
+    "the ceiling":
+        "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
+
+    "R = k(T) * A * (1 - C / C_eq) dissolving: a product, driven by how far "
+    "the water is from saturation R = k_ox * A * C oxidising: a reactant, "
+    "driven by how much of it there is":
+        "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
 
     "saturation_length = q * C_eq / (k(T) * A)":
         "test_the_saturation_length_is_proportional_to_the_local_flux",
 
-    "div(q c) - div(D grad c) = r (1 - c), r = k A / C_eq":
+    "div(q c) - div(D grad c) + r c = S, S = r dissolving, S = 0 oxidising "
+    "inlet c = 0 dissolving, c = 1 oxidising":
         "test_the_solved_concentration_satisfies_the_stated_cell_balance",
 
     "div( K grad H ) = 0, H = psi - d (d is depth, positive down)":
@@ -58,10 +68,10 @@ LEDGER = {
     "S_i = q_in dx oxidation: the surface only, inlet c = 1":
         "test_the_solved_concentration_satisfies_the_stated_cell_balance",
 
-    "d(M/M0)/dt = - r (1 - c) / tau":
+    "d(M/M0)/dt = - r f(c) / tau f(c) = 1 - c dissolving, f(c) = c oxidising":
         "test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base",
 
-    "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - c) / tau":
+    "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / tau":
         "test_the_rock_is_integrated_exactly_over_a_step_with_c_held",
 
     "k(M) = k_matrix(T)^M * k_weathered(T)^(1 - M)":

@@ -1,26 +1,82 @@
 #! /usr/bin/python3
 
 """
-Dissolve granite along its joints, and see what is left.
+Rot granite along its joints, and see what is left.
 
-The model is one equation. Dissolution runs at an Arrhenius rate constant
-multiplied by how far the pore water is from equilibrium,
+TWO REACTIONS, ONE TRANSPORT PROBLEM. The model can be paced by either, and
+``Weathering.driver`` chooses; everything else is shared. See :attr:`DRIVERS`.
 
-    R = k(T) * A * (1 - C / C_eq)
+    OXIDATION (the default). Dissolved O2 arrives in the rain, diffuses into
+    the rock and oxidises the Fe(II) in biotite to goethite. The iron swells
+    by three quarters of its volume and cracks the rock, which lets water in.
+    This is what the literature says actually paces spheroidal weathering:
+    Buss, Sak, Webb & Brantley (2008) imaged oxidised biotite 2.7 cm inside
+    nominally fresh corestone with NO plagioclase weathering there, and
+    Goodfellow et al. (2016) add the sentence that matters most -- "major
+    changes in rock properties can occur with only minor element leaching."
 
-so water that has equilibrated stops weathering rock, however soluble the rock
-and however warm the water. Fresh water descends the joints; the joints
-therefore decide where weathering happens, and rock the water never reaches --
-or reaches already saturated -- survives as a corestone.
+    DISSOLUTION. Plagioclase dissolves into water that is approaching quartz
+    saturation. This is what the model did until design 08, and it is kept
+    because it is the clean textbook case of a solute that STOPS the reaction
+    by accumulating, and because being able to switch is what makes the
+    comparison between the two mechanisms a measurement rather than a claim.
 
-Working in normalised concentration ``c = C / C_eq`` removes the need to assert
-a solubility. The scale it sets is the **saturation length**
+The difference is one of sign, and it is the whole of design 08. A PRODUCT
+enters at zero, accumulates, and shuts the reaction off at saturation. A
+REACTANT enters at its ceiling, is consumed, and the reaction stops where it
+runs out. Both say a corestone is not tougher rock -- the water never got
+there -- but they do not say it the same way, and they do not draw the same
+picture (prototypes/probe_j_flip_the_solute.py).
 
-    saturation_length = q * C_eq / (k(T) * A)
+    R = k(T) * A * (1 - C / C_eq)       dissolving: a product, driven by
+                                        how far the water is from saturation
+    R = k_ox * A * C                    oxidising: a reactant, driven by
+                                        how much of it there is
 
-the e-folding length of the approach to saturation -- *not* a distance at which
-equilibrium is reached, because there is no equilibrium here. ``c`` approaches
-1 asymptotically and never arrives.
+Working in normalised concentration ``c`` -- ``C / C_eq`` dissolving,
+``C / C_sat`` oxidising -- removes the need to assert a solubility. The scale
+it sets is a length: the **saturation length** ``q C_eq / (k A)`` for the
+product, the **oxidation length** ``q / (k_ox A)`` for the reactant. Neither
+is a distance at which the reaction stops -- ``c`` approaches its limit
+asymptotically and never arrives.
+
+THE TWO DO NOT PUT THE MODEL IN THE SAME LIMIT, AND THAT IS THE FINDING
+----------------------------------------------------------------------
+
+The dimensionless group is the same, ``Da = depth / length``, and on the 3 m
+section it comes out at 6.56 dissolving and 0.023 oxidising -- a factor of
+289. Dissolving, the model is SATURATION-LIMITED: water reaches the base
+within exp(-6) of the ceiling, and a block interior is sheltered because the
+water around it arrived spent. Oxidising, it is REACTION-LIMITED at the
+section scale: oxygen crosses 3 m barely touched, so every joint at every
+depth delivers it at very nearly full strength.
+
+What shelters a block interior, then, is not the section-scale supply but a
+DIFFUSIVE length -- how far O2 gets into intact rock before it is consumed,
+
+    penetration = sqrt(D_O2 / (tortuosity_fresh k_ox A))
+
+which is 4.5 cm at 12 C. See :attr:`Weathering.oxidation_penetration_depth`.
+
+And that is the better mechanism for what this model is about. Measured at
+matched mean extent of reaction, extent against distance from the nearest
+joint:
+
+    dissolving   0.00m 0.879   0.05m 0.087   0.10m 0.002   0.15m 0.001
+    oxidising    0.00m 0.384   0.05m 0.245   0.10m 0.153   0.15m 0.102
+                 0.20m 0.074   0.25m 0.056   0.30m 0.045   0.35m 0.037
+
+Dissolving, the rock falls four hundredfold in two cells: the rind is ONE
+CELL WIDE, so its width is the grid's and not the rock's. Oxidising, it
+decays with an e-folding near 10 cm and is still at 0.029 in the block core --
+a rind of 15 cm and more, resolved over six cells and upward, with rounded
+corners. Measured rindlet zones in granite run 20 to 60 cm: oxidation lands in
+that range and dissolution is four to twelve times too thin.
+
+(Physical chemistry calls the ``Da >> 1`` limit *transport-limited*, for the
+transport of solute. The word is avoided here: in geomorphology it means an
+erosion rate set by the capacity to move sediment, and nothing in this model
+moves sediment.)
 
 THE THERMODYNAMICS, IN FULL, BECAUSE IT IS THE PART MOST OFTEN GOT WRONG
 ------------------------------------------------------------------------
@@ -70,63 +126,102 @@ it moves where weathering happens (through L) and how much water the job takes
 
 Which limit the section is in is one dimensionless number, the Damkohler group
 ``Da = depth / L``, counting the e-foldings of saturation a parcel undergoes
-on the way down. At the reference state it is 6: water reaches the base within
-exp(-6) of saturation, so the section is firmly SATURATION-LIMITED, and that is
-precisely what shelters a block interior and makes a corestone. In the
-opposite limit water crosses barely touched, every block dissolves at the same
-rate, and nothing is sheltered. Corestones are a saturation-limited phenomenon.
+on the way down. At the reference state it is 6.56: water reaches the base
+within exp(-6) of saturation, so the section is firmly SATURATION-LIMITED, and
+that is what shelters a block interior. In the opposite limit water crosses
+barely touched, every block dissolves at the same rate, and nothing is
+sheltered.
 
-(Physical chemistry calls that limit *transport-limited*, for the transport of
-solute. The word is avoided here: in geomorphology it means an erosion rate
-set by the capacity to move sediment, and nothing in this model moves
-sediment.)
+**"Corestones are a saturation-limited phenomenon" stood here and it is not
+true.** They are also, and better, an oxygen-diffusion phenomenon: with O2 as
+the driver the section Damkohler is 0.023, water crosses barely touched by the
+sentence above's own definition, and blocks are still sheltered -- by the
+4.5 cm the oxygen can diffuse into intact rock, not by the supply. The claim
+was true of the reaction the model happened to be running.
 
 NOTHING IN THE CHEMISTRY OR THE FLOW IS FITTED, AND THE TIMESCALE IS A RESULT
 -----------------------------------------------------------------------------
 
-Every parameter in the reaction and the flow now comes from a measurement or
-from geometry: the rate constant and its activation energy from Palandri &
-Kharaka (2004) for oligoclase; the solute ceiling and its enthalpy from quartz
-saturation; the matrix conductivities from Goodfellow et al. (2016); the joint
-conductivity from a 100 um aperture through the cubic law; the diffusivity of
-dissolved silica from Rebreanu et al. (2008), scaled by Stokes-Einstein; and
-tau and the saturation length from the mineralogy and a 2 mm grain size.
+Every parameter in both reactions and in the flow comes from a measurement or
+from geometry. Dissolving: rate constant and activation energy from Palandri
+& Kharaka (2004) for oligoclase; solute ceiling and enthalpy from quartz
+saturation; silica diffusivity from Rebreanu et al. (2008). Oxidising: the
+oxidation rate constant from the literature rate for biotite Fe(II) by
+dissolved O2, good to a factor of three; O2 solubility from the standard
+freshwater correlation; molar volumes from Robie & Hemingway (1995); iron
+content from the USGS reference granites. Shared: matrix conductivities from
+Goodfellow et al. (2016); joint conductivity from a 100 um aperture through
+the cubic law; tau, the reactive surface areas and the dispersivity from the
+mineralogy and a 2 mm grain size; every diffusivity scaled by
+Stokes-Einstein. The one number taken from an observation rather than derived
+is ``x_c``, and it is labelled a calibration where it appears.
 
-Which makes the weathering timescale a PREDICTION, and it can be checked. The
-default settings -- 1 m joints, 0.30 m/yr, 12 C -- take 3713 kyr to dissolve
-90 % of a 3 m section, a weathering front of about 0.81 m/Myr. Measured
-temperate granite regoliths give 7 m/Myr at Panola and 4 m/Myr at Davis Run
-(White et al. 2001); tropical Rio Icacos runs 43-45 m/Myr, which is the right
-direction for a warmer, wetter site. So this runs five to nine times SLOWER
-than the temperate field rate, with nothing tuned to it.
+Which makes the timescale a PREDICTION. On the default 3 m section -- 1 m
+joints, 0.30 m/yr, 12 C -- 90 % of the rock has reacted after 869 kyr
+oxidising and 3773 kyr dissolving.
 
-The gap is worth stating precisely, because it is not evenly distributed
-across the inputs. It sits in the reactive surface area, which is here the
-GEOMETRIC area of 2 mm grains, 900 m2/m3, while BET for granite is 3e5 to
-3e6 -- two to three orders higher. Closing the rate gap needs a factor of
-five, which is still five hundred times below BET. So the discrepancy lives
-inside a range the field has not resolved (White & Brantley 2003), and it is
-reported rather than removed: choosing a surface area to make the rate come
-out is the one move that would make this number meaningless.
+**AND 3 m / t90 IS NOT A FRONT RATE UNDER OXIDATION. Do not report it as
+one.** The arithmetic gives 3.45 m/Myr, which sits beautifully inside the
+4-7 m/Myr measured for temperate granite regoliths (Panola 7, Davis Run 4;
+White et al. 2001) -- and it is exactly the trap this file already records
+having fallen into once. Dividing depth by t90 measures a front only if there
+IS a front, and at t90:
 
-Two earlier versions got closer and were wrong to. The calibrated model ran at
+    dissolving   4.8 % of the section part-reacted, about 14 cm
+    oxidising    100 % of the section part-reacted
+
+Oxygen crosses 3 m barely consumed, which is what Da = 0.023 says it does, so
+the whole section oxidises together and there is no depth front to time. The
+number that agrees with the field is an artefact of a state that has no front
+in it, and it is recorded here rather than reported because it is the most
+persuasive wrong number this model has produced.
+
+Two consequences follow, and both are open.
+
+**The model has no weathering profile with depth under oxidation.** Extent by
+depth at t90 runs 0.95, 0.90, 0.94, 0.89, 0.94, 0.89 -- the oscillation is
+joint rows, not depth. Real regoliths do have profiles, and the reason is very
+likely absent from this model: in the shallow subsurface the oxygen budget is
+dominated by organic matter and root respiration, not by biotite. There is no
+organic carbon here.
+
+**Dissolving, the timescale is a genuine front rate and it is too slow.**
+0.80 m/Myr against 4-7 measured, five to nine times slower, with nothing tuned
+to it. The gap sits in the reactive surface area, the GEOMETRIC 900 m2/m3 of
+2 mm grains against a BET 3e5 to 3e6 for granite -- two to three orders
+higher, so closing the gap needs a factor of five and would still leave five
+hundred times of headroom. The discrepancy lives inside a range the field has
+not resolved (White & Brantley 2003), and choosing a surface area to make the
+rate come out is the one move that would make the number meaningless.
+
+Earlier versions got closer and were wrong to. A calibrated model ran at
 17.9 m/Myr, three times too FAST, with nothing checking it. Deriving tau
 brought it to 2.5, which looked like agreement within a factor of two -- but
 30 % of the section was part-dissolved at once, so it was not advancing a
-front at all, and dividing 3 m by t90 was not measuring one. Only with the
-matrix transport corrected, and the part-dissolved zone down to 4.6 %, is the
-number a front rate at all. It is a worse match and a better measurement.
+front. Only with the matrix transport corrected, and the part-dissolved zone
+down to 4.8 %, is the dissolving number a front rate at all. It is a worse
+match and a better measurement, and the oxidising number is the same lesson
+learned a third time.
 
 Solute moves by advection **and by diffusion**:
 
-    div(q c) - div(D grad c) = r (1 - c),      r = k A / C_eq
+    div(q c) - div(D grad c) + r c = S,   S = r dissolving, S = 0 oxidising
+    inlet c = 0 dissolving, c = 1 oxidising
 
-Without the diffusive term, rock off a flow path never weathers at all: a block
-interior saturates and then sits at ``c = 1`` for ever, and the model gives
-joints entirely dissolved beside blocks entirely untouched with nothing in
-between. Diffusive export of solute toward a flushed joint keeps the interior
-undersaturated, which is what forms a weathering rind -- and, because a corner
-sheds solute to two faces and a face to one, what rounds corestones.
+and the operator is the same either way; only ``S`` and the inlet move. See
+:meth:`Weathering._solute_source`.
+
+Without the diffusive term the model is broken in both directions. Dissolving,
+rock off a flow path never weathers at all: a block interior saturates, sits
+at ``c = 1`` for ever, and the picture is joints entirely dissolved beside
+blocks entirely untouched with nothing in between. Oxidising, diffusion is
+what puts oxygen into the matrix in the first place -- turn it off and the
+mean concentration one cell from a joint falls from 0.27 to 0.04, and three
+cells in from 0.069 to 0.013.
+
+Either way it is what makes a rind, and it is the geometric route to
+spheroidal rounding: a corner exchanges with two joint faces and a face with
+one, so corners run ahead.
 
 Flow is steady Darcy flow, solved for the hydraulic head,
 
@@ -157,9 +252,12 @@ The solute was also described as swept row by row with a tridiagonal solve
 inside each row -- that went when diffusion arrived and the whole field became
 one sparse advection-diffusion-reaction solve.)
 
-**Every parameter here is a placeholder.** None is measured. They are tabulated
-in the design document, and no number from this module should be used as a
-result.
+(The line "every parameter here is a placeholder, none is measured" stood at
+the foot of this docstring until 2026-09-05, directly contradicting the
+validation section above it, which had by then listed a source for every one.
+It was true when it was written and nobody deleted it. A stale disclaimer is
+worse than none: it invites the reader to discount numbers that had become
+defensible.)
 """
 
 import inspect
@@ -574,7 +672,25 @@ class Weathering(object):
         # construction. Quartz is inert here as a CONSEQUENCE of the
         # saturation choice, not as an assumption laid on top of it, and the
         # same silica ceiling is what stops the feldspar.
-        self.c_drift_max = 0.03           # THE step control: how far c may move
+        # TIGHTENED FROM 0.03 TO 0.01 WHEN OXIDATION BECAME THE DRIVER, and
+        # it is a proposal rather than a discovery: 0.03 is not converged for
+        # the oxidation driver. Measured over 280 kyr at 3 m and 5 cm against
+        # a reference at 0.001, mean extent of reaction:
+        #
+        #   c_drift_max    dissolution        oxidation
+        #        0.10      0.0982 (-5.8 %)   0.3089 (-13.2 %)
+        #        0.03      0.1022 (-2.0 %)   0.3133 (-11.9 %)
+        #        0.01      0.1039 (-0.4 %)   0.3479 ( -2.2 %)
+        #        0.003     0.1042 (-0.1 %)   0.3536 ( -0.6 %)
+        #        0.001     0.1043             0.3558
+        #
+        # Both converge monotonically; oxidation simply needs one more notch,
+        # because c spans the full range inside a moving rind where under
+        # dissolution it sits near saturation and barely moves. It costs
+        # nothing: at 0.01 the oxidation run took 21 factorisations against
+        # the dissolution run's 59 at the same setting. The demo already ran
+        # at 0.01, so this aligns the library with it.
+        self.c_drift_max = 0.01           # THE step control: how far c may move
                                           # while it is held across a step.
                                           # This is the model's one time-step
                                           # approximation, so it is the thing
@@ -599,7 +715,7 @@ class Weathering(object):
         # :attr:`driver`. "dissolution" is what this model did until design
         # 08; "oxidation" is what the literature says actually paces
         # spheroidal weathering.
-        self.driver = "dissolution"
+        self.driver = "oxidation"
 
         # ---- state
         self.T = self.T_ref               # temperature [K]
@@ -1285,6 +1401,14 @@ class Weathering(object):
         """
         if self.driver == "oxidation":
             return self.tau_oxidation
+        return self.silica_tau
+
+    @property
+    def silica_tau(self):
+        """``tau`` for the DISSOLUTION driver, named so that it can be asked
+        for whichever reaction is currently driving -- the comparison between
+        the two budgets is a teaching point and must not depend on a
+        setting."""
         return self.tau_ref / self.solubility_factor
 
     def local_saturation_length(self):
@@ -1763,15 +1887,18 @@ class Weathering(object):
         rock changing -- so there is no storage term and the model carries no
         porosity, and therefore no residence time.
 
-        What the rock loses is what the water gains:
+        What the rock loses is what the water gains -- or, oxidising, what the
+        water loses is what the rock gains. ``f`` is :meth:`driving_force`,
+        and it is the only place the two reactions differ here:
 
-            d(M/M0)/dt = - r (1 - c) / tau
+            d(M/M0)/dt = - r f(c) / tau
+            f(c) = 1 - c dissolving, f(c) = c oxidising
 
         and ``r`` is proportional to ``M``, because the reactive surface area
         is. Over a step in which ``c`` is held the equation is therefore linear
         in ``M``, and it integrates EXACTLY:
 
-            M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - c) / tau
+            M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / tau
 
         Forward Euler stood here before, taking the tangent to that
         exponential. The tangent always undershoots, which is the only reason

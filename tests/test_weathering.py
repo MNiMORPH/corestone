@@ -14,10 +14,21 @@ def _model(nz=75, nx=100, dx=0.20, spacing=1.5):
     return Weathering(net)
 
 
-def test_the_rock_starts_fresh_and_the_water_starts_clean():
-    m = _model().initialize()
+@pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
+def test_the_rock_starts_fresh_and_the_water_starts_at_the_inlet(driver):
+    """
+    "The water starts clean" was true of one reaction and is not a general
+    statement. Rain carries no dissolved silica, so it starts at c = 0 when
+    silica is the solute; it is in equilibrium with the atmosphere, so it
+    starts at c = 1 when oxygen is. Neither is a parameter -- both are exact
+    by construction -- and the initial field is the inlet value either way.
+    """
+    m = _model()
+    m.set_driver(driver)
+    m.initialize()
     assert np.all(m.dissolved_fraction == 0.0)
-    assert np.all(m.c == 0.0)
+    assert np.all(m.c == m.inlet_concentration)
+    assert m.inlet_concentration == (1.0 if driver == "oxidation" else 0.0)
     assert m.t == 0.0
 
 
@@ -83,11 +94,41 @@ def test_water_enters_fresh_and_saturates_with_depth():
     # most of its soluble phase, and deriving tau from the mineralogy made
     # the model seven times slower, so reaching that state takes seven times
     # as long. The assertion is untouched; only the time needed to get there.
-    m = _model().run(years=350e3)
+    m = _model()
+    m.set_driver("dissolution")
+    m.run(years=350e3)
     assert m.c[0, :].max() < 0.1 * np.median(m.c[5, :])   # rain arrives fresh
     assert np.median(m.c[5, :]) > 0.9                # matrix saturates quickly
     assert m.c.max() <= 1.0 + 1e-12
     assert np.allclose(m.affinity, 1.0 - m.c, rtol=1e-12, atol=0.0)
+
+
+def test_water_enters_full_of_oxygen_and_gives_it_up_with_depth():
+    """
+    The mirror of the test above, and the reason the driver matters.
+
+    The solute now enters at its ceiling instead of at zero, and is consumed
+    instead of accumulated, so every statement about the profile inverts: the
+    top row is nearly saturated with oxygen rather than nearly free of silica,
+    and the matrix below runs it down rather than filling it up.
+
+    The affinity inverts with it. Under dissolution it is 1 - c, what the
+    water can still take up; under oxidation it is c, what the water still has
+    to give. Both are zero where the water can do no more work.
+    """
+    m = _model()
+    m.set_driver("oxidation")
+    m.run(years=350e3)
+    assert m.c[0, :].min() > 0.99                    # rain arrives full
+    # ...and gives it up on the way down. Asserted top against base rather
+    # than at a fixed row: this grid is 20 cm cells against a 4.5 cm
+    # penetration depth, so no single row resolves the depletion, and by
+    # 350 kyr the matrix has opened enough to carry oxygen deep. The claim
+    # that survives coarsening is the one that matters -- water leaves with
+    # less than it arrived with.
+    assert np.median(m.c[-1, :]) < 0.8 * np.median(m.c[0, :])
+    assert m.c.max() <= 1.0 + 1e-12
+    assert np.allclose(m.affinity, m.c, rtol=1e-12, atol=0.0)
 
 
 def test_raising_the_temperature_shortens_the_saturation_length():
@@ -121,6 +162,9 @@ def test_temperature_acts_through_solubility_not_the_rate_constant():
     solubility at all.
     """
     cold, hot = _model(), _model()
+    for m in (cold, hot):
+        m.set_driver("dissolution")     # a statement about THIS reaction:
+                                        # oxygen solubility runs the other way
     cold.set_temperature(275.0)
     hot.set_temperature(315.0)
     cold.run(years=100e3)
@@ -132,12 +176,49 @@ def test_temperature_acts_through_solubility_not_the_rate_constant():
     assert change / cold.dissolved_fraction.mean() > 1.0     # more than double
 
 
-def test_grus_forms_at_the_joints_and_corestones_away_from_them():
-    """The claim the whole model rests on."""
-    m = _model().run(years=100e3)
+@pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
+def test_the_rock_weathers_less_the_further_it_is_from_a_joint(driver):
+    """
+    The claim the whole model rests on, stated as what it actually says.
+
+    It used to be asserted through ``is_grus`` and ``is_corestone`` -- two
+    ARBITRARY cut-offs at 0.50 and 0.05 on a continuous field, as their own
+    docstrings say -- and required both sets to be non-empty. That held for
+    dissolution, which drives the joint cells to 1 while the interiors sit
+    near 0, and it never holds for oxidation, which reaches 0.50 somewhere
+    only once almost nothing is left below 0.05. Measured on this grid:
+
+        kyr    mean    max     cells > 0.50   cells < 0.05
+        100   0.1125  0.2844        0             3339
+        200   0.2477  0.4880        0              715
+
+    That is not the model failing. It is a test of where two arbitrary
+    thresholds happen to fall, dressed as a test of physics. What the
+    sentence claims is that weathering decreases with distance from the
+    joint network, and that is asserted directly here -- monotonically, band
+    by band, which is a far stronger statement than two thresholds
+    straddling.
+    """
+    m = _model()
+    m.set_driver(driver)
+    m.run(years=100e3)
     d = m.network.distance_to_fracture()
-    assert m.is_grus.any() and m.is_corestone.any()
-    assert np.median(d[m.is_grus]) < np.median(d[m.is_corestone])
+    x = m.dissolved_fraction
+
+    # AXIAL distances only -- whole multiples of the cell size. Euclidean
+    # distance mixes them with diagonals, and a cell one diagonal step from a
+    # corner is adjacent to TWO joints while a cell two axial steps away is
+    # adjacent to one, so ordering by distance is not ordering by shelter.
+    # Measured under dissolution, the mixed ordering gives 1.61e-01,
+    # 6.55e-04, 4.04e-08, 5.52e-07, 4.02e-11 -- the fourth above the third,
+    # which is the corner effect that
+    # test_corners_stay_further_from_saturation_than_faces asserts on
+    # purpose. It is not a defect, so it must not be written into a test as
+    # though monotonicity in Euclidean distance were the claim.
+    bands = [k * m.dx for k in range(4)]
+    means = [float(x[np.isclose(d, b)].mean()) for b in bands]
+    assert all(a > b for a, b in zip(means, means[1:])), (bands, means)
+    assert means[0] > 3.0 * means[-1], means
 
 
 def test_weathering_only_ever_advances():

@@ -40,17 +40,40 @@ def test_a_frame_covers_the_same_model_time_at_every_temperature(tC):
                                              rel=1e-9)
 
 
-def test_the_frame_still_sub_steps_for_accuracy():
-    """The frame sets the pace; the drift control still sets the step. At the
-    warm end a frame needs several sub-steps, and taking it in one would be
-    the accuracy control quietly switched off."""
+def test_the_frame_respects_the_drift_budget():
+    """
+    The frame sets the pace; the drift control still sets the step, and this
+    is the property that says so.
+
+    It used to assert that a hot, wet frame takes MORE THAN ONE sub-step,
+    which was true of the dissolution driver -- seven at 30 C and 1.00 m/yr --
+    and is false of oxidation, which takes one step per frame at every setting
+    the demo offers. That is not the accuracy control being switched off; it
+    is a 1 kyr frame being short enough that one step stays inside the budget,
+    and the model saying so. Measured, sub-steps in a 1 kyr frame at
+    c_drift_max = 0.01:
+
+        driver        30 C 1.00   30 C 0.30   0 C 0.30
+        dissolution       7           2          1
+        oxidation         1           1          1
+
+    So the invariant is asserted directly instead of through a proxy that only
+    held for one of the two reactions: however many steps a frame takes, the
+    drift each one produced is inside the budget.
+    """
     demo.temperature.value = 30.0
     demo.infiltration.value = 1.00
     demo.do_reset()
     m = demo.sim["model"]
-    calls = []
+    drifts = []
     real = m.update
-    m.update = lambda *a, **k: (calls.append(1), real(*a, **k))[1]
+    def watched(*a, **k):
+        out = real(*a, **k)
+        drifts.append(m._drift)
+        return out
+    m.update = watched
     demo.step()
     demo.infiltration.value = 0.30                # leave the sliders as found
-    assert len(calls) > 1, "a hot, wet frame should not be a single step"
+    assert drifts, "the frame took no step at all"
+    assert all(d is not None and d <= m.c_drift_max * 1.001 for d in drifts), \
+        drifts
