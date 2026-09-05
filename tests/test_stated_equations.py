@@ -684,3 +684,48 @@ def test_the_reactive_surface_area_is_six_phi_over_d():
         6.0 * m.phi_biotite / m.grain_size, rel=1e-12)
     assert m.biotite_surface_area == pytest.approx(180.0, rel=1e-12)
     assert 6.0 * 0.30 / m.grain_size == pytest.approx(900.0, rel=1e-12)
+
+
+def test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length():
+    """
+    ``penetration = sqrt(D_O2 / (tortuosity_fresh k_ox A))``
+
+    Once the advective Damkohler is far below one, this is the only length
+    left, and it is what would shelter a corestone in an oxygen-driven model.
+    Pinned at the reference state because the whole framing of the exercise
+    turns on it being centimetres rather than metres.
+
+    Also pinned: the regime it implies. The section-scale Damkohler on oxygen
+    must be below the 1/3 that :attr:`regime` calls reaction-limited, while
+    the silica one is above the 3 that it calls saturation-limited. Those two
+    facts together are the finding of probe I, and if either stops holding,
+    the page's claim about what shelters a corestone must be re-read.
+    """
+    m = _thermo(11.85)
+    m.set_infiltration(0.30 / YEAR)
+    want = np.sqrt(m.D_O2_aqueous / m.tortuosity_fresh
+                   / m.specific_oxidation_coefficient)
+    assert m.oxidation_penetration_depth == pytest.approx(want, rel=1e-12)
+    assert m.oxidation_penetration_depth == pytest.approx(0.0448, rel=2e-3)
+
+    assert m.specific_oxidation_coefficient == pytest.approx(7.2e-11, rel=1e-3)
+    assert m.oxidation_length == pytest.approx(132.0, rel=1e-2)
+    # The regime claim depends on section depth, so it is made at the depth
+    # the demo actually uses -- 3 m -- and not on this fixture's 1 m.
+    deep = Weathering(FractureNetwork(60, 60, 0.05, periodic_x=True).seed(
+        sets=orthogonal_grid(1.0), rng=np.random.default_rng(0)))
+    deep.set_infiltration(0.30 / YEAR)
+    deep.set_temperature(11.85 + 273.15)
+    deep.initialize()
+    assert deep.damkohler > 3.0                    # saturation-limited
+    assert deep.oxidation_damkohler < 1.0 / 3.0    # reaction-limited
+    assert deep.regime == "saturation-limited"
+
+    # ...and the ratio of the two, which no grid can change.
+    assert m.oxidation_length / m.saturation_length == pytest.approx(289.0,
+                                                                    rel=1e-2)
+
+    # Warming deepens the penetration, because diffusivity rises with it and
+    # the rate constant has no temperature dependence to oppose that.
+    cold, warm = _thermo(0.0), _thermo(30.0)
+    assert warm.oxidation_penetration_depth > cold.oxidation_penetration_depth

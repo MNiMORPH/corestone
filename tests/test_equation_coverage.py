@@ -34,8 +34,8 @@ _RELATION = re.compile(r"(?<![<>=!])=(?!=)|->")
 
 #: Pins the extractor itself. If this number moves without the ledger moving,
 #: the extractor has broken and would otherwise report a quiet all-clear.
-EXPECTED_BLOCKS = 21
-EXPECTED_DISTINCT = 19
+EXPECTED_BLOCKS = 22
+EXPECTED_DISTINCT = 20
 
 LEDGER = {
     "R = k(T) * A * (1 - C / C_eq)":
@@ -86,6 +86,9 @@ LEDGER = {
     "ln C = -139.34411 + 1.575701e5 / T - 6.642308e7 / T^2 "
     "+ 1.2438e10 / T^3 - 8.621949e11 / T^4":
         "test_the_oxygen_solubility_correlation_matches_tabulated_water",
+
+    "penetration = sqrt(D_O2 / (tortuosity_fresh k_ox A))":
+        "test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length",
 
     "A = 6 phi / d":
         "test_the_reactive_surface_area_is_six_phi_over_d",

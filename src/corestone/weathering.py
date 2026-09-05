@@ -468,6 +468,37 @@ class Weathering(object):
         # goethite. Lebedeva & Brantley (2020), the same group, later write
         # the reaction to goethite explicitly with these volumes.
         self.V_goethite = 20.82e-6        # FeOOH [m3/mol Fe]
+        # The oxidation rate constant [m/s]: rate per unit area per unit
+        # dissolved O2, so that ``k_ox * C`` is a flux of oxygen into the
+        # mineral surface. From the only rate there is -- about 1e-13
+        # mol m-2 s-1 at 0.25 mol/m3 O2 and 25 C -- which divides to
+        # 4e-13 m/s. GOOD TO A FACTOR OF THREE, no better: two secondary
+        # renderings of it disagree by 1.5 to 2.4 and reverse a rank order,
+        # and the primary, White & Yee (1985) GCA 49:1263-1275, has not been
+        # read. Design 08 records the interlibrary request.
+        #
+        # FIRST ORDER in O2, not Fletcher's C^0.25. His exponent is the
+        # stoichiometric quarter of the reaction adopted as a concentration
+        # exponent, with no citation and no experiment behind it; Lebedeva &
+        # Brantley (2020) eq. 15, the same group and the same reaction, is
+        # linear and keeps the quarter where it belongs, in the stoichiometry.
+        #
+        # AND IT CARRIES NO TEMPERATURE DEPENDENCE, WHICH IS A FINDING RATHER
+        # THAN AN OVERSIGHT. There is no measured activation energy for
+        # aqueous oxidation of structural Fe(II) in a silicate by dissolved
+        # O2: Hogg & Meads (1975), a dedicated Mossbauer kinetics study of
+        # exactly this reaction, contains no Arrhenius parameters anywhere --
+        # 4263 words, zero occurrences of "activation energ", "Arrhenius",
+        # "kJ" or "kcal". Giving this constant an E_a would be inventing one.
+        # Temperature still acts on the oxidation, twice and in opposite
+        # directions, through two quantities that ARE measured: oxygen
+        # solubility falls as water warms, and diffusivity rises.
+        self.k_oxidation = 4.0e-13        # oxidation rate constant [m/s]
+        # Free-water diffusivity of dissolved O2 [m2/s] at T_D_ref. About
+        # twice the silica value, because O2 is a small neutral molecule and
+        # silicic acid is not. Scaled to the working temperature by the same
+        # Stokes-Einstein factor; see :attr:`diffusivity_factor`.
+        self.D_O2_molecular = 2.1e-9      # aqueous O2 diffusivity [m2/s]
         # MEASURED, and of the right species. The solute here is silica --
         # C_eq is quartz saturation -- and the diffusion coefficient of
         # dissolved silica is (1.02 +/- 0.02)e-9 m2/s at 25 C (Rebreanu,
@@ -904,6 +935,11 @@ class Weathering(object):
         return oxygen_solubility(float(np.mean(self.T)))
 
     @property
+    def D_O2_aqueous(self):
+        """Free-water diffusivity of O2 at the working temperature [m2/s]."""
+        return self.D_O2_molecular * self.diffusivity_factor
+
+    @property
     def biotite_surface_area(self):
         """
         Reactive surface area of the biotite [m2 per m3 of rock].
@@ -966,6 +1002,80 @@ class Weathering(object):
         less oxygen per litre, not more.
         """
         return 0.25 * self.f_FeO / (self.V_FeO * self.C_O2)
+
+    @property
+    def specific_oxidation_coefficient(self):
+        """
+        ``k_ox A`` [1/s]: the rate at which fresh biotite consumes dissolved
+        oxygen, per unit of oxygen present. The oxygen counterpart of
+        :attr:`specific_reaction_coefficient`, and like it a scalar, because
+        the area falls in proportion to the mineral remaining.
+
+        No temperature dependence, and that is deliberate; see
+        ``k_oxidation``. Nothing measured supports one.
+        """
+        return self.k_oxidation * self.biotite_surface_area
+
+    @property
+    def oxidation_length(self):
+        """
+        How far water travels before its oxygen is used up [m]: ``q / k_ox A``.
+
+        The advective counterpart of :attr:`saturation_length`, and it is
+        enormous -- 132 m at 6 % biotite, against a 3 m section. Water crosses
+        this model barely touched, so oxygen is delivered EVERYWHERE at the
+        joint network's own concentration, and nothing is sheltered by the
+        water having arrived spent.
+
+        That is the opposite of the silica picture and it is the reason the
+        driver cannot be swapped without re-reading what the exercise claims;
+        see :attr:`oxidation_damkohler`.
+        """
+        return self.infiltration / self.specific_oxidation_coefficient
+
+    @property
+    def oxidation_damkohler(self):
+        """
+        Section depth over :attr:`oxidation_length` [-]: 0.023 at 6 % biotite
+        and a 3 m section, against 6.56 on silica.
+
+        Under 1/3 is REACTION-LIMITED by :attr:`regime`'s own thresholds, so
+        flipping the driver flips the limit. A corestone in this model would
+        no longer be sheltered by saturation -- oxygen reaches every joint --
+        but by :attr:`oxidation_penetration_depth`, which is a diffusive
+        length and a hundred times shorter. Both are "the water never got
+        there"; they are not the same mechanism and the page teaches the
+        first.
+        """
+        return (self.network.nz * self.network.dx) / self.oxidation_length
+
+    @property
+    def oxidation_penetration_depth(self):
+        """
+        How far oxygen penetrates intact rock before it is consumed [m].
+
+            penetration = sqrt(D_O2 / (tortuosity_fresh k_ox A))
+
+        The reaction-diffusion boundary layer, and once advection has stopped
+        mattering it is the only length left. 4.5 cm at 6 % biotite and
+        the model's own tortuosity, which is the scale of a weathering rind and
+        of the oxidised biotite Buss et al. (2008) imaged 2.7 cm inside
+        nominally fresh corestone. Nothing was tuned to land there.
+
+        IT IS ALSO ABOUT ONE CELL. The demo offers 5, 2.5 and 2 cm cells, so
+        the front this model would draw is at the grid scale at the coarse
+        end -- while the page promises that cell size is the numerical grid
+        and not the rock. That is a build problem, recorded in
+        ``prototypes/probe_i_oxygen_regime.py``, not a physical one.
+
+        It uses ``tortuosity_fresh`` because it is a statement about INTACT
+        rock, which is the rock that shelters a corestone. Behind the front,
+        where the rock has opened, the same expression gives nearly two
+        metres: the weathered zone offers oxygen almost no resistance, which
+        is what makes the front sharp.
+        """
+        return np.sqrt(self.D_O2_aqueous / self.tortuosity_fresh
+                       / self.specific_oxidation_coefficient)
 
     @property
     def oxidation_front_ceiling(self):
