@@ -52,8 +52,16 @@ WHAT IS ASSUMED, MARKED
               25 C, good to a factor of three (design 08; White & Yee 1985
               remains unread). Bracketed 0.33x to 3x here.
     A         6 phi / d, the model's own geometric convention, on the BIOTITE
-              volume fraction. phi_biotite IS A GAP: 3 to 10 % is the range
-              for granite and nothing here narrows it. Bracketed.
+              volume fraction. This was a GAP when the probe was written; it
+              was closed by Andy choosing 6 % from the 3-10 % granite range on
+              2026-09-05, and the model now carries it as ``phi_biotite``. The
+              bracket is kept here as the sensitivity, and the chosen value is
+              the middle row: A = 180 m2/m3, Da = 0.0227, front 5.40 cm.
+    D_O2      free water at 25 C, NOT scaled to the model's temperature. So
+              this probe's front width is the 25 C one, 5.40 cm, while
+              Weathering.oxidation_penetration_depth applies Stokes-Einstein
+              and gives 4.48 cm at the model's 11.85 C. The Damkohler agrees
+              to the last digit because it has no diffusivity in it.
     D_O2      2.1e-9 m2/s in free water. Not the model's silica value; O2 is
               about twice as mobile.
     tortuosity, grain size, infiltration, f_FeO, V_FeO: the model's own.
@@ -75,7 +83,7 @@ D_O2 = 2.1e-9
 #: The literature rate and its factor-of-three bracket [mol m-2 s-1 at
 #: 0.25 mol/m3], and the biotite volume fractions that span granite.
 RATES = (0.33e-13, 1.0e-13, 3.0e-13)
-PHI_BIOTITE = (0.03, 0.05, 0.10)
+PHI_BIOTITE = (0.03, 0.06, 0.10)   # 0.06 is the value chosen, 2026-09-05
 
 #: The model's own values, repeated here rather than imported, so that this
 #: file states every number it uses.
