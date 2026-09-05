@@ -178,7 +178,7 @@ def test_the_oxidation_drivers_whole_temperature_response_is_the_gas_law():
     quantity's -14.5 -- and are too slow to be a unit test.
     """
     m = model()
-    assert m.driver == "oxidation"
+    m.set_driver("oxidation")
     dH = m.oxygen_dissolution_enthalpy
     assert dH < 0.0
     assert dH / 1e3 == pytest.approx(-14.5, abs=0.2)

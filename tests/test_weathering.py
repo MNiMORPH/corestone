@@ -318,3 +318,32 @@ def test_joints_carry_far_more_than_the_matrix():
     # and the mean flux through any depth still equals what fell on the surface
     assert m.q_v.sum(axis=1)[m.nz // 2] == pytest.approx(
         m.infiltration * m.dx * m.nx, rel=1e-8)
+
+
+def test_the_default_driver_is_dissolution_and_the_choice_is_deliberate():
+    """
+    Pinned, because it is a TEACHING decision and not a physical one, and a
+    teaching decision that lives only in a comment will drift.
+
+    Design 09 checked the oxidation case adversarially and it came out
+    stronger: Goodfellow et al. (2016) watched biotite weathering begin with
+    oxidation by diffusing oxygen. Oxidation is what really paces spheroidal
+    weathering. The default is dissolution anyway, because this model exists
+    to teach rate times affinity, a solubility ceiling and Arrhenius, and the
+    oxidation driver inverts the temperature intuition before a student has
+    built it.
+
+    If this test fails, someone changed which reaction the exercise is about.
+    That is allowed; it is not allowed to happen by accident.
+    """
+    m = _model()
+    assert m.driver == "dissolution"
+    assert m.apparent_activation_energy > 0.0      # warm means weathered
+    assert m.oxygen_dissolution_enthalpy < 0.0     # ...but not for oxygen
+    m.set_driver("oxidation")
+    assert m.apparent_activation_energy == 0.0
+    m.set_driver("dissolution")
+    assert m.driver == "dissolution"
+
+    with pytest.raises(ValueError):
+        m.set_driver("photosynthesis")

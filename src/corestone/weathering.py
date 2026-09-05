@@ -742,10 +742,27 @@ class Weathering(object):
         # WHICH REACTION PACES THE WEATHERING. The model carries both, and
         # the switch is one string, because the two are the same transport
         # problem with the solute pointing opposite ways -- see
-        # :attr:`driver`. "dissolution" is what this model did until design
-        # 08; "oxidation" is what the literature says actually paces
-        # spheroidal weathering.
-        self.driver = "oxidation"
+        # :attr:`driver`.
+        #
+        # THE DEFAULT IS DISSOLUTION, AND THE REASON IS TEACHING RATHER THAN
+        # PHYSICS. Design 09 checked the oxidation case adversarially and it
+        # came out STRONGER: Goodfellow et al. (2016) watched biotite
+        # weathering begin with oxidation by diffusing oxygen, with interlayer
+        # K+ leaving to balance the charge and crystals fragmenting along
+        # cleavage planes. Oxidation is what really paces spheroidal
+        # weathering, and design 08 records the case in full.
+        #
+        # But this model exists to teach basic chemical weathering, and that
+        # is rate times affinity, a solubility ceiling and Arrhenius. The
+        # dissolution driver has all three in their textbook form. The
+        # oxidation driver replaces the ceiling with a gas-solubility story
+        # that INVERTS the temperature intuition -- cold weathers faster,
+        # -14.5 kJ/mol -- before a student has built the intuition being
+        # inverted, and it rests on the least defensible parameter in the
+        # file (see k_oxidation). So oxidation is a documented, tested mode
+        # rather than the default, and the exercise page treats it
+        # qualitatively at the end.
+        self.driver = "dissolution"
 
         # ---- state
         self.T = self.T_ref               # temperature [K]
