@@ -577,10 +577,40 @@ class Weathering(object):
         # dissolved O2, so that ``k_ox * C`` is a flux of oxygen into the
         # mineral surface. From the only rate there is -- about 1e-13
         # mol m-2 s-1 at 0.25 mol/m3 O2 and 25 C -- which divides to
-        # 4e-13 m/s. GOOD TO A FACTOR OF THREE, no better: two secondary
-        # renderings of it disagree by 1.5 to 2.4 and reverse a rank order,
-        # and the primary, White & Yee (1985) GCA 49:1263-1275, has not been
-        # read. Design 08 records the interlibrary request.
+        # 4e-13 m/s.
+        #
+        # THIS IS THE WEAKEST NUMBER IN THE MODEL. It was written here as
+        # "good to a factor of three, from White & Yee (1985)", and design 09
+        # found that neither half of that holds up.
+        #
+        # The attribution has no visible chain. Fletcher, Buss & Brantley
+        # (2006) -- the paper this whole mechanism comes from -- does not cite
+        # White & Yee anywhere; the only 1985 entry in its reference list is
+        # Rice, Buol & Weed on saprolite profiles. White & Yee (1985) GCA
+        # 49:1263-1275 has still not been read and remains an interlibrary
+        # request.
+        #
+        # And "a factor of three" understates the spread by three orders of
+        # magnitude. Fletcher's own Table 1 gives k = 3.9e-10 mol m-2 s-1,
+        # which at his own pore-water O2 of 0.23 mol/m3 is 4239 TIMES the
+        # areal rate this constant produces -- on a specific surface area of
+        # 0.2 m2/g, BET-like and 167x the geometric area used here, for 7.1e5
+        # times the volumetric rate.
+        #
+        # His value is kept out anyway, and deliberately. Fletcher's K and his
+        # transport parameter are BACK-CALCULATED from an observed 2.6 cm
+        # rindlet and an assumed steady-state denudation rate of 1 cm/100 yr;
+        # they are outputs of a fit to a tropical landscape, not laboratory
+        # measurements. His diffusivity is 23.8 times free-water O2, which he
+        # acknowledges and which no solute in rock can be. Pairing a small,
+        # laboratory-flavoured constant with a GEOMETRIC area is what the
+        # plagioclase side does, and consistency between the two reactions is
+        # worth more here than agreement with a calibration.
+        #
+        # The consequence is visible and belongs on the page: at this rate the
+        # oxidation length is 132 m, so nothing is consumed over 3 m and the
+        # model has no weathering profile with depth. A hundredfold faster
+        # rate would put one back.
         #
         # FIRST ORDER in O2, not Fletcher's C^0.25. His exponent is the
         # stoichiometric quarter of the reaction adopted as a concentration
