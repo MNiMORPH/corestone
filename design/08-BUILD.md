@@ -37,7 +37,7 @@ Steps 1 and 2 are unblocked and can proceed meanwhile.
 | `d` | 2 mm | already `self.grain_size`. Sets reactive surface area AND dispersivity AND this |
 | `x_c` | **0.10** | **CALIBRATION**, from Goodfellow's ~10 % Fe(III) rise. Implies Gamma = 7.3 J/m2, which is checkable and lands between the 1-2 floor and the 200-500 specimen-scale ceiling |
 | `C_O2` | 0.338 mol/m3 | dissolved O2 at 12 C (10.8 mg/L). Tabulated; 0.456 at 0 C, 0.237 at 30 C |
-| `tau_O2` | ~679 | `0.25 * f_FeO / (V_FeO * C_O2)`. Compare the current 47744 for silica: oxygen is 15x less limiting, so the brake becomes diffusion, not budget |
+| `tau_O2` | ~679 | `0.25 * f_FeO / (V_FeO * C_O2)`. Compare the current 47744 for silica: oxygen is 70x less limiting, so the brake becomes diffusion, not budget |
 | rate | ~1e-13 mol m-2 s-1 | at 0.25 mM O2, 25 C, **good to a factor of 3 only**. White & Yee (1985) is the unread primary; two secondary renderings disagree 1.5-2.4x and reverse a rank order |
 | `E_a` | **does not exist** | no measured activation energy for aqueous Fe(II)-silicate oxidation by O2. Verified: Hogg & Meads (1975), a dedicated Mossbauer kinetics study, has zero occurrences of "activation energ", "Arrhenius", "kJ" or "kcal" in 4263 words. **If you give the rate a temperature dependence you are CHOOSING one -- say so on the page, do not present it as an Arrhenius pair** |
 | O2 order | **1, not 0.25** | Fletcher's C^0.25 is the stoichiometric quarter borrowed as a concentration exponent, with no experiment behind it. Lebedeva & Brantley (2020) eq. 15, same group and reaction, is first order |

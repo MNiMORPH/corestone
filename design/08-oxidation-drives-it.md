@@ -184,14 +184,26 @@ enters this repository as a citation again without the source being read.
 ## Why this is worth the fourth re-measurement
 
     tau, plagioclase / silica (today)   47744   ceiling on the front  6.3 m/Myr
-    tau, biotite Fe(II) / O2             3086                       97.2 m/Myr
+    tau, biotite Fe(II) / O2               678                        442 m/Myr
     field, temperate granite                                         4-7 m/Myr
 
-Oxygen is fifteen times less limiting per unit rock, so the brake stops being
+Oxygen is seventy times less limiting per unit rock, so the brake stops being
 the solute budget and becomes what Fletcher's model says it is: diffusive
 penetration of O2 into the corestone. The model currently reaches only 12 % of
 its own stoichiometric ceiling, which is the real discrepancy and is not a
 surface-area problem.
+
+**That table was wrong until 2026-09-05 and the error was this document's
+own.** It read 3086 and 97.2 m/Myr, computed with Fletcher's f_FeO = 0.05 --
+the number this same document rejects, two sections above, as too high for
+granite by four and a half times. So the case for the change was understated
+by a factor of four and a half while resting on a value the case itself
+disowns. Recomputed at f_FeO = 0.011 in the code
+(`Weathering.tau_oxidation`, `Weathering.oxidation_front_ceiling`), it is 678
+and 442 m/Myr. The lesson is narrow and worth keeping: a design document that
+corrects a parameter must recompute everything downstream of it in the same
+pass, or it ships the correction and the consequence of the error side by
+side.
 
 And the teaching line gets better rather than worse: **a corestone is not
 tougher rock -- the oxygen never got there.**
