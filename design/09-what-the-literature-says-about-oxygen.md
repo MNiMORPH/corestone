@@ -221,3 +221,134 @@ criterion -- decides the answer rather than decorating it.
    tropical denudation rate, and his diffusivity is 24x free water.
 4. Still worth an interlibrary request: White & Yee (1985), to find out whether
    the 1e-13 attribution has a source at all.
+
+---
+
+## 7. Is oxygen really the control for biotite? Asked adversarially, 2026-09-05
+
+Andy asked whether oxygen is as important as design 08 claims, or whether the
+reading had been assembled by looking for confirming sentences. It had been.
+So the corpus was searched for the COMPETING mechanism instead -- biotite
+weathering as hydrolysis, interlayer K loss and hydration, with no oxygen in
+it -- and the answer changed in two directions at once.
+
+### The competing story, and why it collapses
+
+Malmstrom, Banwart, Duro, Wersin & Bruno (1995), SKB TR-95-01, is 27,681 words
+of dedicated experimental biotite and chlorite weathering, and its subtitle is
+*"the dependence of pH and (bi)carbonate"*. It mentions pH 303 times. Its
+rate-limiting step is not oxygen:
+
+> "We interpret the kinetic behaviour of potassium as fast removal of K+ from
+> the biotite interlayers, and the formation of a K-depleted region through
+> which the K+ release becomes diffusion rate-limited."
+
+and its expansion is attributed to water, not iron:
+
+> "Expansion of the interlayer distance due to exchange of non-hydrated K+ by
+> hydrated ions or formation of hydroxy-polymer interlayers"
+
+Behrens et al. (2015) list three possible causes side by side, oxygen only one
+of them:
+
+> "Expansion of the biotite layers, due to hydration (hydrobiotite),
+> oxidation, or replacement of K by other cations"
+
+Read that far, oxidation looks like one option among several and design 08
+looks over-committed.
+
+**It collapses because the two are the same mechanism, and Goodfellow et al.
+(2016) measured the link.** Synchrotron X-ray microprobe on 26 biotite crystals
+across 10 thin sections -- and this is the paper the model ALREADY takes
+`k_matrix` and `k_weathered` from:
+
+> "Biotite weathering begins with oxidation of parts of biotite crystals that
+> are being accessed by diffusing oxygen."
+
+> "As weathering proceeds, Fe(II) is oxidized to Fe(III) within the biotite
+> lattice ... **To maintain charge balance during Fe oxidation, K+ ions from
+> the interlayer are released into solution**"
+
+> "In the most weathered crystals, over 85% of the Fe has oxidized, K is
+> heavily depleted, and biotite crystals have **fragmented along cleavage
+> planes**"
+
+> "these data indicate that K increases dramatically with weathering,
+> especially in early stages of **biotite oxidation**"
+
+K loss is not an alternative to oxidation. It is what oxidation forces:
+oxidising octahedral Fe(II) to Fe(III) removes negative layer charge, and the
+interlayer K+ must leave. Behrens says the same in one line, which the first
+reading missed -- "oxidation of biotite might be accompanied by K-loss from
+the interlayer and expansion of the layers". SKB's own Mossbauer work agrees
+that it is happening: "there is an increase in the Fe(III)/Fe(total) ratio in
+the mineral phase during biotite weathering."
+
+And SKB is not evidence against oxygen at all once read properly. Its keywords
+include "Redox potentials, Oxygen reduction"; it mentions oxygen 105 times;
+its purpose is to work out how fast biotite CONSUMES O2 in a repository:
+
+> "The release and oxidation of structural Fe(ll) in silicates, such as biotite
+> and chlorite, is one of several processes that will serve to deplete oxygen
+> from the deep aquifer."
+
+> "We use observed Fe release rates to make conservative estimates of
+> timescales of 1) the depletion of molecular oxygen from deep aquifers
+> (10^1-10^2 years)"
+
+**So the answer is that oxygen is MORE central than design 08 argued, and the
+strongest source for it is one the model already depends on.**
+
+### An independent check on the rate constant, which we did not have
+
+SKB's Table 3-1 gives biotite Fe release at 25 C as a function of pH, around
+1e-8 to 1e-9 mol m-2 h-1 through the middle of the pH range, i.e. of order
+1e-12 mol Fe m-2 s-1. This model's areal iron oxidation rate is
+`4 k_ox C_O2` = 5.4e-13 mol Fe m-2 s-1.
+
+**Within about a factor of two of a laboratory measurement on biotite** --
+against Fletcher's calibrated value, which is 4239x. The OCR of that table is
+poor and the comparison is order-of-magnitude, but it is the first independent
+support the rate constant has had, and it points the opposite way from
+Fletcher. Worth a clean read of Table 3-1 from the original.
+
+### TWO OF DESIGN 08'S SPECIFICS DO NOT SURVIVE, AND ONE FEEDS THE CRACKING
+
+**The product is ferrihydrite, not goethite.** Goodfellow: "ferrihydrite
+precipitates in voids", and "ferrihydrite is also ubiquitous in weathered
+samples, as further indicated by our SRPD data". Ferrihydrite appears in ten
+papers in this corpus, including Buss, Fletcher and Bazilevskaya.
+
+Design 08 ruled it out, and its argument was checked here and is CORRECT AS
+FAR AS IT GOES: Robie & Hemingway (1995) really does contain no ferrihydrite
+entry -- 99,626 words, zero occurrences, against 4 for goethite and 6 for
+wustite. But that is an argument about what a thermodynamic compilation
+contains, not about what is in the rock. Fletcher's citation does not support
+his mineral; that does not make the mineral goethite. The synchrotron data say
+ferrihydrite.
+
+**And the expansion is measured, at a fifth of what design 08 assumes.**
+Goodfellow: "The formation of this phase is accompanied by an expansion of the
+d-spacing from 10 A to 10.5 A" -- 5 %. Against design 08's route:
+
+    design 08   f_FeO * dV/V(FeO -> goethite) = 0.011 * 0.735 = 0.0081
+    Goodfellow  phi_biotite * (10.5/10 - 1)   = 0.06  * 0.05  = 0.0030
+
+a factor of 2.69 in strain and, because the elastic energy goes as strain
+squared, **7.3 in energy**. The fracture energy implied by calibrating on
+x_c = 0.10 would move from 7.3 J/m2 to **1.0** -- onto the thermodynamic floor
+of 1-2 J/m2 (Brace & Walsh 1962) rather than an order above it.
+
+Goodfellow does not settle it either, and says so: "there are **two potential
+pathways** for volumetric expansion to accompany the oxidation dissolution of
+Fe(II)" -- the layer expansion above, and ferrihydrite precipitating in voids,
+which the d-spacing does not capture. So 0.0030 is a lower bound and 0.0081 is
+the upper end, and the truth is between.
+
+**What this means for design 08 step 3.** The cracking criterion was about to
+be built on `f_FeO * (dV/V)` with a goethite molar volume. It should instead
+carry BOTH pathways explicitly, bracketed 0.0030 to 0.0081, with the implied
+fracture energy reported across that bracket (1.0 to 7.3 J/m2) rather than as
+a single number. That is a wider claim than design 08 makes and a better
+supported one, and the wide part is honest: Goodfellow measured the layer and
+saw the voids, and nobody has partitioned them.

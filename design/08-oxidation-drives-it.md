@@ -78,6 +78,15 @@ wrong changes which modulus the model needs.
 | `E`, `nu` | 76 GPa, 0.24 | SKB R-05-83 Tables 2-7/2-9: 52 intact granite-granodiorite cores, Forsmark. Near-surface cracked granite is softer -- 40 GPa is the more defensible choice here, and the model is about rock that is cracking |
 | `x_c` | **0.10** | **calibration.** The oxidation extent at which cracking begins, from Goodfellow et al. (2016). Implies Gamma = 7.3 J/m2, against a floor of 1-2 (Brace & Walsh 1962) and a specimen-scale ceiling of 200-500 (Friedman et al. 1972) |
 
+**SUPERSEDED 2026-09-05 -- see design 09 section 7. The claim below is
+correct about the COMPILATION and wrong about the ROCK.** Robie & Hemingway
+really does contain no ferrihydrite entry (verified: 99,626 words, zero
+occurrences), so Fletcher's citation does not support his mineral. But
+Goodfellow et al. (2016) find ferrihydrite ubiquitous in weathered samples by
+synchrotron powder diffraction, and measure the accompanying expansion as a
+d-spacing change of 10 to 10.5 A -- a fifth of the volume change assumed here,
+which moves the implied fracture energy from 7.3 J/m2 to 1.0.
+
 **The product is goethite, not ferrihydrite.** Fletcher's footnote quotes 0.7
 for "wustite to ferrihydrite" citing Robie & Hemingway -- but that compilation
 contains no ferrihydrite entry at all, and 0.7 is only reproducible as
