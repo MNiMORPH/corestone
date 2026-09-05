@@ -667,3 +667,20 @@ def test_the_front_ceiling_is_the_flux_over_tau():
     per_Myr = m.oxidation_front_ceiling * YEAR * 1e6
     assert per_Myr == pytest.approx(442.4, rel=1e-3)
     assert m.infiltration / m.tau * YEAR * 1e6 == pytest.approx(6.28, rel=1e-2)
+
+
+def test_the_reactive_surface_area_is_six_phi_over_d():
+    """
+    ``A = 6 phi / d``
+
+    Cubic grains, the model's one convention for surface area, applied to the
+    biotite exactly as it is to the plagioclase behind ``L_ref``. Checked
+    against the plagioclase number too: the same expression at 30 % must
+    return the 900 m2/m3 that ``L_ref`` was derived from, or the two
+    reactions are not being measured the same way.
+    """
+    m = _thermo()
+    assert m.biotite_surface_area == pytest.approx(
+        6.0 * m.phi_biotite / m.grain_size, rel=1e-12)
+    assert m.biotite_surface_area == pytest.approx(180.0, rel=1e-12)
+    assert 6.0 * 0.30 / m.grain_size == pytest.approx(900.0, rel=1e-12)

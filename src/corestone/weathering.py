@@ -436,6 +436,26 @@ class Weathering(object):
         # FeO -- too high for granite by four and a half times, and too high
         # even for their own rock, which measures 4.6.
         self.f_FeO = 0.011                # FeO component, volume fraction [-]
+        # How much of the rock is biotite, by volume. Sets the reactive
+        # surface area of the oxidation exactly as 30 % plagioclase sets it
+        # for the dissolution -- see :attr:`biotite_surface_area`. Granite
+        # runs 3 to 10 %; 6 is Andy's choice from that range, 2026-09-05.
+        #
+        # IT IS COUPLED TO f_FeO AND THE COUPLING IS WORTH STATING. f_FeO is
+        # WHOLE-ROCK iron, from bulk analyses of the USGS reference granites,
+        # so it includes iron in magnetite and ilmenite, which do not oxidise
+        # to goethite on this timescale. Holding both numbers means asserting
+        # that all of the rock's iron sits in 6 % biotite -- 18.3 % of the
+        # biotite by volume, which needs 2.3 Fe per formula unit, X_Fe = 0.77.
+        # That is a real granite biotite and it is at the iron-rich end.
+        #
+        # The alternative reading is more ordinary and makes the case for
+        # design 08 STRONGER, which is why this one is kept: an X_Fe = 0.5
+        # biotite at 6 % holds f_FeO = 0.0072 of the bulk rather than 0.0110,
+        # giving tau_O2 = 444 and a front ceiling of 676 m/Myr instead of 678
+        # and 442. Taking all the iron as oxidisable is the conservative end
+        # of the budget, so the pair is chosen rather than merely inherited.
+        self.phi_biotite = 0.06           # biotite, volume fraction [-]
         # Molar volume of the FeO component [m3/mol Fe]. Robie & Hemingway
         # (1995), USGS Bulletin 2131, p. 16.
         self.V_FeO = 12.00e-6             # FeO [m3/mol Fe]
@@ -882,6 +902,28 @@ class Weathering(object):
         """Dissolved oxygen at the working temperature [mol/m3]; see
         :func:`oxygen_solubility`."""
         return oxygen_solubility(float(np.mean(self.T)))
+
+    @property
+    def biotite_surface_area(self):
+        """
+        Reactive surface area of the biotite [m2 per m3 of rock].
+
+            A = 6 phi / d
+
+        Cubic grains of side ``d`` at volume fraction ``phi``: six faces each
+        of area ``d^2``, in a cube of volume ``d^3``, times the fraction of
+        the rock they make up. 180 m2/m3 at 6 % biotite and 2 mm grains.
+
+        GEOMETRIC, and deliberately so -- the same convention, and the same
+        grain size, as the 900 m2/m3 that sets ``L_ref`` for the plagioclase.
+        BET area for granite is 3e5 to 3e6, two to three orders higher, and
+        pairing a laboratory rate constant with a geometric area is the
+        standard way to land near field behaviour. Using the same convention
+        on both minerals is what makes the two reactions comparable at all;
+        mixing a geometric area on one with a BET area on the other would
+        manufacture a difference that is a method artefact.
+        """
+        return 6.0 * self.phi_biotite / self.grain_size
 
     @property
     def volume_expansion(self):
