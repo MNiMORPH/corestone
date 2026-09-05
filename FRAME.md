@@ -20,53 +20,52 @@ matplotlib` reports all three bundled by Pyodide.
 
 ## (b) Plan and trajectory -- as the next action
 
-0. **Two decisions are waiting on Andy**, both measured and neither
-   implemented -- see (e). The exponential integrator is the larger
-   acceleration available to this model, and it is a parameter change, so it
-   is his call and not a detail.
-1. **Next: `artesian build` the demo.** `examples/app.py` exists and runs
-   locally; it has never been compiled. That is the real test of whether a
-   scipy sparse solve behaves under Pyodide.
-   `HANDOFF-geomorphonline-demo.md` (untracked, written 2026-09-02 by the
-   session that shipped the GRLP exercise) is the guide for this, and Andy
-   has flagged it as the thing to take up next.
-2. **Re-measure the stale design documents** (see the warning in (e) -- this is
-   not optional bookkeeping, they contain numbers that are now wrong).
-3. `f_inert` is set, claimed in the README and `design/02` as the second solid
-   phase, and **never used**. Implement it or delete the claim.
-4. `P21` carries a systematic +8 % bias from counting wall joints at full
+0. **Two decisions wait on Andy.** Does the colour bar become oxidation extent
+   once design 08 lands -- that changes what the exercise is *about*. And the
+   "What to do" section on both exercise pages is still `*(To be written.)*`,
+   which is the only thing between this and a usable assignment.
+
+1. **Next: implement `design/08-oxidation-drives-it.md`.** Designed in full,
+   corrected against sources, not one line written. Biotite Fe(II) oxidation
+   by dissolved O2 replaces plagioclase dissolution as the driver; `M` becomes
+   the unoxidised fraction, so the existing `k(M)` and `tortuosity(M)`
+   interpolations index on Goodfellow's own variable. The solute flips from
+   product to reactant: same operator, right-hand side goes to zero, inlet
+   boundary c = 1, rate proportional to `c M` instead of `(1-c) M`. The
+   exponential integrator survives unchanged. Cracking is an elastic-energy
+   budget, four lines, with `x_c = 0.10` calibrated on Goodfellow and the
+   implied fracture energy of 7.3 J/m2 reported as the checkable by-product.
+
+2. **Re-measure designs 02-06.** Still open and now much worse: 2026-09-04
+   changed tau, the saturation length, both matrix transport terms, the joint
+   conductivity, the diffusivity and the pace. Nearly every number in those
+   documents is stale.
+
+3. `P21` carries a systematic +8 % bias from counting wall joints at full
    length; `test_a_full_orthogonal_grid_has_the_analytic_intensity` hides it
-   behind `rel=0.15`.
-5. Read `E_a` and `delta_H_r` out of Palandri & Kharaka rather than assuming.
+   behind `rel=0.15`. Untouched.
+
+4. **Three interlibrary requests would close real uncertainties.** White & Yee
+   (1985), GCA 49:1263-1275 -- the primary behind the only biotite oxidation
+   rate, whose two secondary renderings disagree by 1.5-2.4x and reverse a
+   rank order. Zang et al. (2000), JGR 105:23651-23661, and its companion
+   Janssen et al. (2001), Int. J. Earth Sci. 90:46-59 -- these would turn the
+   fracture-energy bracket into a number.
+
+5. Done and struck from this list: `f_inert` removed (`43895c9`); `E_a` and
+   `delta_H_r` sourced (`bdaab2f`); the demo built and deployed.
 
 ## (c) Key current data and objects
 
-Branch `master`, HEAD `f3bd9c4`, **30 commits unpushed**, working tree clean
-apart from the untracked `HANDOFF-geomorphonline-demo.md`.
+Branch `master`, HEAD `8c3be28`, **everything committed and pushed** across all
+three repositories (corestone, artesian, GeomorphOnline.github.io). Working
+trees clean.
 
-- `src/corestone/fractures.py` -- the joint network. Seeded via `seed()`, or
-  supplied wholesale via `from_masks()`. `tiling_angles()` / `tiling_spacing()`
-  give the orientations and spacings that tile a periodic width.
-- `src/corestone/weathering.py` -- **the model**. Steady Darcy flow solved once;
-  steady advection-diffusion-reaction for the solute, one sparse solve per step
-  with the LU cached and reused as a preconditioner.
-- `examples/app.py` -- the four-slider demo. `panel serve examples/app.py`.
-- `examples/figure_three_panel.py` -- the figure, parameterised:
-  `--width --depth --dx --spacing --kyr --rotation --xperiod --out`.
-- `prototypes/probe_[a-e]_*.py` -- the evidence behind each design decision.
-- `tests/test_stated_equations.py` + `test_equation_coverage.py` -- the
-  transcription tests and the ledger that stops an equation entering a
-  docstring without a check. **These exist because a docstring drifted from its
-  code for six revisions.**
-- `tests/test_solver.py` -- the properties the fast paths rely on. Structural
-  symmetry of both matrices (which is what licenses the ordering), the
-  diagonal being present in the pattern (which is what licenses writing the
-  reaction term in place), and the warm-started field matching a cold direct
-  solve (which is what makes the reused guess a guess and not an
-  approximation).
+Live: <https://geomorphonline.github.io/exercises/corestone-weathering/>
 
-79 tests, ~10 s. **The "~100 s" this file used to claim was wrong** -- measured
-at 14.4 s on the pre-speed-up tree, so it was never true, not merely stale.
+Note that **other Claude sessions push to the site repository while this one
+works**. A push was rejected on 2026-09-04 and rebased cleanly; check
+`origin/master` before assuming a push landed.
 
 ## (d) Guardrails and irreversibility state
 
@@ -78,6 +77,25 @@ Two pushes exist in the reflog: `0a57fcd` (mine, authorised) and `18cb016`
 (not from my session -- Andy's).
 
 ## (e) Results, each with the method that verified it
+
+**AS OF 2026-09-04 THE MODEL IS FULLY PARAMETERISED FROM SOURCES.** Nothing in
+the chemistry or the flow is fitted: rate constant and activation energy from
+Palandri & Kharaka for oligoclase; solute ceiling and enthalpy from quartz
+saturation; matrix conductivities from Goodfellow et al. (2016); joint
+conductivity from a 100 um hydraulic aperture through the cubic law
+(Witherspoon et al. 1980); silica diffusivity from Rebreanu et al. (2008)
+scaled by Stokes-Einstein; tau and the saturation length from the mineralogy
+and a 2 mm grain size. Which makes the weathering timescale a PREDICTION:
+**0.79 m/Myr against 4-7 measured** for temperate granite regoliths, so five
+to nine times slow, reported rather than tuned. The gap sits in the reactive
+surface area, geometric at 900 m2/m3 against a BET 3e5-3e6.
+
+The rind is 4.6 % of the section part-dissolved, about 14 cm, against 30.6 %
+before the matrix transport was corrected. Real rindlet zones run 20-60 cm.
+
+Watching to 90 % dissolved: 342 s at 0 C, 126 s at 12, 35 s at 30, at 1 kyr a
+frame. **That is a slower demo than it was, and better science.** Whether the
+trade is right for a teaching page is a live question, not a settled one.
 
 **WARNING -- designs 02 to 06 contain numbers measured before three corrections
 and are not to be trusted without re-measurement.** In order: `a505892` made the
@@ -201,6 +219,35 @@ PYTHONPATH=src <venv-with-fractopo>/bin/python prototypes/probe_c_topology.py
 ```
 
 ## The standing lesson
+
+*(the original entry follows the additions of 2026-09-04)*
+
+**A default tolerance can make a test unable to fail.** `np.allclose` carries
+`atol=1e-8`. Every conductance and diffusivity in this model is smaller than
+that, so several transcription tests -- the ones whose whole purpose is to
+catch a docstring drifting from its code -- could not fail, and had not been
+able to for their entire existence. Removing the default exposed two real
+errors immediately. Every `np.allclose` in the suite now passes `atol=0.0`.
+
+**Nothing from a page-summarising tool becomes a citation without reading the
+source.** A fetch tool returned "quartz 1.16, albite 0.93, orthoclase 0.89
+J/m2, Lawn & Marshall (1979)". The PDF it summarised contains none of those
+minerals and no such reference. The numbers and the citation were both
+invented by the summarising model, and they reached a design document before
+a grep caught them.
+
+**An unanchored substitution hits the neighbouring row.** Three times in one
+day: a regex on a provenance SHA rewrote GRLP's and artesian's rows, a rename
+of `m.k_weathered` missed `m.k_matrix *` and left a test comparing corrected
+against uncorrected values, and a blanket rename of "transport-limited"
+rewrote the sentence that defined the term. Anchor them, then diff.
+
+**Send an agent to attack a result, not to confirm it.** Asked to confirm the
+cracking criterion, an agent instead found that `f_FeO` was wrong by 4.5x and
+that the fracture energy had been taken from one end of a 200-fold range --
+two errors pulling opposite ways, whose product had looked like a prediction
+landing on a measurement. Confirmation would have found supporting citations
+for a wrong number.
 
 Every real defect this model has had was caught by looking at a picture or by
 reading an equation against its code -- never by an aggregate statistic. The
