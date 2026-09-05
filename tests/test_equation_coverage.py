@@ -54,7 +54,8 @@ LEDGER = {
         "test_the_transport_coefficient_is_molecular_plus_dispersive",
 
     "sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j) + r dx^2 c_i "
-    "= r dx^2":
+    "= S_i S_i = r dx^2 dissolution: every cell a source, inlet c = 0 "
+    "S_i = q_in dx oxidation: the surface only, inlet c = 1":
         "test_the_solved_concentration_satisfies_the_stated_cell_balance",
 
     "d(M/M0)/dt = - r (1 - c) / tau":

@@ -194,6 +194,13 @@ YEAR = 365.25 * 24 * 3600.0
 ORDERING = "MMD_AT_PLUS_A"
 
 
+#: The two reactions this model can be paced by. See ``Weathering.driver``.
+#: They are the same transport problem with the solute pointing opposite
+#: ways: a PRODUCT that accumulates until it stops the reaction, or a
+#: REACTANT that is consumed until there is none left.
+DRIVERS = ("dissolution", "oxidation")
+
+
 #: Water density [kg/m3] and gravity [m/s2], for the cubic law.
 RHO_WATER = 1000.0
 GRAVITY = 9.81
@@ -586,6 +593,14 @@ class Weathering(object):
         self.krylov_tol = 1.0e-10         # convergence of the reused solve
         self.max_krylov_iterations = 15   # past this, refactorise instead
 
+        # WHICH REACTION PACES THE WEATHERING. The model carries both, and
+        # the switch is one string, because the two are the same transport
+        # problem with the solute pointing opposite ways -- see
+        # :attr:`driver`. "dissolution" is what this model did until design
+        # 08; "oxidation" is what the literature says actually paces
+        # spheroidal weathering.
+        self.driver = "dissolution"
+
         # ---- state
         self.T = self.T_ref               # temperature [K]
         self.t = 0.0                      # model time [s]
@@ -629,6 +644,18 @@ class Weathering(object):
     def set_infiltration(self, value):
         """Recharge at the ground surface [m/s]."""
         self.infiltration = value
+
+    def set_driver(self, value):
+        """Which reaction paces the weathering; see :attr:`driver`."""
+        if value not in DRIVERS:
+            raise ValueError("driver must be one of %r, not %r"
+                             % (DRIVERS, value))
+        self.driver = value
+        self._T = None                 # the diffusivity changed with it
+        self._T_key = None
+        self._lu = None
+        self._x = None
+        self._c_held = None
 
     def set_saturation_length(self, value):
         """Saturation length at the reference temperature [m]."""
@@ -841,8 +868,9 @@ class Weathering(object):
 
     @property
     def D_aqueous(self):
-        """Molecular diffusivity at the working temperature [m2/s]."""
-        return self.D_molecular * self.diffusivity_factor
+        """Molecular diffusivity of the driving solute at the working
+        temperature [m2/s]; see :attr:`solute_diffusivity`."""
+        return self.solute_diffusivity * self.diffusivity_factor
 
     @property
     def apparent_activation_energy(self):
@@ -1155,10 +1183,29 @@ class Weathering(object):
         ]
         return "\n".join(lines)
 
+    # ---- the driver: which reaction paces the weathering
+    #
+    # Everything that differs between the two is gathered here, in five small
+    # properties, so that switching is one string and not a fork of the model.
+    # The transport operator, the sparse assembly, the cached factorisation,
+    # the flow solve, k(M), tortuosity(M) and the exponential integrator are
+    # all shared and none of them knows which reaction it is serving.
+    #
+    # The physical difference is one of sign. Under DISSOLUTION the solute is
+    # a PRODUCT: it enters at zero, accumulates, and stops the reaction when
+    # it reaches saturation, so the driving force is (1 - c) and rock is
+    # sheltered by water that arrived already full. Under OXIDATION it is a
+    # REACTANT: it enters at one, is consumed, and the reaction stops where it
+    # runs out, so the driving force is c and rock is sheltered by oxygen that
+    # never got in. Both are "the water never got there"; they are not the
+    # same mechanism, and the pictures differ -- see
+    # prototypes/probe_j_flip_the_solute.py.
+
     @property
-    def specific_reaction_coefficient(self):
+    def specific_dissolution_coefficient(self):
         """
-        ``r / M`` [1/s]: the reaction coefficient per unit mineral remaining.
+        ``r / M`` [1/s] for the DISSOLUTION driver: plagioclase into water
+        that is approaching quartz saturation.
 
         A SCALAR, and that is the point of naming it. ``r`` falls with the
         soluble mineral because the reactive surface area does, and it falls
@@ -1169,6 +1216,47 @@ class Weathering(object):
         """
         return ((self.infiltration / self.L_ref)
                 * self.rate_factor / self.solubility_factor)
+
+    @property
+    def specific_reaction_coefficient(self):
+        """``r / M`` [1/s] for whichever reaction is driving; see
+        :attr:`driver`."""
+        if self.driver == "oxidation":
+            return self.specific_oxidation_coefficient
+        return self.specific_dissolution_coefficient
+
+    @property
+    def inlet_concentration(self):
+        """
+        Normalised solute concentration in the rain [-]: 0 under dissolution,
+        1 under oxidation.
+
+        Neither is a parameter. Rainwater carries no dissolved silica, and it
+        is in equilibrium with the atmosphere, so it arrives at the oxygen
+        saturation the normalisation is taken against. Both are exact by
+        construction.
+        """
+        return 1.0 if self.driver == "oxidation" else 0.0
+
+    def driving_force(self, c):
+        """
+        How hard the reaction is pushed, given the normalised solute ``c``.
+
+        ``1 - c`` under dissolution -- the affinity, which falls to zero at
+        saturation -- and ``c`` itself under oxidation, since a first-order
+        reaction in dissolved O2 is driven by how much of it is there. Both
+        live in [0, 1] and both vanish where the water can do no more work,
+        which is why the rest of the model does not need to know which is
+        which.
+        """
+        return c if self.driver == "oxidation" else 1.0 - c
+
+    @property
+    def solute_diffusivity(self):
+        """Free-water diffusivity of the solute at ``T_D_ref`` [m2/s]:
+        dissolved silica, or dissolved O2, which is about twice as mobile."""
+        return (self.D_O2_molecular if self.driver == "oxidation"
+                else self.D_molecular)
 
     @property
     def reaction_coefficient(self):
@@ -1190,7 +1278,13 @@ class Weathering(object):
 
         Falls as solubility rises, so a warmer and more soluble fluid carries
         more away per unit volume. This is the second place ``C_eq`` enters.
+
+        Under the OXIDATION driver it is :attr:`tau_oxidation` instead, and
+        it moves the opposite way with temperature, because oxygen is a gas
+        and comes out of solution as the water warms.
         """
+        if self.driver == "oxidation":
+            return self.tau_oxidation
         return self.tau_ref / self.solubility_factor
 
     def local_saturation_length(self):
@@ -1314,12 +1408,40 @@ class Weathering(object):
             r * self.dx * self.dx, (self.nz, self.nx)).ravel()
         return A
 
+    def _solute_source(self, r):
+        """
+        The right-hand side of the solute solve, which is where the two
+        drivers part company.
+
+        Under DISSOLUTION every cell is a source: rock puts solute into the
+        water, at ``r dx^2`` per cell, and the water arrives clean, so the
+        surface inflow contributes nothing. Under OXIDATION the rock is a
+        SINK -- it is already on the diagonal, as ``r dx^2 c_i`` -- and the
+        only source is the rain, which arrives at ``c = 1`` and carries
+        ``q_in dx`` of oxygen into each surface cell.
+
+        The operator is identical either way. That is the whole reason the
+        switch is cheap: advection, diffusion, the reaction on the diagonal,
+        the sparse assembly and the cached factorisation are all shared, and
+        only this vector moves.
+        """
+        b = np.zeros(self.nz * self.nx)
+        if self.driver == "oxidation":
+            b.reshape(self.nz, self.nx)[0, :] = \
+                self.infiltration * self.dx * self.inlet_concentration
+        else:
+            b[:] = np.broadcast_to(r * self.dx * self.dx,
+                                   (self.nz, self.nx)).ravel()
+        return b
+
     def solve_solute(self, r):
         """
         Steady advection-diffusion-reaction for the normalised concentration.
 
             sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j)
-                + r dx^2 c_i  =  r dx^2
+                + r dx^2 c_i  =  S_i
+            S_i = r dx^2   dissolution: every cell a source, inlet c = 0
+            S_i = q_in dx  oxidation: the surface only, inlet c = 1
 
         One sparse solve for the whole field. Diffusion is not directional, so
         the row-by-row sweep that pure advection allowed is gone -- and with it
@@ -1335,9 +1457,10 @@ class Weathering(object):
         convergence test is on the residual ``||b - A x||``, which does not
         know where the iteration started.
 
-        Water entering at the surface carries ``c = 0``, so it contributes
-        nothing to the inflow sum: undersaturation enters only through the
-        reaction term on the right.
+        The two drivers differ ONLY in ``S``; see :meth:`_solute_source`. Under
+        dissolution the water enters clean, so the surface inflow contributes
+        nothing and the rock is the source. Under oxidation the rock is a sink
+        -- already on the diagonal -- and the rain is the source.
 
         Cost. Only the diagonal changes between steps, so the LU factorisation
         is cached and reused as a preconditioner: at 22,650 cells a
@@ -1371,9 +1494,8 @@ class Weathering(object):
         was not better, and the 3.2x that first appeared to favour it was
         machine load drifting between sequential runs, not the solver.
         """
-        dx = self.dx
         A = self._step_matrix(r)
-        b = np.broadcast_to(r * dx * dx, (self.nz, self.nx)).ravel().copy()
+        b = self._solute_source(r)
 
         def direct():
             self._lu = spl.splu(A, permc_spec=ORDERING)
@@ -1628,7 +1750,7 @@ class Weathering(object):
         self._M_flow = None
         self.flow_solves = 0
         self.M = np.ones((self.nz, self.nx))
-        self.c = np.zeros((self.nz, self.nx))
+        self.c = np.full((self.nz, self.nx), self.inlet_concentration)
         self.t = 0.0
         self.solve_flow()
         return self
@@ -1701,7 +1823,8 @@ class Weathering(object):
         if self._c_held is None:
             self._c_held = self.solve_solute(self.reaction_coefficient)
         c_held = self._c_held
-        lam = self.specific_reaction_coefficient * (1.0 - c_held) / self.tau
+        lam = (self.specific_reaction_coefficient
+               * self.driving_force(c_held) / self.tau)
 
         def advance(step):
             # The clip is a guard, not a mechanism: lambda >= 0 because c <= 1,
@@ -1855,5 +1978,14 @@ class Weathering(object):
 
     @property
     def affinity(self):
-        """The bracket, ``1 - C/C_eq``: how much capacity the water has left."""
-        return 1.0 - self.c
+        """
+        How hard the reaction is being pushed, in [0, 1]; see
+        :meth:`driving_force`.
+
+        Under dissolution it is the bracket ``1 - C/C_eq``, how much capacity
+        the water has left before saturation stops it. Under oxidation it is
+        the normalised oxygen itself, since a first-order reaction is driven
+        by how much reactant is present. Zero means the water can do no more
+        work, either way, which is what makes it the field worth plotting.
+        """
+        return self.driving_force(self.c)

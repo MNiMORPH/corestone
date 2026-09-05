@@ -306,20 +306,34 @@ def test_the_transport_coefficient_is_molecular_plus_dispersive():
             < m.D_aqueous / m.tortuosity_weathered)
 
 
-def test_the_solved_concentration_satisfies_the_stated_cell_balance():
+@pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
+def test_the_solved_concentration_satisfies_the_stated_cell_balance(driver):
     """
         sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j) + r dx^2 c_i
-            = r dx^2
+            = S_i
+        S_i = r dx^2   dissolution: every cell a source, inlet c = 0
+        S_i = q_in dx  oxidation: the surface only, inlet c = 1
 
     Assembled here from the model's own fluxes, independently of the sparse
     matrix the solver builds, and checked PER CELL.
+
+    Run for BOTH drivers, and the source is written out here rather than taken
+    from ``_solute_source``, so that the test cannot pass by agreeing with the
+    code it is checking. The left-hand side is identical in the two cases --
+    that is the claim design 08 rests on, and this is where it is checked.
     """
     m = _model()
+    m.set_driver(driver)
     r = m.reaction_coefficient
     c = m.solve_solute(r)
     nz, nx, dx = m.nz, m.nx, m.dx
     D_v, D_h = m.transport_coefficients()
-    res = r * dx * dx * (c - 1.0)                       # reaction + source
+    source = np.zeros((nz, nx))
+    if driver == "oxidation":
+        source[0, :] = m.infiltration * dx      # rain, at c = 1
+    else:
+        source += r * dx * dx                   # rock, in every cell
+    res = r * dx * dx * c - source
 
     def flux(a_slice, b_slice, f, D):
         ca, cb = c[a_slice], c[b_slice]
@@ -344,7 +358,7 @@ def test_the_solved_concentration_satisfies_the_stated_cell_balance():
         res[:, 0] -= fw
     res[-1, :] += m.q_out_base * c[-1, :]
 
-    scale = (r * dx * dx).max()
+    scale = max((r * dx * dx).max(), source.max())
     assert np.abs(res).max() / scale < 1e-8
 
 
