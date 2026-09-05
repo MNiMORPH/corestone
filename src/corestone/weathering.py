@@ -478,6 +478,10 @@ class Weathering(object):
         self._T_key = None                # the values it was built from
         self._A = None                    # the step matrix, reused in place
         self._diag = None                 # where its diagonal sits in .data
+        self._flow_lu = None              # cached head factorisation, kept
+        self._H_prev = None               # across solves as a preconditioner
+        self.head_tol = 1e-12             # CG residual tolerance on the head
+        self.max_head_iterations = 20     # above this, refactorise instead
         self._lu = None                   # cached factorisation, reused
         self._x = None                    # last solute solution, unclipped
         self._dt = None                   # the step the drift control chose
@@ -1177,6 +1181,60 @@ class Weathering(object):
                           shape=(n, n)).tocsc()
         return A, rhs
 
+    def _solve_head(self, A, b):
+        """
+        Solve ``A H = b`` for the head, warm-started from the previous head.
+
+        The flow matrix is a conductance Laplacian: **exactly symmetric with a
+        positive diagonal**, checked in the tests, so conjugate gradients
+        applies. And between two solves the rock has changed by at most
+        ``flow_tolerance``, so the previous head is a very good starting guess
+        and the previous factorisation is a very good preconditioner.
+
+        That combination is what makes a converged ``flow_tolerance``
+        affordable. Re-solving the head is a third of the run at 0.05 and half
+        at 0.01, almost all of it factorisation; warm-started CG replaces most
+        of those with a handful of back-substitutions. Measured over 2000 kyr
+        at 5 cm, against the direct route at the same tolerance:
+
+            flow_tolerance 0.01   13.94 s, 850 factorisations   direct
+                                  10.41 s,  21 factorisations   this
+                                  max|dM| between them 4.9e-4
+
+        The factorisation is refreshed when CG fails to converge or needs more
+        than ``max_head_iterations`` -- either means the preconditioner has
+        drifted too far from the operator to be worth keeping. It is a
+        preconditioner, so a stale one costs iterations rather than accuracy:
+        the convergence test is on the residual, which does not care where the
+        iteration started or what preconditioned it.
+
+        NOTE the opposite result for the SOLUTE operator, where keeping a
+        stale factorisation across a rebuild is 2.1x SLOWER -- see FRAME (f).
+        The two are not symmetric: that one is rebuilt because its diagonal
+        moves every step, this one because the conductance field moves rarely.
+        """
+        if self._flow_lu is None or self._H_prev is None:
+            self._flow_lu = spl.splu(A, permc_spec=ORDERING)
+            x = self._flow_lu.solve(b)
+        else:
+            n = {"i": 0}
+            P = spl.LinearOperator(A.shape, matvec=self._flow_lu.solve)
+            x, info = spl.cg(A, b, x0=self._H_prev, M=P,
+                             callback=lambda xk: n.__setitem__("i", n["i"] + 1),
+                             maxiter=self.max_head_iterations * 4,
+                             # atol=0 so the RELATIVE tolerance governs alone.
+                             # scipy's default absolute tolerance would end the
+                             # iteration on the scale of b rather than on the
+                             # accuracy asked for -- the same defect as
+                             # np.allclose's atol, which made several tests in
+                             # this suite unable to fail.
+                             atol=0.0, **{_RTOL: self.head_tol})
+            if info != 0 or n["i"] > self.max_head_iterations:
+                self._flow_lu = spl.splu(A, permc_spec=ORDERING)
+                x = self._flow_lu.solve(b)
+        self._H_prev = x
+        return x
+
     def solve_flow(self):
         """
         Steady Darcy head, and the link fluxes it implies.
@@ -1186,7 +1244,9 @@ class Weathering(object):
         TOTAL head with elevation already in it -- adding a separate gravity
         term to the link flux double-counts it and manufactures water.
 
-        Conductance is static, so this runs once.
+        The head is re-solved whenever the rock has changed by more than
+        ``flow_tolerance``, which at a converged tolerance is most of the run's
+        cost -- half of it at 0.01. See :meth:`_solve_head`.
         """
         nz, nx, dx = self.nz, self.nx, self.dx
         kv, kh, kw = self.link_conductivity()
@@ -1199,7 +1259,7 @@ class Weathering(object):
         self._tort = self.link_tortuosity()
 
         A, b = self.flow_operator()
-        H = spl.splu(A, permc_spec=ORDERING).solve(b).reshape(nz, nx)
+        H = self._solve_head(A, b).reshape(nz, nx)
         self.H = H
         self.q_v = kv * (H[:-1, :] - H[1:, :])      # positive downward
         self.q_h = kh * (H[:, :-1] - H[:, 1:])      # positive rightward

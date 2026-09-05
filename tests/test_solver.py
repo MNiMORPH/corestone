@@ -11,6 +11,9 @@ plain method it replaced.
 import inspect
 
 import numpy as np
+import scipy.sparse.linalg as spl
+
+from corestone.weathering import ORDERING
 import pytest
 import scipy.sparse as sp
 
@@ -279,3 +282,60 @@ def test_the_iterative_tolerance_is_named_the_way_this_scipy_names_it():
     m.update()                                 # first step: direct
     m.update()                                 # second: the iterative path
     assert m.t > 0.0
+
+
+def test_the_flow_matrix_is_symmetric_so_cg_applies():
+    """Warm-started conjugate gradients is only legitimate because the
+    conductance Laplacian is symmetric with a positive diagonal. If an edit
+    ever breaks that -- an asymmetric boundary term, say -- CG would converge
+    to the wrong thing quietly."""
+    m = _model()
+    A, _ = m.flow_operator()
+    assert abs(A - A.T).max() == 0.0
+    assert (A.diagonal() > 0).all()
+
+
+def test_the_head_factorisation_is_kept_across_solves():
+    """
+    The point of the warm start. Re-solving the head is half the run at a
+    converged flow_tolerance, almost all of it factorisation; keeping the
+    previous factorisation as a preconditioner replaces most of those with
+    back-substitutions, and that is what makes flow_tolerance = 0.01
+    affordable.
+
+    Bites: pinning max_head_iterations to 0 forces a refactorisation every
+    time, which is the behaviour this replaced.
+    """
+    import scipy.sparse.linalg as spl_
+    def count(warm):
+        n = {"i": 0}
+        orig = spl_.splu
+        spl_.splu = lambda *a, **k: (n.__setitem__("i", n["i"] + 1), orig(*a, **k))[1]
+        try:
+            m = _model()
+            if not warm:
+                m.max_head_iterations = 0
+            m.initialize()
+            for _ in range(6):
+                m.solve_flow()
+        finally:
+            spl_.splu = orig
+        return n["i"]
+    warm, always = count(True), count(False)
+    assert warm < always, (warm, always)
+    assert always >= 7, always            # one per solve, plus initialize
+
+
+def test_the_warm_started_head_matches_a_direct_solve():
+    """A preconditioner may be stale; the ANSWER may not be."""
+    m = _model().initialize()
+    A, b = m.flow_operator()
+    direct = spl.splu(A, permc_spec=ORDERING).solve(b)
+    m.solve_flow()
+    for _ in range(4):
+        m.M *= 0.97
+        m.solve_flow()
+    A, b = m.flow_operator()
+    direct = spl.splu(A, permc_spec=ORDERING).solve(b)
+    warm = m._solve_head(A, b)
+    assert np.abs(warm - direct).max() / np.abs(direct).max() < 1e-9
