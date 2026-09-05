@@ -216,6 +216,7 @@ def water_viscosity(T):
     """
     return 2.414e-5 * 10.0 ** (247.8 / (T - 140.0))
 
+
 #: Molar mass of dioxygen [g/mol]. Present because every water-chemistry table
 #: of dissolved oxygen is in mg/L and this model is in mol/m3, which are the
 #: same units divided by this number.
@@ -438,6 +439,15 @@ class Weathering(object):
         # Molar volume of the FeO component [m3/mol Fe]. Robie & Hemingway
         # (1995), USGS Bulletin 2131, p. 16.
         self.V_FeO = 12.00e-6             # FeO [m3/mol Fe]
+        # ...and of its oxidation product, on the same per-single-Fe basis, so
+        # that the ratio of the two carries no stoichiometric factor.
+        #
+        # THE PRODUCT IS GOETHITE. Fletcher's footnote quotes 0.7 for "wustite
+        # to ferrihydrite" citing this same compilation, which contains no
+        # ferrihydrite entry at all; 0.7 is only reproducible as FeO to
+        # goethite. Lebedeva & Brantley (2020), the same group, later write
+        # the reaction to goethite explicitly with these volumes.
+        self.V_goethite = 20.82e-6        # FeOOH [m3/mol Fe]
         # MEASURED, and of the right species. The solute here is silica --
         # C_eq is quartz saturation -- and the diffusion coefficient of
         # dissolved silica is (1.02 +/- 0.02)e-9 m2/s at 25 C (Rebreanu,
@@ -872,6 +882,20 @@ class Weathering(object):
         """Dissolved oxygen at the working temperature [mol/m3]; see
         :func:`oxygen_solubility`."""
         return oxygen_solubility(float(np.mean(self.T)))
+
+    @property
+    def volume_expansion(self):
+        """
+        Fractional volume increase on oxidising one mole of FeO to goethite.
+
+            dV/V = V_goethite / V_FeO - 1
+
+        0.735, and it is the whole mechanical story: the iron in a biotite
+        sheet takes up nearly three quarters again as much room once it is
+        oxidised and hydrated, and the rock around it does not move aside.
+        That is the strain the cracking criterion spends.
+        """
+        return self.V_goethite / self.V_FeO - 1.0
 
     @property
     def tau_oxidation(self):

@@ -614,6 +614,24 @@ def test_warming_drives_oxygen_out_of_solution_and_silica_into_it():
     assert warm.tau < cold.tau
 
 
+def test_the_volume_expansion_is_the_ratio_of_the_molar_volumes():
+    """
+    ``dV/V = V_goethite / V_FeO - 1``
+
+    Both molar volumes are per single Fe, so the ratio carries no
+    stoichiometric factor and 0.735 is a pure geometric statement: oxidised,
+    hydrated iron needs three quarters again as much room.
+
+    The value is also the check on WHICH PRODUCT. Fletcher's 0.7 is quoted for
+    ferrihydrite from a compilation that has no ferrihydrite in it; goethite
+    reproduces it and ferrihydrite does not.
+    """
+    m = _thermo()
+    assert m.volume_expansion == pytest.approx(m.V_goethite / m.V_FeO - 1.0,
+                                               rel=1e-12)
+    assert m.volume_expansion == pytest.approx(0.735, abs=5e-4)
+
+
 def test_tau_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubility():
     """
     ``tau_O2 = f_FeO / (4 V_FeO C_O2(T))``
