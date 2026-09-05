@@ -1143,6 +1143,15 @@ class Weathering(object):
             % (self.infiltration / float(np.mean(self.tau)) * YEAR * 1e6),
             "  front ceiling, oxygen   %8.2f m/Myr (field: 4-7 m/Myr)"
             % (self.oxidation_front_ceiling * YEAR * 1e6),
+            "  oxidation length        %8.1f m     q / k_ox A -- advective"
+            % self.oxidation_length,
+            "  Damkohler, oxygen       %8.4f       %s"
+            % (self.oxidation_damkohler,
+               "reaction-limited" if self.oxidation_damkohler < 1.0 / 3.0
+               else "NOT reaction-limited"),
+            "  O2 penetration          %8.4f m     into INTACT rock; %.1f cells"
+            % (self.oxidation_penetration_depth,
+               self.oxidation_penetration_depth / self.dx),
         ]
         return "\n".join(lines)
 

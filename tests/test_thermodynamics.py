@@ -141,3 +141,6 @@ def test_the_thermo_report_puts_the_two_budgets_side_by_side():
                   "front ceiling, silica", "front ceiling, oxygen"):
         assert token in text, token
     assert "  678 " in text and "442.38" in text, text
+    for token in ("oxidation length", "Damkohler, oxygen", "O2 penetration",
+                  "reaction-limited"):
+        assert token in text, token
