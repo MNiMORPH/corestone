@@ -25,7 +25,9 @@ matplotlib` reports all three bundled by Pyodide.
    "What to do" section on both exercise pages is still `*(To be written.)*`,
    which is the only thing between this and a usable assignment.
 
-1. **Next: implement `design/08-oxidation-drives-it.md`.** Designed in full,
+1. **Next: implement design 08. `design/08-BUILD.md` is the ordered,
+   self-contained plan -- start there.** Rationale in
+   `design/08-oxidation-drives-it.md`. Designed in full,
    corrected against sources, not one line written. Biotite Fe(II) oxidation
    by dissolved O2 replaces plagioclase dissolution as the driver; `M` becomes
    the unoxidised fraction, so the existing `k(M)` and `tortuosity(M)`
