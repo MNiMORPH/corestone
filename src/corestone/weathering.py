@@ -728,9 +728,30 @@ class Weathering(object):
         # would be 0.3 m; 0.05 m is a fiftieth, inside the scatter and
         # deliberately conservative, since dispersion this large would smear
         # the rind the model exists to show.
-        # Grain size, which does two jobs and must do them consistently. It
-        # sets the reactive surface area behind L_ref above (900 m2/m3 for
-        # 2 mm cubes at 30 % plagioclase) and it sets the dispersivity below.
+        # Grain size, which now does THREE jobs, and they are not obviously
+        # the same length. Stated rather than hidden:
+        #
+        #   1. the reactive surface area of the plagioclase behind L_ref
+        #      (900 m2/m3 for 2 mm cubes at 30 %) -- the ROCK's grain size;
+        #   2. the reactive surface area of the BIOTITE, 6 phi / d. Biotite
+        #      forms flakes and is not obliged to share the mean grain size of
+        #      the quartz and feldspar. NOBODY HAS MEASURED IT for this rock,
+        #      and the oxidation rate is inversely proportional to it: at
+        #      0.5 mm the area is 720 m2/m3 rather than 180, so the reaction
+        #      is four times faster. This is the largest un-named uncertainty
+        #      left in the oxidation driver;
+        #   3. the crack spacing in :meth:`fracture_energy`, which should be
+        #      the length a grain-scale crack spans -- the quartz and feldspar
+        #      crystals, which Goodfellow describe as "a general 3-7 mm length
+        #      range ... with phenocrysts exceeding 1 cm", not 2 mm.
+        #
+        # Only (3) affects a published claim, and it survives: the cracking
+        # THRESHOLD is unchanged by it, because the criterion is written as a
+        # stress ratio with no d in it, and the implied fracture energy moves
+        # from 0.397 J/m2 at 2 mm to 0.6-1.4 across Goodfellow's 3-7 mm --
+        # further inside the 0.2-2 they use, not out of it. The check is
+        # therefore sensitive to this length and passes more comfortably at
+        # the more defensible value.
         self.grain_size = 2.0e-3          # mean grain diameter [m]
         # Two ARBITRARY cut-offs on a continuous field, kept for convenience
         # and named badly. Neither word is a fraction dissolved: fresh rock,
@@ -1114,14 +1135,26 @@ class Weathering(object):
         forbids it, and the sign is a consequence of the chemistry, not an
         assumption.
 
-        UNDER OXIDATION IT IS EXACTLY ZERO, and that is not a gap in the
-        model. The oxidation length is ``q / (k_ox A)``: the rate constant has
-        no measured temperature dependence and none is assumed, the
-        infiltration is prescribed, and the surface area is geometry. So
-        nothing in that length moves with temperature. All of the oxidation
-        driver's temperature response sits in the budget instead --
-        ``tau_O2`` goes as ``1 / C_O2`` -- and that is
-        :attr:`oxygen_dissolution_enthalpy`.
+        UNDER OXIDATION THIS RETURNS ZERO, AND THAT IS A NARROWER STATEMENT
+        THAN IT LOOKS. It is exactly zero for the ADVECTIVE length,
+        ``q / (k_ox A)``: the rate constant has no measured temperature
+        dependence and none is assumed, the infiltration is prescribed, and
+        the surface area is geometry, so nothing in it moves.
+
+        But the advective length is not what shelters a corestone under
+        oxidation. At Da = 0.023 oxygen crosses the section barely consumed,
+        and what protects a block interior is
+        :attr:`oxidation_penetration_depth`, which goes as ``sqrt(D_O2 / r)``
+        and therefore DOES move with temperature: 3.7 cm at 0 C against 5.8 at
+        30, carrying +10.2 kJ/mol. An earlier version of this docstring said
+        the zero meant temperature does not enter the oxidation length scale
+        at all. It does; it enters the one that matters.
+
+        So the oxidation driver has two temperature terms and neither is an
+        activation energy: -14.5 kJ/mol on the budget through
+        :attr:`oxygen_dissolution_enthalpy`, and +10.2 on the penetration
+        through Stokes-Einstein. The budget wins, which is why warming slows
+        the whole thing down.
         """
         if self.driver == "oxidation":
             return 0.0
@@ -1206,8 +1239,19 @@ class Weathering(object):
 
     @property
     def regime(self):
-        """Name of the limit the model is currently in; see :attr:`damkohler`."""
-        da = self.damkohler
+        """
+        Name of the limit the DRIVING reaction is in; see :attr:`damkohler`
+        and :attr:`oxidation_damkohler`.
+
+        It used to read :attr:`damkohler` whatever the driver, so under
+        oxidation it reported "saturation-limited" -- the dissolution answer
+        -- when the oxidation Damkohler is 0.023 and the section is firmly
+        reaction-limited. The report happened to print it under the
+        dissolution heading, so nothing visible was wrong; anything asking the
+        model directly got the wrong word.
+        """
+        da = (self.oxidation_damkohler if self.driver == "oxidation"
+              else self.damkohler)
         if da > 3.0:
             return "saturation-limited"
         if da < 1.0 / 3.0:
@@ -1442,8 +1486,17 @@ class Weathering(object):
         """
         ``k_ox A`` [1/s]: the rate at which fresh biotite consumes dissolved
         oxygen, per unit of oxygen present. The oxygen counterpart of
-        :attr:`specific_reaction_coefficient`, and like it a scalar, because
-        the area falls in proportion to the mineral remaining.
+        :attr:`specific_reaction_coefficient`, and like it a scalar.
+
+        IT IS A SCALAR FOR A DIFFERENT REASON THAN THE DISSOLUTION ONE, and
+        the distinction is worth keeping. Dissolving, ``r`` falls with ``M``
+        because the mineral is being removed and its reactive surface area
+        goes with it. Oxidising, NOTHING IS REMOVED -- the iron is oxidised
+        inside the lattice, which is Goodfellow et al.'s "major changes in
+        rock properties can occur with only minor element leaching" -- so the
+        area does not shrink. ``r`` falls with ``M`` because ``M`` is the
+        unoxidised Fe(II) still available to react, and the reaction is first
+        order in it. Same algebra, different physics.
 
         No temperature dependence, and that is deliberate; see
         ``k_oxidation``. Nothing measured supports one.

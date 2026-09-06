@@ -225,3 +225,65 @@ def test_the_two_drivers_disagree_about_whether_warm_means_weathered():
     for m in (cold, warm):
         m.set_driver("dissolution")
     assert warm.tau < cold.tau                 # warm water carries more silica
+
+
+def test_the_regime_names_the_limit_of_the_DRIVING_reaction():
+    """
+    The bug this exists for. ``regime`` read ``damkohler`` whatever the driver,
+    and ``damkohler`` is built from the SATURATION length -- the dissolution
+    one. So under oxidation it answered "saturation-limited" for a section
+    whose oxidation Damkohler is 0.023, which is firmly reaction-limited.
+
+    Nothing visible was wrong, because ``thermo_report`` happens to print it
+    under the dissolution heading. Anything that asked the model directly got
+    the opposite of the truth, and that is worse than a wrong report: it is a
+    wrong answer to a question a student is invited to ask.
+    """
+    net = FractureNetwork(60, 60, 0.05, periodic_x=True).seed(
+        sets=orthogonal_grid(1.0), rng=np.random.default_rng(0))
+    m = Weathering(net)
+    m.set_infiltration(0.30 / YEAR)
+    m.set_temperature(285.0)
+    m.initialize()
+
+    m.set_driver("dissolution")
+    assert m.damkohler > 3.0
+    assert m.regime == "saturation-limited"
+
+    m.set_driver("oxidation")
+    assert m.oxidation_damkohler < 1.0 / 3.0
+    assert m.regime == "reaction-limited", (m.regime, m.oxidation_damkohler)
+
+
+def test_the_length_that_shelters_a_corestone_does_move_with_temperature():
+    """
+    The correction this pins. ``apparent_activation_energy`` returns zero
+    under oxidation, and that is true of the ADVECTIVE length only. What
+    shelters a block interior at Da = 0.023 is the diffusive penetration, and
+    it goes as sqrt(D_O2 / r) -- so it carries half of Stokes-Einstein, about
+    +10 kJ/mol, and grows as the rock warms.
+
+    An earlier docstring read the zero as "temperature does not enter the
+    oxidation length scale". It does; it enters the one that matters.
+    """
+    m = model()
+    m.set_driver("oxidation")
+    assert m.apparent_activation_energy == 0.0
+
+    temps = np.array([273.15, 288.15, 303.15])
+    pen, adv = [], []
+    for T in temps:
+        m.set_temperature(T)
+        pen.append(m.oxidation_penetration_depth)
+        adv.append(m.oxidation_length)
+
+    # the advective length really is flat...
+    assert max(adv) == pytest.approx(min(adv), rel=1e-12)
+    # ...and the penetration really is not
+    assert pen[-1] > pen[0]
+    slope = np.polyfit(1.0 / temps, np.log(pen), 1)[0]
+    assert -slope * R_GAS / 1e3 == pytest.approx(10.2, abs=0.5)
+
+    # It is half of the diffusivity's, because of the square root, and it
+    # opposes the budget's -14.5 rather than adding to it.
+    assert m.oxygen_dissolution_enthalpy < 0.0 < -slope * R_GAS
