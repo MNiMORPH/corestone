@@ -825,3 +825,135 @@ def test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length():
     # the rate constant has no temperature dependence to oppose that.
     cold, warm = _thermo(0.0), _thermo(30.0)
     assert warm.oxidation_penetration_depth > cold.oxidation_penetration_depth
+
+
+# ------------------------------------------------------- the cracking criterion
+#
+# Design 10. Strain energy and stress are ONE criterion joined by Griffith,
+# and these check that the code says so.
+
+def test_the_bulk_strain_is_the_biotite_fraction_times_its_expansion():
+    """
+        eps_vol = x * phi_biotite * biotite_expansion
+
+    The biotite swells and the granite around it does not. Goodfellow's
+    expansion is of the CRYSTAL -- a d(001) spacing going from 10 to 10.5 A --
+    so it multiplies the biotite fraction. Fletcher's 0.735 is the FeO
+    component's volume ratio and multiplies f_FeO, which is a different
+    quantity; design 08 used his and design 10 records why this one is right.
+    """
+    m = _thermo()
+    assert m.bulk_volumetric_strain(1.0) == pytest.approx(
+        m.phi_biotite * m.biotite_expansion, rel=1e-12)
+    assert m.bulk_volumetric_strain(1.0) == pytest.approx(0.0030, rel=1e-9)
+    # linear in x, and clipped outside [0, 1]
+    assert m.bulk_volumetric_strain(0.5) == pytest.approx(
+        0.5 * m.bulk_volumetric_strain(1.0), rel=1e-12)
+    assert m.bulk_volumetric_strain(0.0) == 0.0
+    assert m.bulk_volumetric_strain(2.0) == m.bulk_volumetric_strain(1.0)
+
+
+def test_the_oxidation_stress_uses_the_confined_modulus_not_youngs():
+    """
+        sigma = E eps_vol / (3 (1 - nu))
+
+    The rind is held laterally by the rock around it, so the strain parallel
+    to the front is zero and the modulus is the constrained combination
+    E/(1-nu). Using E alone would understate the stress by 24 % here, and
+    using the BULK modulus -- the natural guess for a volumetric strain --
+    would understate it by more. The 3 converts volumetric strain to linear.
+    """
+    m = _thermo()
+    eps = m.bulk_volumetric_strain(1.0)
+    assert m.oxidation_stress(1.0) == pytest.approx(
+        m.youngs_modulus * eps / (3.0 * (1.0 - m.poisson_ratio)), rel=1e-12)
+    assert m.oxidation_stress(1.0) / 1e6 == pytest.approx(100.0, rel=1e-3)
+    # NOT Young's alone, and NOT the bulk modulus
+    assert m.oxidation_stress(1.0) != pytest.approx(
+        m.youngs_modulus * eps / 3.0, rel=1e-6)
+    bulk = m.youngs_modulus / (3.0 * (1.0 - 2.0 * m.poisson_ratio))
+    assert m.oxidation_stress(1.0) != pytest.approx(bulk * eps, rel=1e-6)
+
+
+def test_the_tensile_strength_falls_as_the_rock_oxidises():
+    """
+    The part that makes this more than a fixed threshold, and it is measured.
+    Goodfellow, section 4.2.2: 6.3 MPa in the least weathered cobbles, down
+    through 3.0, 2.8, 2.3, 1.6 and 1.0 to 0.1-0.2 MPa in saprolite -- and
+    "unaffected by slight weathering-related oxidation" before the break they
+    put at about 16 %.
+    """
+    m = _thermo()
+    assert m.tensile_strength(0.0) / 1e6 == pytest.approx(6.3, rel=1e-9)
+    assert m.tensile_strength(1.0) / 1e6 == pytest.approx(0.15, rel=1e-9)
+    # flat below the break, strictly falling above it
+    assert m.tensile_strength(0.10) == m.tensile_strength(0.0)
+    assert m.tensile_strength(m.x_strength_break) == m.tensile_strength(0.0)
+    xs = np.linspace(m.x_strength_break, 1.0, 20)
+    st = [m.tensile_strength(x) for x in xs]
+    assert all(a > b for a, b in zip(st, st[1:])), st
+    assert m.tensile_strength(0.0) / m.tensile_strength(1.0) == \
+        pytest.approx(42.0, rel=0.01)
+
+
+def test_the_stress_and_energy_criteria_are_one_criterion():
+    """
+        Gamma = sigma_t^2 d (1 - nu) / (2 E)
+
+    THE IDENTITY THIS WHOLE DESIGN RESTS ON. Eliminate the strain between
+
+        sigma_t     = E eps / (1 - nu)          stress
+        2 Gamma / d = E eps^2 / (1 - nu)        energy
+
+    and the two coincide exactly at the Gamma above -- Griffith, with the
+    grain as the flaw. So the energy ratio is the SQUARE of the stress ratio,
+    identically, and both cross one in the same place. There is nothing to
+    choose between them, and a wrong parameter shows up as the two
+    disagreeing.
+    """
+    m = _thermo()
+    for x in (0.05, 0.1, 0.25, 0.5, 0.9):
+        eps_lin = m.bulk_volumetric_strain(x) / 3.0
+        U = m.youngs_modulus * eps_lin ** 2 / (1.0 - m.poisson_ratio)
+        U_c = 2.0 * m.fracture_energy(x) / m.grain_size
+        assert U / U_c == pytest.approx(m.cracking_number(x) ** 2, rel=1e-9), x
+
+    # ...and the implied fracture energy lands inside the range Goodfellow
+    # chose independently, on a crack-tip argument rather than from strength.
+    assert m.fracture_energy(0.0) == pytest.approx(0.397, rel=1e-2)
+    assert 0.2 <= m.fracture_energy(0.0) <= 2.0
+    # SKB's 13.5 MPa for Forsmark granite is the second point, also inside.
+    m.tensile_strength_fresh = 13.5e6
+    assert 0.2 <= m.fracture_energy(0.0) <= 2.0
+    assert m.fracture_energy(0.0) == pytest.approx(1.823, rel=1e-2)
+
+
+def test_the_cracking_threshold_is_predicted_and_not_fitted():
+    """
+        N = sigma(x) / sigma_t(x)
+
+    Nothing here is calibrated, which is the change from design 08. The
+    threshold is solved, and then compared with what Goodfellow report.
+
+    Three numbers, and this model's is the lowest of them: 6.3 % here, an
+    observed "rock properties change markedly" at about 16 %, and 20-65 %
+    from their own run of the same criterion. The last is traceable and is
+    checked below -- it needs a biotite fraction well under this model's 6 %.
+    """
+    m = _thermo()
+    x_c = m.cracking_threshold()
+    assert x_c == pytest.approx(0.063, abs=0.002)
+    assert m.cracking_number(x_c) == pytest.approx(1.0, rel=1e-6)
+    assert m.cracking_number(x_c * 0.9) < 1.0
+    assert m.cracking_number(min(x_c * 1.1, 1.0)) > 1.0
+
+    # It cracks BEFORE the measured strength starts to fall, so the softening
+    # never engages at the defaults. That is not a dead branch: it is the
+    # reading that micro-cracking begins before the bulk strength has
+    # measurably changed, which is the order Goodfellow observe.
+    assert x_c < m.x_strength_break
+
+    # Halving the biotite doubles the threshold: the strain is linear in it,
+    # and this is why Goodfellow's 20-65 % implies a leaner rock than ours.
+    m.phi_biotite = 0.03
+    assert m.cracking_threshold() == pytest.approx(2.0 * x_c, rel=1e-3)

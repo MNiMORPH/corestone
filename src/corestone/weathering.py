@@ -650,6 +650,39 @@ class Weathering(object):
         # silicic acid is not. Scaled to the working temperature by the same
         # Stokes-Einstein factor; see :attr:`diffusivity_factor`.
         self.D_O2_molecular = 2.1e-9      # aqueous O2 diffusivity [m2/s]
+        # ---- the cracking criterion. Design 10; NOT design 08's.
+        #
+        # Goodfellow et al. (2016) ran this criterion on this rock and
+        # reported the answer, so their numbers are used and not Fletcher's.
+        # Four of design 08's are superseded; design 10 tabulates which.
+        #
+        # Elastic constants from SKB R-05-83 Tables 2-7/2-9, 52 intact
+        # granite-granodiorite cores at Forsmark. The SAME report gives the
+        # tensile strength of that granite as 13.5 MPa, which is a useful
+        # second point on the Griffith check below.
+        self.youngs_modulus = 76.0e9      # E [Pa]
+        self.poisson_ratio = 0.24         # nu [-]
+        # Expansion of the biotite CRYSTAL on oxidation, not of the FeO
+        # component. Goodfellow measured the d(001) spacing going from 10 to
+        # 10.5 A as altered biotite forms, and use 0.05 for that pathway and
+        # 0.04 for precipitation of ferrihydrite in voids. It multiplies
+        # phi_biotite, where Fletcher's 0.735 multiplies f_FeO -- different
+        # quantities, and design 08 used his.
+        self.biotite_expansion = 0.05     # dV/V of the biotite grain [-]
+        # TENSILE STRENGTH IS THE PRIMARY MECHANICAL PARAMETER HERE, because
+        # it is the one that is measured, and measured as a FUNCTION OF
+        # WEATHERING. Goodfellow, section 4.2.2: 6.3 MPa in the least
+        # weathered cobbles, then 3.0, 2.8, 2.3, 1.6, 1.0 through the
+        # sequence, and 0.1-0.2 in saprolite. Sixty-fold, and not smooth --
+        # "unaffected by slight weathering-related oxidation", then "the
+        # largest decline (exceeding 50%) occurring early".
+        #
+        # The break is theirs too: "once the proportion of Fe(III) has
+        # increased by about 16% to cobble group 3, the rock properties
+        # change markedly".
+        self.tensile_strength_fresh = 6.3e6       # [Pa], their groups 1-2
+        self.tensile_strength_weathered = 0.15e6  # [Pa], saprolite, 0.1-0.2
+        self.x_strength_break = 0.16              # where it starts to fall
         # MEASURED, and of the right species. The solute here is silica --
         # C_eq is quartz saturation -- and the diffusion coefficient of
         # dissolved silica is (1.02 +/- 0.02)e-9 m2/s at 25 C (Rebreanu,
@@ -1181,6 +1214,152 @@ class Weathering(object):
             return "reaction-limited"
         return "mixed"
 
+    # ---- the cracking criterion. Design 10.
+    #
+    # It is a strain-energy balance AND, identically, a stress criterion. The
+    # two are one statement joined by Griffith with the grain as the flaw,
+    #
+    #     Gamma = sigma_t^2 d (1 - nu) / (2 E)
+    #
+    # so there is nothing to choose between them and requiring them to agree
+    # pins the pair. Tensile strength is taken as primary because it is what
+    # is measured -- and measured as a function of weathering, which is the
+    # part a fixed threshold cannot represent. The fracture energy is then a
+    # checkable by-product rather than a free parameter spanning 200-fold.
+    #
+    # NOTHING HERE IS CALIBRATED. Design 08 fitted x_c to an observation
+    # because Gamma would not close; with Goodfellow's own numbers the spread
+    # is a factor of ten and a prediction inside their stated 20-65 % is
+    # worth more than a fit to it.
+
+    def bulk_volumetric_strain(self, x):
+        """
+        Volumetric strain of the ROCK at oxidised fraction ``x`` [-].
+
+            eps_vol = x * phi_biotite * biotite_expansion
+
+        The biotite swells; the granite around it does not, and there is
+        nowhere for it to go. 0.0030 at full oxidation with the defaults --
+        three parts in a thousand, which sounds negligible and is not, because
+        rock is thousands of times stiffer in compression than it is strong in
+        tension.
+        """
+        return (np.clip(x, 0.0, 1.0) * self.phi_biotite
+                * self.biotite_expansion)
+
+    def oxidation_stress(self, x):
+        """
+        Tensile stress the expansion puts on the matrix [Pa].
+
+            sigma = E eps_vol / (3 (1 - nu))
+
+        The 3 converts volumetric strain to linear. The modulus is the
+        laterally CONFINED combination ``E / (1 - nu)`` and not Young's
+        modulus alone: the oxidising rind is held by the rock around it, so
+        the strain parallel to the front is zero. Fletcher states the
+        constraint explicitly and it is the easiest thing here to get wrong.
+        """
+        return (self.youngs_modulus * self.bulk_volumetric_strain(x)
+                / (3.0 * (1.0 - self.poisson_ratio)))
+
+    def tensile_strength(self, x):
+        """
+        Tensile strength of the rock at oxidised fraction ``x`` [Pa].
+
+        **This is the part that makes the criterion more than a fixed
+        threshold.** Goodfellow measured the strength FALLING as the rock
+        oxidises -- 6.3 MPa in the least weathered cobbles through 3.0, 2.8,
+        2.3, 1.6 and 1.0 to 0.1-0.2 in saprolite -- so cracking makes cracking
+        easier. It is the mechanical half of the same positive feedback that
+        :meth:`link_conductivity` and :meth:`link_tortuosity` carry on the
+        transport side.
+
+        THE SHAPE IS THEIRS; THE FUNCTION IS AN INTERPOLATION AND IS LABELLED
+        AS ONE. Three of their numbers are used: the fresh strength, the
+        saprolite strength, and the break -- "once the proportion of Fe(III)
+        has increased by about 16% to cobble group 3, the rock properties
+        change markedly", which is also where they report the strength
+        dropping by more than half. Below the break the strength is held flat,
+        because they say it is: "tensile strength therefore appears unaffected
+        by slight weathering-related oxidation of biotite Fe". Above it the
+        interpolation is geometric, which is the form
+        :meth:`link_conductivity` already uses for a rock property spanning
+        orders of magnitude.
+
+        What is NOT known, and would sharpen this: the oxidised fraction of
+        each of their sample groups. The paper's text gives overlapping ranges
+        (group 4 at 83-88 %, group 5 at 79-82 %, ITRB at 0-75 %), so the
+        intermediate strengths cannot be placed on this axis and only the two
+        ends and the break are used.
+        """
+        x = np.clip(x, 0.0, 1.0)
+        u = np.clip((x - self.x_strength_break)
+                    / (1.0 - self.x_strength_break), 0.0, 1.0)
+        return (self.tensile_strength_fresh ** (1.0 - u)
+                * self.tensile_strength_weathered ** u)
+
+    def cracking_number(self, x):
+        """
+        How close the rock is to cracking at oxidised fraction ``x`` [-].
+        One means it cracks.
+
+            N = sigma(x) / sigma_t(x)
+
+        The energy form is the SQUARE of this, exactly, and crosses one at the
+        same place -- see :meth:`fracture_energy`. Reported as the stress
+        ratio because a reader can hold megapascals in their head.
+        """
+        return self.oxidation_stress(x) / self.tensile_strength(x)
+
+    def fracture_energy(self, x):
+        """
+        Fracture surface energy the rock's strength implies [J/m2], through
+        Griffith with the grain as the flaw.
+
+            Gamma = sigma_t^2 d (1 - nu) / (2 E)
+
+        A by-product to be CHECKED, not a parameter to be chosen, and it is
+        what makes the stress and energy criteria one statement rather than
+        two. At the fresh strength it is 0.40 J/m2, and Goodfellow
+        independently chose 0.2-2 J/m2 (2e2 to 2e3 erg/cm2) on a crack-tip
+        argument, so the two routes agree without being made to. SKB's
+        13.5 MPa for Forsmark granite gives 1.82, also inside.
+
+        Fletcher's 200 J/m2, from Friedman et al. (1972), would require a
+        tensile strength of 140 MPa. It is a specimen-scale quantity and a
+        grain-scale crack cannot develop it.
+        """
+        return (self.tensile_strength(x) ** 2 * self.grain_size
+                * (1.0 - self.poisson_ratio) / (2.0 * self.youngs_modulus))
+
+    def cracking_threshold(self):
+        """
+        Oxidised fraction at which the rock first cracks [-], or ``nan`` if it
+        never does.
+
+        Solved rather than calibrated. Bisection on
+        :meth:`cracking_number` = 1, which is monotone because the stress
+        rises linearly in ``x`` while the strength falls.
+
+        Goodfellow's own answer for their samples is **20 to 65 %**, from the
+        same criterion with the fracture energy varied over their range and
+        the expansion over their two pathways. A value inside that is a
+        prediction; design 08 fitted 10 % to a different observation of
+        theirs.
+        """
+        lo, hi = 0.0, 1.0
+        if self.cracking_number(hi) < 1.0:
+            return float("nan")
+        if self.cracking_number(lo) >= 1.0:
+            return 0.0
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            if self.cracking_number(mid) < 1.0:
+                lo = mid
+            else:
+                hi = mid
+        return 0.5 * (lo + hi)
+
     # ---- the oxidation, named. Design 08; nothing below moves rock yet.
 
     @property
@@ -1391,6 +1570,18 @@ class Weathering(object):
                self.oxidation_penetration_depth / self.dx),
             "  front ceiling           %8.1f m/Myr stoichiometry alone, q/tau"
             % (self.infiltration / self.tau_oxidation * YEAR * 1e6),
+            "  -- and the cracking it drives (design 10):",
+            "  bulk strain, fully ox.  %8.5f       phi_bt * dV/V of the grain"
+            % self.bulk_volumetric_strain(1.0),
+            "  stress, fully oxidised  %8.1f MPa   E eps / 3(1-nu), confined"
+            % (self.oxidation_stress(1.0) / 1e6),
+            "  tensile strength, fresh %8.2f MPa   falls to %.2f in saprolite"
+            % (self.tensile_strength(0.0) / 1e6,
+               self.tensile_strength(1.0) / 1e6),
+            "  Gamma implied, fresh    %8.3f J/m2  Griffith; Goodfellow use "
+            "0.2-2" % self.fracture_energy(0.0),
+            "  cracks at               %8.1f %%     PREDICTED, not fitted "
+            "(they observe ~16 %%)" % (100.0 * self.cracking_threshold()),
             "",
             "DISSOLUTION -- plagioclase into water near quartz saturation%s"
             % mark("dissolution"),
