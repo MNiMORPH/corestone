@@ -77,14 +77,24 @@ Gamma in 0.2 to 2 J/m2 on a crack-tip argument. They separately MEASURED the
 tensile strength of their least weathered granodiorite at 6.3 MPa. Through the
 relation above, at `d` = 2 mm with SKB's E = 76 GPa and nu = 0.24:
 
-    sigma_t 6.3 MPa  (Goodfellow, least weathered)   ->  Gamma = 0.40 J/m2
-    sigma_t 3.0 MPa  (Goodfellow, cobble group 3)    ->  Gamma = 0.09
-    sigma_t 1.0 MPa  (Goodfellow, ITRT)              ->  Gamma = 0.01
-    sigma_t 13.5 MPa (SKB R-05-83, Forsmark granite) ->  Gamma = 1.82
+    sigma_t 6.3 MPa  (Goodfellow, least weathered)   ->  Gamma = 0.99 J/m2
+    sigma_t 3.0 MPa  (Goodfellow, cobble group 3)    ->  Gamma = 0.22
+    sigma_t 13.5 MPa (SKB R-05-83, Forsmark granite) ->  Gamma = 4.56
 
-0.40 sits inside the 0.2-2 they chose, and 1.82 does too. Two independent
-routes to the same order, and it also shows why Fletcher's 200 J/m2 cannot be
-right at this scale: it would require a tensile strength of 140 MPa.
+0.99 sits inside the 0.2-2 they chose, and so does the whole of their stated
+3-7 mm crystal range. Two independent routes to the same order, and it shows
+why Fletcher's 200 J/m2 cannot be right at this scale: it would require a
+tensile strength of 140 MPa.
+
+Forsmark's 4.56 is ABOVE their range, and should be -- deep, fresh,
+unweathered granite is not a coastal granodiorite in the act of falling apart.
+
+(These used d = 2 mm until the 2026-09-06 audit, which found `grain_size`
+serving three different physical lengths. The crack spans the FRAMEWORK
+crystals, which Goodfellow give as 3-7 mm, so `crack_spacing` is now its own
+parameter at 5 mm. The threshold did not move -- the criterion is a stress
+ratio with no length in it -- and the numbers above went from 0.40 to 0.99,
+further inside their range rather than out.)
 
 **Report both.** The model should print the energy ratio AND the equivalent
 stress, so a reader sees they are one statement, and so a wrong parameter

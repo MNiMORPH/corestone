@@ -763,6 +763,33 @@ class Weathering(object):
         # therefore sensitive to this length and passes more comfortably at
         # the more defensible value.
         self.grain_size = 2.0e-3          # mean grain diameter [m]
+        # ---- and the two lengths that were hiding inside it (audit, 2026-09-06)
+        #
+        # Size of a BIOTITE flake, which sets the oxidation's reactive surface
+        # area through 6 phi / d. Biotite grows as flakes and is under no
+        # obligation to share the mean grain size of the quartz and feldspar
+        # around it.
+        #
+        # NOBODY HAS MEASURED IT FOR THIS ROCK, and it is the largest un-named
+        # uncertainty left in the oxidation driver: the rate is inversely
+        # proportional to it, so a 0.5 mm flake gives 720 m2/m3 rather than
+        # 180 and oxidises four times faster. It is defaulted to the rock's
+        # grain size, which is an ASSUMPTION and not a measurement -- named
+        # here so that it can be set, and so that it is visible.
+        self.biotite_grain_size = 2.0e-3  # biotite flake diameter [m]
+        # Length a grain-scale crack spans, for the fracture energy. This is
+        # the framework grains it has to get past, not the biotite: Goodfellow
+        # describe "a general 3-7 mm length range of quartz and feldspar
+        # crystals, with phenocrysts exceeding 1 cm". 5 mm is the middle of
+        # the stated range, and SOURCED where the 2 mm it used to inherit was
+        # simply the nearest number to hand.
+        #
+        # It does not move the cracking threshold at all, because the
+        # criterion is written as a stress ratio with no length in it. It
+        # moves only the fracture energy that is reported as a check, from
+        # 0.397 J/m2 at 2 mm to 0.992 at 5 -- further inside the 0.2-2 J/m2
+        # Goodfellow use, not out of it.
+        self.crack_spacing = 5.0e-3       # framework crystal length [m]
         # Two ARBITRARY cut-offs on a continuous field, kept for convenience
         # and named badly. Neither word is a fraction dissolved: fresh rock,
         # saprock, saprolite and grus are distinguished by fabric and
@@ -1374,16 +1401,22 @@ class Weathering(object):
 
         A by-product to be CHECKED, not a parameter to be chosen, and it is
         what makes the stress and energy criteria one statement rather than
-        two. At the fresh strength it is 0.40 J/m2, and Goodfellow
-        independently chose 0.2-2 J/m2 (2e2 to 2e3 erg/cm2) on a crack-tip
-        argument, so the two routes agree without being made to. SKB's
-        13.5 MPa for Forsmark granite gives 1.82, also inside.
+        two. ``d`` here is :attr:`crack_spacing`, the framework crystals a
+        crack has to get past, not the biotite flake that is doing the
+        pushing.
+
+        At the fresh strength it is 0.99 J/m2, and Goodfellow independently
+        chose 0.2-2 J/m2 (2e2 to 2e3 erg/cm2) on a crack-tip argument, so the
+        two routes agree without being made to. SKB's 13.5 MPa for Forsmark
+        granite gives 4.56, which is outside their range and above it -- the
+        expected direction, since Forsmark granite is deep, fresh and stronger
+        than a weathering coastal granodiorite.
 
         Fletcher's 200 J/m2, from Friedman et al. (1972), would require a
         tensile strength of 140 MPa. It is a specimen-scale quantity and a
         grain-scale crack cannot develop it.
         """
-        return (self.tensile_strength(x) ** 2 * self.grain_size
+        return (self.tensile_strength(x) ** 2 * self.crack_spacing
                 * (1.0 - self.poisson_ratio) / (2.0 * self.youngs_modulus))
 
     def cracking_threshold(self):
@@ -1436,7 +1469,12 @@ class Weathering(object):
 
         Cubic grains of side ``d`` at volume fraction ``phi``: six faces each
         of area ``d^2``, in a cube of volume ``d^3``, times the fraction of
-        the rock they make up. 180 m2/m3 at 6 % biotite and 2 mm grains.
+        the rock they make up. 180 m2/m3 at 6 % biotite and 2 mm flakes.
+
+        ``d`` is :attr:`biotite_grain_size` and NOT the rock's mean grain
+        size, though the two are given the same default for want of a
+        measurement. See the parameter: the oxidation rate is inversely
+        proportional to it, and nobody has measured it.
 
         GEOMETRIC, and deliberately so -- the same convention, and the same
         grain size, as the 900 m2/m3 that sets ``L_ref`` for the plagioclase.
@@ -1447,7 +1485,7 @@ class Weathering(object):
         mixing a geometric area on one with a BET area on the other would
         manufacture a difference that is a method artefact.
         """
-        return 6.0 * self.phi_biotite / self.grain_size
+        return 6.0 * self.phi_biotite / self.biotite_grain_size
 
     @property
     def volume_expansion(self):

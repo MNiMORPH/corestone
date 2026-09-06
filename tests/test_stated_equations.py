@@ -915,17 +915,33 @@ def test_the_stress_and_energy_criteria_are_one_criterion():
     for x in (0.05, 0.1, 0.25, 0.5, 0.9):
         eps_lin = m.bulk_volumetric_strain(x) / 3.0
         U = m.youngs_modulus * eps_lin ** 2 / (1.0 - m.poisson_ratio)
-        U_c = 2.0 * m.fracture_energy(x) / m.grain_size
+        # crack_spacing on BOTH sides. The identity only holds when the same
+        # length appears in U_c and in Gamma, and when grain_size was split
+        # into three this line still said grain_size while fracture_energy
+        # had moved to crack_spacing -- so it failed by exactly the 2.5x
+        # between them. That is the identity earning its place.
+        U_c = 2.0 * m.fracture_energy(x) / m.crack_spacing
         assert U / U_c == pytest.approx(m.cracking_number(x) ** 2, rel=1e-9), x
 
     # ...and the implied fracture energy lands inside the range Goodfellow
     # chose independently, on a crack-tip argument rather than from strength.
-    assert m.fracture_energy(0.0) == pytest.approx(0.397, rel=1e-2)
+    # d here is crack_spacing, the framework crystals a crack must get past --
+    # Goodfellow's 3-7 mm -- and not the biotite flake doing the pushing.
+    assert m.fracture_energy(0.0) == pytest.approx(0.992, rel=1e-2)
     assert 0.2 <= m.fracture_energy(0.0) <= 2.0
-    # SKB's 13.5 MPa for Forsmark granite is the second point, also inside.
+    # The whole of their stated crystal range stays inside it.
+    for d in (3.0e-3, 7.0e-3):
+        m.crack_spacing = d
+        assert 0.2 <= m.fracture_energy(0.0) <= 2.0, d
+    m.crack_spacing = 5.0e-3
+
+    # SKB's 13.5 MPa for Forsmark granite gives 4.56, which is ABOVE their
+    # range and should be: it is deep, fresh, unweathered granite, not a
+    # coastal granodiorite in the act of falling apart. Asserted in that
+    # direction rather than quietly dropped.
     m.tensile_strength_fresh = 13.5e6
-    assert 0.2 <= m.fracture_energy(0.0) <= 2.0
-    assert m.fracture_energy(0.0) == pytest.approx(1.823, rel=1e-2)
+    assert m.fracture_energy(0.0) == pytest.approx(4.556, rel=1e-2)
+    assert m.fracture_energy(0.0) > 2.0
 
 
 def test_the_cracking_threshold_is_predicted_and_not_fitted():
@@ -957,3 +973,15 @@ def test_the_cracking_threshold_is_predicted_and_not_fitted():
     # and this is why Goodfellow's 20-65 % implies a leaner rock than ours.
     m.phi_biotite = 0.03
     assert m.cracking_threshold() == pytest.approx(2.0 * x_c, rel=1e-3)
+    m.phi_biotite = 0.06
+
+    # But NEITHER length touches it, which is why splitting grain_size into
+    # three could not move a published threshold. The criterion is a stress
+    # ratio and has no length in it; only the reported fracture energy does.
+    for attr, value in (("crack_spacing", 3.0e-3), ("crack_spacing", 7.0e-3),
+                        ("biotite_grain_size", 5.0e-4)):
+        before = m.fracture_energy(0.0)
+        setattr(m, attr, value)
+        assert m.cracking_threshold() == pytest.approx(x_c, rel=1e-6), attr
+        if attr == "biotite_grain_size":
+            assert m.fracture_energy(0.0) == before      # untouched by it
