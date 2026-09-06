@@ -74,20 +74,30 @@ DIFFUSIVE length -- how far O2 gets into intact rock before it is consumed,
 
 which is 4.5 cm at 12 C. See :attr:`Weathering.oxidation_penetration_depth`.
 
-And that is the better mechanism for what this model is about. Measured at
-matched mean extent of reaction, extent against distance from the nearest
-joint:
+The two draw different pictures, and the difference is one of SHAPE rather
+than of width. Extent of reaction against distance from the nearest joint, at
+matched mean extent, in 5 cm cells:
 
-    dissolving   0.00m 0.879   0.05m 0.087   0.10m 0.002   0.15m 0.001
-    oxidising    0.00m 0.384   0.05m 0.245   0.10m 0.153   0.15m 0.102
-                 0.20m 0.074   0.25m 0.056   0.30m 0.045   0.35m 0.037
+    at 10 % mean    0m      5cm     10cm    15cm    20cm
+      dissolving    0.876   0.090   0.002   0.001   0.001
+      oxidising     0.307   0.193   0.120   0.080   0.058
 
-Dissolving, the rock falls four hundredfold in two cells: the rind is ONE
-CELL WIDE, so its width is the grid's and not the rock's. Oxidising, it
-decays with an e-folding near 10 cm and is still at 0.029 in the block core --
-a rind of 15 cm and more, resolved over six cells and upward, with rounded
-corners. Measured rindlet zones in granite run 20 to 60 cm: oxidation lands in
-that range and dissolution is four to twelve times too thin.
+    at 30 % mean
+      dissolving    0.9997  0.843   0.362   0.080   0.027
+      oxidising     0.581   0.474   0.373   0.299   0.254
+
+Dissolving gives a FRONT: the joint cell goes to 1, the core stays at 0, and
+the step between them is sharp. Oxidising gives a GRADIENT: the joint never
+saturates and the core is never untouched.
+
+The dissolving rind BROADENS as the run goes on -- one cell at 10 % mean, three
+at 30 % -- because the feedbacks open the rock behind the front, and that is
+worth stating because an earlier version of this docstring called it "one cell
+wide, so its width is the grid's and not the rock's". That is true early and
+false later, and it was measured at one moment and written as a property.
+
+Measured rindlet zones in granite run 20 to 60 cm. Both reach that scale
+eventually; oxidation is there from the start.
 
 (Physical chemistry calls the ``Da >> 1`` limit *transport-limited*, for the
 transport of solute. The word is avoided here: in geomorphology it means an
