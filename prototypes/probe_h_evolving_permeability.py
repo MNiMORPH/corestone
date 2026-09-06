@@ -1,6 +1,12 @@
 """
 Probe H: should the flow field evolve as the rock weathers?
 
+SUPERSEDED 2026-09-06 by probe_k_how_much_do_the_feedbacks_matter.py. The
+numbers here predate three corrections (a505892, c0d7749, 7cbd0a7) and are not
+to be trusted, and this probe tested only the conductivity -- the TORTUOSITY,
+which did not follow the rock when this was written, turns out to matter more.
+The question and its answer stand; the measurements do not.
+
 ANSWERED, AND ADOPTED. The model now does this -- see
 Weathering.link_conductivity. Two things changed on the way in: the endpoints
 came from Goodfellow et al. (2016) rather than from k_fracture as guessed
