@@ -108,20 +108,56 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: safe, because NO cap finishes every setting. An earlier note claiming 1000
 #: kyr did was simply wrong: temperature and infiltration multiply, so the time
 #: to dissolve the section spans two orders of magnitude across the sliders.
-#: Measured on the 3 m section at 5 cm, kyr to reach 50 / 90 / 99 % dissolved:
+#: Re-measured 2026-09-06 at the demo's own settings, both reactions, kyr to
+#: reach 50 / 90 / 99 % of the section reacted:
 #:
-#:     1.0 m, 0.30 m/yr, 12 C   default        1670   3713    5414
-#:     1.0 m, 0.30 m/yr, 30 C   warm            455   1025    1490
-#:     1.0 m, 0.30 m/yr,  0 C   cold           4563  10044   14678
-#:     1.0 m, 0.05 m/yr, 12 C   dry            4933  10876   14340
-#:     1.0 m, 0.05 m/yr,  0 C   both          14286 >20000  >20000
+#:     FELDSPAR DISSOLUTION -- the in-class activity
+#:     1.0 m, 0.30 m/yr, 12 C   default        1691   3758    5479
+#:     1.0 m, 0.30 m/yr, 30 C   warm            456   1026    1491
+#:     1.0 m, 0.30 m/yr,  0 C   cold           4564  10045   14679
+#:     1.0 m, 0.05 m/yr, 12 C   dry            4995  11013   14519
+#:     1.0 m, 0.05 m/yr,  0 C   both          14287 >20000  >20000
 #:     3.0 m, 0.05 m/yr,  0 C   and coarse   >20000 >20000  >20000
+#:
+#:     BIOTITE OXIDATION -- the problem set
+#:     1.0 m, 0.30 m/yr, 12 C   default         369    857    1545
+#:     1.0 m, 0.30 m/yr, 30 C   warm            495   1192    2176
+#:     1.0 m, 0.30 m/yr,  0 C   cold            286    647    1156
+#:     1.0 m, 0.05 m/yr, 12 C   dry             489   1026    1716
+#:     1.0 m, 0.05 m/yr,  0 C   both            404    823    1334
+#:     3.0 m, 0.05 m/yr,  0 C   and coarse      917   1980    2587
+#:
+#: THE TWO TABLES DO NOT BEHAVE THE SAME WAY AND THE DIFFERENCE IS THE POINT.
+#: Dissolving, t90 spans 1026 kyr to beyond 20000 -- more than twentyfold, and
+#: two corners never finish. Oxidising it spans 647 to 1980, a factor of three,
+#: and EVERY setting reaches 99 % inside 2587 kyr.
+#:
+#: Which sliders matter changes with it:
+#:
+#:     slider           dissolving            oxidising
+#:     temperature      warm is 10x faster    warm is 1.8x SLOWER
+#:     infiltration     wet is 3x faster      wet is 1.2x faster
+#:     joint spacing    close is much faster  close is 2.4x faster
+#:
+#: Temperature inverts, because oxygen is a gas and cold water holds more of
+#: it with no activation energy to push back. Infiltration nearly stops
+#: mattering, because at Da = 0.023 oxygen crosses the section barely consumed
+#: and more water does not deliver more of it. So under oxidation the JOINT
+#: GEOMETRY becomes the strongest control -- which is the thing this exercise
+#: is about, and a good question to hand a student rather than a defect.
+#:
+#: (The dissolution rows are within 1-2 % of the previous measurement, taken
+#: at c_drift_max 0.03 against 0.01 now. The harness was validated on that
+#: agreement -- its first run compared model time in SECONDS against a cap
+#: written in years and reported every case as >20000.)
 #:
 #: 200 kyr would cut the temperature comparison in half -- the default finishes
 #: and 0 C does not -- which reads as the tool giving up rather than as a rate
 #: difference, and comparing rates is what the slider is for. 15000 carries
-#: the default well past 99 % at 5414 kyr and the cold case to 99 % at 14678,
-#: which was the criterion that chose the original cap. The compound-slow
+#: the default well past 99 % at 5479 kyr and the cold case to 99 % at 14679,
+#: which was the criterion that chose the original cap. It is generous for
+#: oxidation, where the slowest corner reaches 99 % at 2587, and the cap is
+#: kept at the value the harder reaction needs rather than split in two. The compound-slow
 #: corners it does not reach; Run does, unbounded.
 #:
 #: The cap has moved 500 -> 4000 -> 15000 because the MODEL moved, twice:
@@ -235,13 +271,21 @@ END_KYR = 15000.0
 #: the frame budget, not the choice of pace.
 YEARS_PER_FRAME = 1000.0
 
-#: Tighter than the model's own default of 0.03, for two reasons that happen
-#: to agree. One frame is one step, so the budget sets how long the animation
-#: lasts: 0.03 is 58 frames, under two seconds at 30 fps, which is over before
-#: a reader has focused on it. 0.01 is 180 frames, about six seconds. It also
-#: cuts the error by roughly three, since the error is close to linear in this.
-#: A step costs 2.9 ms here, so six seconds of animation is 0.5 s of arithmetic
-#: and the frame budget is nowhere near threatened.
+#: The library now defaults to this too, so the line is no longer an override
+#: -- it is kept because the demo should state the budget it runs at rather
+#: than inherit it silently.
+#:
+#: The reason it is 0.01 and not 0.03 has changed as well, and the old reason
+#: is recorded because it was load-bearing once. It used to be that one frame
+#: was one step, so the budget set the length of the animation: 0.03 gave 58
+#: frames and 0.01 gave 180. That stopped being true when the frame became a
+#: fixed span of MODEL time; a frame now sub-steps as the controller demands.
+#:
+#: What decides it now is accuracy, and the oxidation driver decides it.
+#: Measured over 280 kyr against a 0.001 reference, mean extent of reaction at
+#: 0.03 is 2.0 % low dissolving and 11.9 % low oxidising. Both converge
+#: monotonically; oxidation simply needs one more notch, and it is free --
+#: 21 factorisations against the dissolving run's 59 at the same setting.
 C_DRIFT_MAX = 0.01
 
 #: How far the rock may weather before the head is re-solved. Looser than the
