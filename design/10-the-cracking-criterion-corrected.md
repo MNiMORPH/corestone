@@ -148,3 +148,78 @@ also the cleanest evidence there is for a threshold existing at all.
    with Goodfellow's own Gamma and their own tensile strength the spread is a
    factor of ten, and a prediction inside their stated 20-65 % is worth more
    than a fit to it.
+
+---
+
+## 7. DECIDED, 2026-09-06: do NOT wire the criterion into k(M) and tortuosity(M)
+
+Section 6 proposed gating the transport feedbacks on the cracking criterion,
+and probe K supported it for the oxidation driver. The gate was then built as
+a throwaway subclass and measured before being written into the model. **It
+should not be written into the model.** Four reasons, in order of weight.
+
+### The measured relationship ALREADY CONTAINS the cracking
+
+This is the one that settles it. `k_matrix` and `k_weathered` come from
+Goodfellow et al. (2016), and their conductivity series is measured **against
+Fe(III)** -- against oxidation extent -- in real granodiorite that was cracking
+as it oxidised. So `k(M)` is not a model of an unfractured rock waiting to have
+fracturing added to it. It is an empirical curve through rock that had already
+done the fracturing.
+
+Gating it on a separately computed cracking criterion applies the threshold
+**twice**: once implicitly, inside the measurement, and once explicitly, in
+the gate. That is not adding physics. It is overriding a measurement with a
+model, and the measurement is better than the model.
+
+### Their conductivity endpoint is not cracking alone anyway
+
+> "The threshold-like behavior that is manifest by the loss of tensile
+> strength and mass, and the increase in permeability and connected porosity,
+> appears to result from the **conspiracy of small-scale cracking by biotite
+> Fe oxidation, progressively more rapid water flow-through, and ultimately
+> plagioclase dissolution**."
+
+So `k_weathered` belongs to rock that has cracked AND dissolved. A gate that
+lets cracking alone carry the rock all the way to that endpoint credits
+fracturing with a conductivity its own source attributes to three processes,
+one of which this model does not have.
+
+### The tortuosity endpoints are for the wrong rock
+
+`tortuosity_fresh` = 1e4 and `tortuosity_weathered` = 10 are intact
+crystalline rock and saprolite. Saprolite is DISSOLVED, porous material with a
+connected pore network. A rock that has cracked but not yet leached has a few
+large discontinuities and no pore network, and its diffusive tortuosity is not
+in anything read for this project. Gating tortuosity on cracking would require
+inventing that number, and it would be invisible in the output.
+
+### And it buys almost nothing
+
+Measured, oxidation driver, 300 kyr, gate at the predicted x_c = 6.3 %:
+
+    case                  mean     rind: 0, 1, 2, 3 cells out    top/bot
+    as shipped            0.3808   0.6303 0.5331 0.4365 0.3643     1.209
+    gate code, gate OFF   0.3808   0.6303 0.5331 0.4365 0.3643     1.209
+    GATED at x_c = 6.3 %  0.3172   0.6308 0.5156 0.3924 0.2956     1.196
+
+Seventeen per cent off the mean and no visible change in the rind or the depth
+profile. (The gate-off row reproducing the shipped model bit for bit is the
+check that the harness was measuring the gate and not itself.)
+
+A threshold that controls the model's strongest feedback, resting on a
+predicted 6.3 % against an observed ~16 %, is a large amount of risk to take
+on for that.
+
+### So the criterion stays diagnostic, which is the role it earns
+
+It predicts a number that can be checked against the field and it is not
+tuned: 6.3 % here, against Goodfellow's observed "rock properties change
+markedly" at about 16 %, and their own model's 20-65 %. It reports a fracture
+energy of 0.397 J/m2 that lands inside a range they chose by a different
+argument. Those are the things a criterion in this position is FOR.
+
+Recorded because a decision not to build is still a decision, and because the
+next reader will have the same idea. The measurement is in
+`prototypes/probe_k_how_much_do_the_feedbacks_matter.py`; the gate itself was
+not kept, because a subclass nobody runs rots.
