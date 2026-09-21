@@ -155,9 +155,27 @@ would add another 35 MB each, against GitHub Pages' **1 GB site limit** with the
 repository already at ~160 MB.
 
 ```sh
-artesian build weathering_app.py -o exercises/apps -p /home/awickert/models/corestone \
-    -r numpy -r scipy
+artesian build weathering_app.py -o exercises/apps \
+    -p /home/awickert/models/corestone -p /home/awickert/models/artesian \
+    -r numpy -r scipy --strip-wheels --strip-vendored
 ```
+
+**Two `-p` flags, not one.** `-p` appends, and this app imports
+`artesian.live`, so artesian has to be shipped as a wheel alongside the model.
+Without the second one the build SUCCEEDS and the demo dies in the browser
+with `ModuleNotFoundError: No module named 'artesian'` -- nothing at build
+time says a word. This command used to have one `-p`, and a rebuild on
+2026-09-06 followed it and shipped exactly that failure.
+
+Verify afterwards, rather than trusting the command:
+
+```sh
+grep -o "micropip.install(\[[^]]*\])" exercises/apps/corestone_panel.js
+```
+
+The strip flags belong on every rebuild too, for the reason the site's
+`exercises/apps/README.md` gives: without them a rebuild silently replaces
+11.5 MB of stripped wheels with 36.9 MB of full ones.
 
 artesian only replaces superseded versions of its own distributions, so this
 will not disturb `grlp_panel.*` or the shared wheels. (It used to delete
