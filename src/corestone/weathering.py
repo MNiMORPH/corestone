@@ -1115,13 +1115,22 @@ class Weathering(object):
         three across the temperatures this demo offers.
 
         Left constant, this was the one temperature-dependent quantity in the
-        model that was not allowed to depend on temperature. It matters where
-        it would be easiest to assume it does not: in the JOINTS mechanical
-        dispersion is about 95 times molecular diffusion and this is
-        irrelevant, but in the MATRIX the ratio is 0.005 -- molecular
-        diffusion beats dispersion two hundred to one -- and the matrix is
-        where the weathering rind forms and where corners round. This is the
-        term that carries solute out of a block interior.
+        model that was not allowed to depend on temperature. It matters
+        because MOLECULAR DIFFUSION IS THE TRANSPORT THAT MATTERS HERE:
+        measured on the 3 m section at the reference state, the Peclet number
+        ``alpha |v| / D_eff`` is below 1 on EVERY link -- median 0.55 in the
+        joints and 0.17 in the matrix -- so the velocity-dependent term never
+        takes over anywhere. This is the term that carries solute out of a
+        block interior.
+
+        (Two numbers stood here until 2026-09-21 and were stale: "in the
+        JOINTS mechanical dispersion is about 95 times molecular diffusion
+        ... in the MATRIX the ratio is 0.005". Reproducing the 95 needs
+        ``dispersivity`` near 0.345 m, which is the FIELD-scale value this
+        model carried before design 07 made it grain-scale at 2 mm. The
+        conclusion the sentence drew -- that diffusion dominates in the matrix
+        -- survives; the ratios do not, and they understated how far diffusion
+        dominates in the joints as well.)
 
         Note what it does NOT touch. Viscosity also enters the hydraulic
         conductivity, so warm water should flow more freely -- but the
