@@ -9,8 +9,8 @@ The question and its answer stand; the measurements do not.
 
 ANSWERED, AND ADOPTED. The model now does this -- see
 Weathering.link_conductivity. Two things changed on the way in: the endpoints
-came from Goodfellow et al. (2016) rather than from k_fracture as guessed
-here, and the parameter is k_weathered rather than k_grus, because the
+came from Goodfellow et al. (2016) rather than from K_sat_fracture as guessed
+here, and the parameter is K_sat_weathered rather than k_grus, because the
 measurement is "the most weathered samples in a granodiorite suite" and grus
 is a particular material with a particular fabric. This file is left as the
 record of the question and what it cost to answer, so it keeps its own
@@ -32,12 +32,12 @@ The closure. Conductivity is interpolated geometrically -- linearly in its
 logarithm, which is how conductivity varies -- between intact granite at
 M = 1 and grus at M = 0:
 
-    log k = M log k_matrix + (1 - M) log k_grus
+    log k = M log K_sat_matrix + (1 - M) log k_grus
 
-on the mean of the two cells a link joins. A jointed link keeps k_fracture:
+on the mean of the two cells a link joins. A jointed link keeps K_sat_fracture:
 an open joint is an open joint whatever the rock beside it has done.
 
-k_grus is a NEW PARAMETER and the only one here. Set equal to k_fracture, so
+k_grus is a NEW PARAMETER and the only one here. Set equal to K_sat_fracture, so
 that fully dissolved rock conducts as well as a joint and no new order of
 magnitude is invented; the joint network in effect grows into the weathered
 zone. Every other parameter in this model is a placeholder and so is this.
@@ -55,24 +55,24 @@ from corestone import FractureNetwork, Weathering, orthogonal_grid, YEAR
 class EvolvingK(Weathering):
     """Weathering with a conductivity that follows the rock."""
 
-    k_grus = 1.0e-5                 # = k_fracture. PLACEHOLDER, see above.
+    k_grus = 1.0e-5                 # = K_sat_fracture. PLACEHOLDER, see above.
 
     def link_conductivity(self):
         net = self.network
-        lo, hi = np.log(self.k_matrix), np.log(self.k_grus)
+        lo, hi = np.log(self.K_sat_matrix), np.log(self.k_grus)
 
-        def k_of(m):
+        def K_sat_of(m):
             """Geometric interpolation between intact granite and grus."""
             return np.exp(m * lo + (1.0 - m) * hi)
 
         M = np.clip(self.M, 0.0, 1.0)
-        kv = np.where(net.link_v, self.k_fracture,
-                      k_of(0.5 * (M[:-1, :] + M[1:, :])))
-        kh = np.where(net.link_h, self.k_fracture,
-                      k_of(0.5 * (M[:, :-1] + M[:, 1:])))
+        kv = np.where(net.link_v, self.K_sat_fracture,
+                      K_sat_of(0.5 * (M[:-1, :] + M[1:, :])))
+        kh = np.where(net.link_h, self.K_sat_fracture,
+                      K_sat_of(0.5 * (M[:, :-1] + M[:, 1:])))
         if net.periodic_x:
-            kw = np.where(net.link_wrap, self.k_fracture,
-                          k_of(0.5 * (M[:, -1] + M[:, 0])))
+            kw = np.where(net.link_wrap, self.K_sat_fracture,
+                          K_sat_of(0.5 * (M[:, -1] + M[:, 0])))
         else:
             kw = np.zeros(self.nz)
         return kv, kh, kw

@@ -72,7 +72,7 @@ LEDGER = {
     "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / tau":
         "test_the_rock_is_integrated_exactly_over_a_step_with_c_held",
 
-    "k(M) = k_matrix(T)^M * k_weathered(T)^(1 - M)":
+    "k(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)":
         "test_the_matrix_conducts_better_as_it_dissolves",
 
     "k(T) = k_0 exp(-E_a / R_g T) Arrhenius, on the RATE "
@@ -86,7 +86,7 @@ LEDGER = {
     "mu(T) = 2.414e-5 * 10 ** (247.8 / (T - 140))":
         "test_the_water_viscosity_correlation_matches_tabulated_water",
 
-    "k_fracture = rho g a^3 / (12 mu dx)":
+    "K_sat_fracture = rho g a^3 / (12 mu dx)":
         "test_the_joint_conductivity_is_the_cubic_law_on_its_aperture",
 
     "tortuosity(M) = tortuosity_fresh^M * tortuosity_weathered^(1 - M)":

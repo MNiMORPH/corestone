@@ -219,7 +219,7 @@ def test_tau_falls_as_solubility_rises():
 
 def test_the_matrix_conducts_better_as_it_dissolves():
     """
-        k(M) = k_matrix(T)^M * k_weathered(T)^(1 - M)
+        k(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)
 
     Geometric interpolation: linear in the LOGARITHM of conductivity, which is
     how conductivity varies and why the endpoints span four orders of
@@ -252,7 +252,7 @@ def test_the_matrix_conducts_better_as_it_dissolves():
     # a joint is a joint whatever the rock beside it has done
     m.M = np.zeros((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[net.link_v], m.k_fracture, rtol=1e-12, atol=0.0)
+    assert np.allclose(kv[net.link_v], m.K_sat_fracture, rtol=1e-12, atol=0.0)
 
 
 def test_the_head_is_re_solved_as_the_rock_changes():
@@ -571,7 +571,7 @@ def test_diffusivity_follows_stokes_einstein_and_is_not_constant():
 
 def test_the_joint_conductivity_is_the_cubic_law_on_its_aperture():
     """
-    ``k_fracture = rho g a^3 / (12 mu dx)``
+    ``K_sat_fracture = rho g a^3 / (12 mu dx)``
 
     A joint is a geometry. The conductivity is derived from the aperture, so
     what the model states is a measurable object rather than the conductivity
@@ -580,7 +580,7 @@ def test_the_joint_conductivity_is_the_cubic_law_on_its_aperture():
     from corestone.weathering import RHO_WATER, GRAVITY, water_viscosity
     m = _thermo(11.85)
     mu = water_viscosity(float(np.mean(m.T)))
-    assert m.k_fracture == pytest.approx(
+    assert m.K_sat_fracture == pytest.approx(
         RHO_WATER * GRAVITY * m.joint_aperture ** 3
         / (12.0 * mu * m.network.dx), rel=1e-12)
 
@@ -600,7 +600,7 @@ def test_the_joint_is_the_same_joint_at_every_cell_size():
             sets=orthogonal_grid(1.0), rng=np.random.default_rng(1))
         m = Weathering(net)
         m.set_temperature(285.0)
-        T.append(m.k_fracture * dx)
+        T.append(m.K_sat_fracture * dx)
     assert max(T) / min(T) == pytest.approx(1.0, rel=1e-12), T
 
 

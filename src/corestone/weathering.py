@@ -38,8 +38,8 @@ transport problem with the solute pointing opposite ways:
                                     there is none left.
 
 Oxidation is what actually paces spheroidal weathering, and the evidence is
-not thin. Goodfellow et al. (2016) -- the source of ``k_matrix`` and
-``k_weathered`` below -- put a synchrotron microprobe on 26 biotite crystals
+not thin. Goodfellow et al. (2016) -- the source of ``K_sat_matrix`` and
+``K_sat_weathered`` below -- put a synchrotron microprobe on 26 biotite crystals
 and found that "biotite weathering begins with oxidation of parts of biotite
 crystals that are being accessed by diffusing oxygen", that interlayer K+ is
 released "to maintain charge balance during Fe oxidation", and that the most
@@ -415,7 +415,7 @@ class Weathering(object):
         self.rainfall = 0.30 / YEAR   # recharge at the surface [m/s]
         # A JOINT IS A GEOMETRY, NOT A CONDUCTIVITY. What is set here is the
         # aperture; the conductivity follows from it by the cubic law, and so
-        # does its dependence on cell size. See :attr:`k_fracture`.
+        # does its dependence on cell size. See :attr:`K_sat_fracture`.
         #
         # 100 um is the HYDRAULIC aperture -- the one the cubic law wants --
         # and not the millimetre-plus opening you can see at an outcrop. The
@@ -451,7 +451,7 @@ class Weathering(object):
         # grades: 9e-9 to 8e-8 cm/s in the parent rock and 9e-5 to 9e-4 cm/s
         # in the most weathered samples, an increase of three to four orders
         # of magnitude. These are the mid-points of those two ranges, in m/s.
-        # Called k_weathered rather than k_grus because that is what the
+        # Called K_sat_weathered rather than k_grus because that is what the
         # measurement is -- the most weathered samples in a granodiorite
         # suite. Grus is a particular material with a particular fabric, and
         # naming a conductivity after it claims more than the number carries.
@@ -464,8 +464,8 @@ class Weathering(object):
         # temperature, which is an artefact and not a physics.
         self.T_K_ref = 293.15             # temperature of the measured
                                           # conductivities [K]
-        self.k_matrix = 5.0e-10           # intact granite [m/s]
-        self.k_weathered = 5.0e-6         # fully weathered matrix [m/s]
+        self.K_sat_matrix = 5.0e-10           # intact granite [m/s]
+        self.K_sat_weathered = 5.0e-6         # fully weathered matrix [m/s]
         # THE SURFACE CAN REFUSE WATER. Rain arrives at a rate; the rock takes
         # it up to its infiltration capacity; the rest runs off. Without this
         # the model prescribes the flux come what may, which is harmless while
@@ -1011,11 +1011,11 @@ class Weathering(object):
     # get an answer instead of inferring it from behaviour.
 
     @property
-    def k_fracture(self):
+    def K_sat_fracture(self):
         """
         Hydraulic conductivity of a jointed link [m/s], from the cubic law.
 
-            k_fracture = rho g a^3 / (12 mu dx)
+            K_sat_fracture = rho g a^3 / (12 mu dx)
 
         The "cubic law" is not a law of its own. It is the Navier-Stokes
         solution for steady laminar flow between two parallel plates -- plane
@@ -1127,12 +1127,12 @@ class Weathering(object):
     @property
     def k_matrix_at_T(self):
         """Intact-matrix conductivity at the working temperature [m/s]."""
-        return self.k_matrix * self.viscosity_factor
+        return self.K_sat_matrix * self.viscosity_factor
 
     @property
     def k_weathered_at_T(self):
         """Fully weathered matrix conductivity at the working temperature."""
-        return self.k_weathered * self.viscosity_factor
+        return self.K_sat_weathered * self.viscosity_factor
 
     @property
     def diffusivity_factor(self):
@@ -2113,10 +2113,10 @@ class Weathering(object):
         -- linearly in the logarithm, which is how conductivity varies --
         between intact granite and fully dissolved rock:
 
-            k(M) = k_matrix(T)^M * k_weathered(T)^(1 - M)
+            k(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)
 
         on the mean of the two cells a link joins. A jointed link keeps
-        ``k_fracture``: an open joint is an open joint whatever the rock beside
+        ``K_sat_fracture``: an open joint is an open joint whatever the rock beside
         it has done.
 
         This is the model's one positive feedback, and it is not decoration.
@@ -2134,25 +2134,25 @@ class Weathering(object):
         The two endpoints are measured, not chosen. Goodfellow et al. (2016)
         report granodiorite matrix conductivity rising three to four orders of
         magnitude across weathering grades, from 9e-9 to 8e-8 cm/s in parent
-        rock to 9e-5 to 9e-4 cm/s in the most weathered samples; ``k_matrix``
-        and ``k_weathered`` are the mid-points of those ranges. Everything else in
+        rock to 9e-5 to 9e-4 cm/s in the most weathered samples; ``K_sat_matrix``
+        and ``K_sat_weathered`` are the mid-points of those ranges. Everything else in
         this module is still a placeholder.
         """
         net = self.network
         lo, hi = np.log(self.k_matrix_at_T), np.log(self.k_weathered_at_T)
 
-        def k_of(m):
+        def K_sat_of(m):
             return np.exp(m * lo + (1.0 - m) * hi)
 
         M = np.clip(self.M, 0.0, 1.0) if self.M is not None \
             else np.ones((self.nz, self.nx))
-        kv = np.where(net.link_v, self.k_fracture,
-                      k_of(0.5 * (M[:-1, :] + M[1:, :])))
-        kh = np.where(net.link_h, self.k_fracture,
-                      k_of(0.5 * (M[:, :-1] + M[:, 1:])))
+        kv = np.where(net.link_v, self.K_sat_fracture,
+                      K_sat_of(0.5 * (M[:-1, :] + M[1:, :])))
+        kh = np.where(net.link_h, self.K_sat_fracture,
+                      K_sat_of(0.5 * (M[:, :-1] + M[:, 1:])))
         if net.periodic_x:
-            kw = np.where(net.link_wrap, self.k_fracture,
-                          k_of(0.5 * (M[:, -1] + M[:, 0])))
+            kw = np.where(net.link_wrap, self.K_sat_fracture,
+                          K_sat_of(0.5 * (M[:, -1] + M[:, 0])))
         else:
             kw = np.zeros(self.nz)
         return kv, kh, kw
@@ -2178,7 +2178,7 @@ class Weathering(object):
         does, which is why any joint reaching the surface takes all the rain
         on offer and why only an unfractured section ever ponds.
         """
-        return np.where(self.network.cell[0, :], self.k_fracture,
+        return np.where(self.network.cell[0, :], self.K_sat_fracture,
                         self.k_matrix_at_T)
 
     def flow_operator(self):
@@ -2222,9 +2222,9 @@ class Weathering(object):
         ponded = self.ponded
         if ponded is not None and ponded.any():
             top = idx[0, :][ponded]
-            k_top = self.surface_conductivity[ponded]
-            rhs[top] = k_top * self.pond_head
-            rows.append(top); cols.append(top); vals.append(k_top)
+            K_sat_top = self.surface_conductivity[ponded]
+            rhs[top] = K_sat_top * self.pond_head
+            rows.append(top); cols.append(top); vals.append(K_sat_top)
 
         # Base: the drainage boundary, psi = 0, so H = -depth. Applied as a
         # conductance to an external fixed head rather than by overwriting the
@@ -2233,7 +2233,7 @@ class Weathering(object):
         # which cost about half a percent in the solute balance while the water
         # balance stayed exact, because water is solved and solute is swept.
         self._k_base = np.where(self.network.cell[-1, :],
-                                self.k_fracture, self.k_matrix_at_T)
+                                self.K_sat_fracture, self.k_matrix_at_T)
         self._h_base = -(nz - 0.5) * dx - 0.5 * dx
         rows.append(idx[-1, :]); cols.append(idx[-1, :])
         vals.append(self._k_base)
@@ -2321,9 +2321,9 @@ class Weathering(object):
             self._H_prev = None
             A, b = self.flow_operator()
             H = self._solve_head(A, b).reshape(self.nz, self.nx)
-            k_top = self.surface_conductivity
+            K_sat_top = self.surface_conductivity
             add = (~ponded) & (H[0, :] > self.pond_head)
-            taking = k_top * (self.pond_head - H[0, :])
+            taking = K_sat_top * (self.pond_head - H[0, :])
             drop = ponded & (taking > self.rainfall * self.dx)
             if not add.any() and not drop.any():
                 break

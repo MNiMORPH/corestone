@@ -69,7 +69,7 @@ whether this is worth building.
           3.00 m/yr         0       0       0      60
          10.00 m/yr         0       0      23      60
 
-    A single joint has enormous capacity -- k_fracture is 30,000 times the
+    A single joint has enormous capacity -- K_sat_fracture is 30,000 times the
     matrix -- so ANY joint takes all the rain the demo can offer, and the
     slider's effect on inflow is off or on rather than a curve. The demo tops
     out at 1.00 m/yr, so even the 3 m-spacing, 10 m/yr corner is out of reach.
@@ -127,15 +127,15 @@ class Ponding(Weathering):
             return A, rhs
         idx = np.arange(self.nz * self.nx).reshape(self.nz, self.nx)
         top = idx[0, :][ponded]
-        k_top = np.where(self.network.cell[0, :], self.k_fracture,
+        K_sat_top = np.where(self.network.cell[0, :], self.K_sat_fracture,
                          self.k_matrix_at_T)[ponded]
-        rhs[top] = k_top * self.h_pond          # replaces the prescribed flux
+        rhs[top] = K_sat_top * self.h_pond          # replaces the prescribed flux
         # Add the conductance on the diagonal as a separate COO term rather
         # than indexing into the assembled matrix: scipy will not add a scalar
         # into a sparse slice, and summing duplicates is how the rest of this
         # operator is built anyway.
         n = self.nz * self.nx
-        extra = sp.coo_matrix((k_top, (top, top)), shape=(n, n))
+        extra = sp.coo_matrix((K_sat_top, (top, top)), shape=(n, n))
         return (A + extra).tocsc(), rhs
 
     def solve_flow(self):
@@ -150,9 +150,9 @@ class Ponding(Weathering):
             # a flux cell that has risen above the surface must pond...
             add = (~ponded) & (H[0, :] > self.h_pond)
             # ...and a ponded cell drawing more than the rain must be released
-            k_top = np.where(self.network.cell[0, :], self.k_fracture,
+            K_sat_top = np.where(self.network.cell[0, :], self.K_sat_fracture,
                              self.k_matrix_at_T)
-            taking = k_top * (self.h_pond - H[0, :])
+            taking = K_sat_top * (self.h_pond - H[0, :])
             drop = ponded & (taking > self.rainfall * self.dx)
             if not add.any() and not drop.any():
                 break
@@ -171,10 +171,10 @@ class Ponding(Weathering):
         # is what a ponded cell no longer takes. Recompute it from the head it
         # actually reached, and rebuild the per-cell inflow that depends on it.
         if self.ponded is not None and self.ponded.any():
-            k_top = np.where(self.network.cell[0, :], self.k_fracture,
+            K_sat_top = np.where(self.network.cell[0, :], self.K_sat_fracture,
                              self.k_matrix_at_T)
             taken = np.where(self.ponded,
-                             k_top * (self.h_pond - self.H[0, :]),
+                             K_sat_top * (self.h_pond - self.H[0, :]),
                              self.rainfall * self.dx)
             self._in_above[0, :] = np.maximum(taken, 0.0)
             self.q = self._in_above + self._in_left + self._in_right
