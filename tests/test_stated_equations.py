@@ -149,7 +149,7 @@ def test_forward_euler_would_fail_the_invariance_the_exponential_passes():
     """
     m = _model()
     frozen = m.solve_solute(m.reaction_coefficient)
-    lam = m.specific_reaction_coefficient * (1.0 - frozen) / m.tau
+    lam = m.k_reaction * (1.0 - frozen) / m.tau
     dt = 4000.0 * YEAR
 
     one = np.ones((m.nz, m.nx)) * (1.0 - lam * dt)
@@ -800,11 +800,11 @@ def test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length():
     m = _thermo(11.85)
     m.set_rainfall(0.30 / YEAR)
     want = np.sqrt(m.D_O2_aqueous / m.tortuosity_fresh
-                   / m.specific_oxidation_coefficient)
+                   / m.k_oxidation)
     assert m.oxidation_penetration_depth == pytest.approx(want, rel=1e-12)
     assert m.oxidation_penetration_depth == pytest.approx(0.0448, rel=2e-3)
 
-    assert m.specific_oxidation_coefficient == pytest.approx(7.2e-11, rel=1e-3)
+    assert m.k_oxidation == pytest.approx(7.2e-11, rel=1e-3)
     assert m.oxidation_length == pytest.approx(132.0, rel=1e-2)
     # The regime claim depends on section depth, so it is made at the depth
     # the demo actually uses -- 3 m -- and not on this fixture's 1 m.

@@ -1576,11 +1576,11 @@ class Weathering(object):
         return 0.25 * self.f_FeO / (self.V_FeO * self.C_O2)
 
     @property
-    def specific_oxidation_coefficient(self):
+    def k_oxidation(self):
         """
         ``k_ox A`` [1/s]: the rate at which fresh biotite consumes dissolved
         oxygen, per unit of oxygen present. The oxygen counterpart of
-        :attr:`specific_reaction_coefficient`, and like it a scalar.
+        :attr:`k_reaction`, and like it a scalar.
 
         IT IS A SCALAR FOR A DIFFERENT REASON THAN THE DISSOLUTION ONE, and
         the distinction is worth keeping. Dissolving, ``r`` falls with ``M``
@@ -1612,7 +1612,7 @@ class Weathering(object):
         driver cannot be swapped without re-reading what the exercise claims;
         see :attr:`oxidation_damkohler`.
         """
-        return self.rainfall / self.specific_oxidation_coefficient
+        return self.rainfall / self.k_oxidation
 
     @property
     def oxidation_damkohler(self):
@@ -1662,7 +1662,7 @@ class Weathering(object):
         is what makes the front sharp.
         """
         return np.sqrt(self.D_O2_aqueous / self.tortuosity_fresh
-                       / self.specific_oxidation_coefficient)
+                       / self.k_oxidation)
 
     @property
     def oxidation_front_ceiling(self):
@@ -1783,7 +1783,7 @@ class Weathering(object):
     # See prototypes/probe_j_flip_the_solute.py for the pictures.
 
     @property
-    def specific_dissolution_coefficient(self):
+    def k_dissolution(self):
         """
         ``r / M`` [1/s] for the DISSOLUTION driver: plagioclase into water
         that is approaching quartz saturation.
@@ -1799,12 +1799,12 @@ class Weathering(object):
                 * self.rate_factor / self.solubility_factor)
 
     @property
-    def specific_reaction_coefficient(self):
+    def k_reaction(self):
         """``r / M`` [1/s] for whichever reaction is driving; see
         :attr:`driver`."""
         if self.driver == "oxidation":
-            return self.specific_oxidation_coefficient
-        return self.specific_dissolution_coefficient
+            return self.k_oxidation
+        return self.k_dissolution
 
     @property
     def inlet_concentration(self):
@@ -1850,7 +1850,7 @@ class Weathering(object):
         It falls with the soluble mineral remaining, because the reactive
         surface area does.
         """
-        return self.specific_reaction_coefficient * np.maximum(self.M, 0.0)
+        return self.k_reaction * np.maximum(self.M, 0.0)
 
     @property
     def tau(self):
@@ -2443,7 +2443,7 @@ class Weathering(object):
         exponential. The tangent always undershoots, which is the only reason
         the step ever needed clipping at zero, and it was six times less
         accurate at identical cost -- the same solves, one np.exp added.
-        ``lambda`` is formed from :attr:`specific_reaction_coefficient` and so
+        ``lambda`` is formed from :attr:`k_reaction` and so
         never divides by a mineral content approaching zero.
 
         WHAT LIMITS THE STEP. Holding ``c`` across it is the only
@@ -2489,7 +2489,7 @@ class Weathering(object):
         if self._c_held is None:
             self._c_held = self.solve_solute(self.reaction_coefficient)
         c_held = self._c_held
-        lam = (self.specific_reaction_coefficient
+        lam = (self.k_reaction
                * self.driving_force(c_held) / self.tau)
 
         def advance(step):

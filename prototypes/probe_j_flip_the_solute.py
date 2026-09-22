@@ -82,7 +82,7 @@ class Oxidation(Weathering):
     @property
     def reaction_coefficient(self):
         """``r = k_ox A`` [1/s], falling with the biotite remaining."""
-        return self.specific_oxidation_coefficient * np.maximum(self.M, 0.0)
+        return self.k_oxidation * np.maximum(self.M, 0.0)
 
     def transport_coefficients(self):
         """
@@ -147,15 +147,15 @@ class Oxidation(Weathering):
 
     def update(self, dt=None, dt_limit=None):
         """The base method, with ``(1 - c) / tau`` -> ``c / tau_O2``."""
-        saved = (Weathering.specific_reaction_coefficient,
+        saved = (Weathering.k_reaction,
                  Weathering.tau)
         try:
-            Weathering.specific_reaction_coefficient = property(
-                lambda s: s.specific_oxidation_coefficient)
+            Weathering.k_reaction = property(
+                lambda s: s.k_oxidation)
             Weathering.tau = property(lambda s: s.tau_oxidation)
             return self._update_with_flipped_rock_law(dt, dt_limit)
         finally:
-            Weathering.specific_reaction_coefficient, Weathering.tau = saved
+            Weathering.k_reaction, Weathering.tau = saved
 
     def _update_with_flipped_rock_law(self, dt, dt_limit):
         """
