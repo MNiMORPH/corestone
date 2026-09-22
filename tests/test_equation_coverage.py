@@ -38,13 +38,13 @@ EXPECTED_BLOCKS = 28
 EXPECTED_DISTINCT = 25
 
 LEDGER = {
-    "r = k(T) * (1 - C / C_eq)":
+    "-dN/dt = k(T) * (1 - C / C_eq)":
         "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
 
-    "r = k(T) * (1 - C / C_eq) \"dissolution\", the default: "
+    "-dN/dt = k(T) * (1 - C / C_eq) \"dissolution\", the default: "
     "plagioclase into water approaching quartz saturation. A "
-    "PRODUCT -- it accumulates until it stops the reaction. r = "
-    "k_ox * C \"oxidation\": biotite Fe(II) by dissolved O2. A "
+    "PRODUCT -- it accumulates until it stops the reaction. -dN/dt "
+    "= k_ox * C \"oxidation\": biotite Fe(II) by dissolved O2. A "
     "REACTANT -- it is consumed until there is none left.":
         "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
 

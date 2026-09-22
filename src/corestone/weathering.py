@@ -6,7 +6,12 @@ Dissolve granite along its joints, and see what is left.
 The model is one equation. Dissolution runs at an Arrhenius rate constant
 multiplied by how far the pore water is from equilibrium,
 
-    r = k(T) * (1 - C / C_eq)
+    -dN/dt = k(T) * (1 - C / C_eq)
+
+where N is the solute still locked in a cubic metre of rock, so -dN/dt is what
+the water gains. There is no separate symbol for the rate: it is the
+derivative of a state. In code that derivative is :attr:`Weathering.reaction_rate`,
+and ``r`` appears only as a local shorthand for it.
 
 so water that has equilibrated stops weathering rock, however soluble the rock
 and however warm the water. Fresh water descends the joints; the joints
@@ -29,11 +34,11 @@ A SECOND REACTION IS BUILT IN, AND IT IS NOT THE DEFAULT ON PURPOSE
 ``Weathering.driver`` switches between two reactions that are the same
 transport problem with the solute pointing opposite ways:
 
-    r = k(T) * (1 - C / C_eq)   "dissolution", the default: plagioclase
+    -dN/dt = k(T) * (1 - C / C_eq)  "dissolution", the default: plagioclase
                                     into water approaching quartz saturation.
                                     A PRODUCT -- it accumulates until it stops
                                     the reaction.
-    r = k_ox * C                "oxidation": biotite Fe(II) by dissolved
+    -dN/dt = k_ox * C               "oxidation": biotite Fe(II) by dissolved
                                     O2. A REACTANT -- it is consumed until
                                     there is none left.
 
@@ -118,7 +123,7 @@ C climbs to when the reaction has run as far as it can. A is an attempt
 frequency (surface area enters here); C_eq_0 is an entropy, proportional to
 exp(dS_r / R_g). The two laws are the halves of dG_r = dH_r - T dS_r.
 
-Warming raises both. Written out, the rate law is r = k (C_eq - C), so raising
+Warming raises both. Written out, the rate law is -dN/dt = k (C_eq - C), so raising
 either factor raises the rate -- an earlier version of this docstring claimed
 the ceiling "does not make the rock dissolve faster where it stands", which is
 wrong. Where the two DO oppose each other is in the length below.
@@ -1199,7 +1204,7 @@ class Weathering(object):
         to misread it. Warming does two things -- it speeds the reaction
         (Arrhenius, ``E_a``) and it raises the solubility (van 't Hoff,
         ``delta_H_r``). BOTH RAISE THE RATE: written out, the rate law is
-        r = k (C_eq - C), so a higher ceiling is a larger driving force at any
+        -dN/dt = k (C_eq - C), so a higher ceiling is a larger driving force at any
         given C. This docstring previously said the ceiling "does not make the
         rock dissolve faster in place", which is false.
 
