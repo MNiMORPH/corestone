@@ -236,16 +236,16 @@ def test_the_matrix_conducts_better_as_it_dissolves():
 
     m.M = np.ones((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[intact], m.k_matrix_at_T, rtol=1e-12, atol=0.0)
+    assert np.allclose(kv[intact], m.K_sat_matrix_at_T, rtol=1e-12, atol=0.0)
 
     m.M = np.zeros((m.nz, m.nx))
     kv, _, _ = m.link_conductivity()
-    assert np.allclose(kv[intact], m.k_weathered_at_T, rtol=1e-12, atol=0.0)
+    assert np.allclose(kv[intact], m.K_sat_weathered_at_T, rtol=1e-12, atol=0.0)
 
     m.M = np.full((m.nz, m.nx), 0.5)
     kv, _, _ = m.link_conductivity()
-    geometric = np.sqrt(m.k_matrix_at_T * m.k_weathered_at_T)
-    arithmetic = 0.5 * (m.k_matrix_at_T + m.k_weathered_at_T)
+    geometric = np.sqrt(m.K_sat_matrix_at_T * m.K_sat_weathered_at_T)
+    arithmetic = 0.5 * (m.K_sat_matrix_at_T + m.K_sat_weathered_at_T)
     assert np.allclose(kv[intact], geometric, rtol=1e-12, atol=0.0)
     assert not np.allclose(kv[intact], arithmetic, rtol=1e-3, atol=0.0)
 

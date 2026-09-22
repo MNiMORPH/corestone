@@ -1050,7 +1050,7 @@ class Weathering(object):
         the invariant, so the conductivity has to scale as 1/dx, and now does.
 
         Temperature enters through the viscosity, and the MATRIX ends carry
-        it too -- see :attr:`k_matrix_at_T`. That matters more than it looks.
+        it too -- see :attr:`K_sat_matrix_at_T`. That matters more than it looks.
         Hydraulic conductivity is ``k_intrinsic rho g / mu`` for any medium,
         so warming raises joints and matrix alike and leaves their ratio
         alone; with the infiltration prescribed at the surface rather than
@@ -1133,12 +1133,12 @@ class Weathering(object):
                 / water_viscosity(float(np.mean(self.T))))
 
     @property
-    def k_matrix_at_T(self):
+    def K_sat_matrix_at_T(self):
         """Intact-matrix conductivity at the working temperature [m/s]."""
         return self.K_sat_matrix * self.viscosity_factor
 
     @property
-    def k_weathered_at_T(self):
+    def K_sat_weathered_at_T(self):
         """Fully weathered matrix conductivity at the working temperature."""
         return self.K_sat_weathered * self.viscosity_factor
 
@@ -2147,7 +2147,7 @@ class Weathering(object):
         this module is still a placeholder.
         """
         net = self.network
-        lo, hi = np.log(self.k_matrix_at_T), np.log(self.k_weathered_at_T)
+        lo, hi = np.log(self.K_sat_matrix_at_T), np.log(self.K_sat_weathered_at_T)
 
         def K_sat_of(m):
             return np.exp(m * lo + (1.0 - m) * hi)
@@ -2187,7 +2187,7 @@ class Weathering(object):
         on offer and why only an unfractured section ever ponds.
         """
         return np.where(self.network.cell[0, :], self.K_sat_fracture,
-                        self.k_matrix_at_T)
+                        self.K_sat_matrix_at_T)
 
     def flow_operator(self):
         """
@@ -2241,7 +2241,7 @@ class Weathering(object):
         # which cost about half a percent in the solute balance while the water
         # balance stayed exact, because water is solved and solute is swept.
         self._k_base = np.where(self.network.cell[-1, :],
-                                self.K_sat_fracture, self.k_matrix_at_T)
+                                self.K_sat_fracture, self.K_sat_matrix_at_T)
         self._h_base = -(nz - 0.5) * dx - 0.5 * dx
         rows.append(idx[-1, :]); cols.append(idx[-1, :])
         vals.append(self._k_base)

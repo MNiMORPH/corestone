@@ -128,7 +128,7 @@ class Ponding(Weathering):
         idx = np.arange(self.nz * self.nx).reshape(self.nz, self.nx)
         top = idx[0, :][ponded]
         K_sat_top = np.where(self.network.cell[0, :], self.K_sat_fracture,
-                         self.k_matrix_at_T)[ponded]
+                         self.K_sat_matrix_at_T)[ponded]
         rhs[top] = K_sat_top * self.h_pond          # replaces the prescribed flux
         # Add the conductance on the diagonal as a separate COO term rather
         # than indexing into the assembled matrix: scipy will not add a scalar
@@ -151,7 +151,7 @@ class Ponding(Weathering):
             add = (~ponded) & (H[0, :] > self.h_pond)
             # ...and a ponded cell drawing more than the rain must be released
             K_sat_top = np.where(self.network.cell[0, :], self.K_sat_fracture,
-                             self.k_matrix_at_T)
+                             self.K_sat_matrix_at_T)
             taking = K_sat_top * (self.h_pond - H[0, :])
             drop = ponded & (taking > self.rainfall * self.dx)
             if not add.any() and not drop.any():
@@ -172,7 +172,7 @@ class Ponding(Weathering):
         # actually reached, and rebuild the per-cell inflow that depends on it.
         if self.ponded is not None and self.ponded.any():
             K_sat_top = np.where(self.network.cell[0, :], self.K_sat_fracture,
-                             self.k_matrix_at_T)
+                             self.K_sat_matrix_at_T)
             taken = np.where(self.ponded,
                              K_sat_top * (self.h_pond - self.H[0, :]),
                              self.rainfall * self.dx)
