@@ -321,8 +321,8 @@ def test_unjointed_rock_passes_its_own_conductivity_and_no_more():
     # Both boundaries put their external head half a cell outside the last
     # cell centre but give the link a FULL cell's conductance, so an nz-cell
     # column carries nz + 1 cells of resistance. 30 cells here, so 30/31.
-    assert v.mean() / m.K_sat_matrix_at_T == pytest.approx(
-        m.nz / (m.nz + 1.0), rel=1e-6), v.mean() / m.K_sat_matrix_at_T
+    assert v.mean() / m.K_sat_intact_at_T == pytest.approx(
+        m.nz / (m.nz + 1.0), rel=1e-6), v.mean() / m.K_sat_intact_at_T
 
     # ...and the water it would not take is reported rather than lost.
     rain = m.rainfall * m.dx * m.nx

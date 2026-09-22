@@ -72,7 +72,7 @@ LEDGER = {
     "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(omega) / pore_volumes":
         "test_the_rock_is_integrated_exactly_over_a_step_with_c_held",
 
-    "K_sat(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)":
+    "K_sat(M) = K_sat_intact(T)^M * K_sat_weathered(T)^(1 - M)":
         "test_the_matrix_conducts_better_as_it_dissolves",
 
     "k(T) = A exp(-E_a / R_g T) Arrhenius, on the RATE "

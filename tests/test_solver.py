@@ -174,18 +174,18 @@ def test_the_base_conductance_reaches_the_matrix_through_the_triplets():
     d = A.diagonal().reshape(m.nz, m.nx)
     # links only: rebuild the same row without the base term
     net = m.network
-    # K_sat_matrix_at_T, not K_sat_matrix: the conductivities carry the viscosity at
+    # K_sat_intact_at_T, not K_sat_intact: the conductivities carry the viscosity at
     # the working temperature, and a fresh model has M = 1 everywhere so
     # k(M) is exactly that. Using the uncorrected value here left this
-    # comparison wrong by K_sat_matrix - K_sat_matrix_at_T, which is 9.45e-11 -- and
+    # comparison wrong by K_sat_intact - K_sat_intact_at_T, which is 9.45e-11 -- and
     # np.allclose's default atol of 1e-8 swallowed it whole.
-    kv = np.where(net.link_v, m.K_sat_fracture, m.K_sat_matrix_at_T)
-    kh = np.where(net.link_h, m.K_sat_fracture, m.K_sat_matrix_at_T)
+    kv = np.where(net.link_v, m.K_sat_fracture, m.K_sat_intact_at_T)
+    kh = np.where(net.link_h, m.K_sat_fracture, m.K_sat_intact_at_T)
     links = kv[-1, :].copy()                       # from the row above
     links[:-1] += kh[-1, :]
     links[1:] += kh[-1, :]
     if net.periodic_x:
-        kw = np.where(net.link_wrap, m.K_sat_fracture, m.K_sat_matrix_at_T)
+        kw = np.where(net.link_wrap, m.K_sat_fracture, m.K_sat_intact_at_T)
         links[-1] += kw[-1]
         links[0] += kw[-1]
     assert np.allclose(d[-1, :] - links, m._k_base, rtol=1e-12, atol=0.0)

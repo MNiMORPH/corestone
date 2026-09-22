@@ -32,7 +32,7 @@ The closure. Conductivity is interpolated geometrically -- linearly in its
 logarithm, which is how conductivity varies -- between intact granite at
 M = 1 and grus at M = 0:
 
-    log k = M log K_sat_matrix + (1 - M) log k_grus
+    log k = M log K_sat_intact + (1 - M) log k_grus
 
 on the mean of the two cells a link joins. A jointed link keeps K_sat_fracture:
 an open joint is an open joint whatever the rock beside it has done.
@@ -59,7 +59,7 @@ class EvolvingK(Weathering):
 
     def link_conductivity(self):
         net = self.network
-        lo, hi = np.log(self.K_sat_matrix), np.log(self.k_grus)
+        lo, hi = np.log(self.K_sat_intact), np.log(self.k_grus)
 
         def K_sat_of(m):
             """Geometric interpolation between intact granite and grus."""

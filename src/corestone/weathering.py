@@ -38,7 +38,7 @@ transport problem with the solute pointing opposite ways:
                                     there is none left.
 
 Oxidation is what actually paces spheroidal weathering, and the evidence is
-not thin. Goodfellow et al. (2016) -- the source of ``K_sat_matrix`` and
+not thin. Goodfellow et al. (2016) -- the source of ``K_sat_intact`` and
 ``K_sat_weathered`` below -- put a synchrotron microprobe on 26 biotite crystals
 and found that "biotite weathering begins with oxidation of parts of biotite
 crystals that are being accessed by diffusing oxygen", that interlayer K+ is
@@ -470,7 +470,7 @@ class Weathering(object):
         # temperature, which is an artefact and not a physics.
         self.T_K_ref = 293.15             # temperature of the measured
                                           # conductivities [K]
-        self.K_sat_matrix = 5.0e-10           # intact granite [m/s]
+        self.K_sat_intact = 5.0e-10           # intact granite [m/s]
         self.K_sat_weathered = 5.0e-6         # fully weathered matrix [m/s]
         # THE SURFACE CAN REFUSE WATER. Rain arrives at a rate; the rock takes
         # it up to its infiltration capacity; the rest runs off. Without this
@@ -1050,7 +1050,7 @@ class Weathering(object):
         the invariant, so the conductivity has to scale as 1/dx, and now does.
 
         Temperature enters through the viscosity, and the MATRIX ends carry
-        it too -- see :attr:`K_sat_matrix_at_T`. That matters more than it looks.
+        it too -- see :attr:`K_sat_intact_at_T`. That matters more than it looks.
         Hydraulic conductivity is ``k_intrinsic rho g / mu`` for any medium,
         so warming raises joints and matrix alike and leaves their ratio
         alone; with the infiltration prescribed at the surface rather than
@@ -1133,9 +1133,9 @@ class Weathering(object):
                 / water_viscosity(float(np.mean(self.T))))
 
     @property
-    def K_sat_matrix_at_T(self):
+    def K_sat_intact_at_T(self):
         """Intact-matrix conductivity at the working temperature [m/s]."""
-        return self.K_sat_matrix * self.viscosity_factor
+        return self.K_sat_intact * self.viscosity_factor
 
     @property
     def K_sat_weathered_at_T(self):
@@ -2121,7 +2121,7 @@ class Weathering(object):
         -- linearly in the logarithm, which is how conductivity varies --
         between intact granite and fully dissolved rock:
 
-            K_sat(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)
+            K_sat(M) = K_sat_intact(T)^M * K_sat_weathered(T)^(1 - M)
 
         on the mean of the two cells a link joins. A jointed link keeps
         ``K_sat_fracture``: an open joint is an open joint whatever the rock beside
@@ -2142,12 +2142,12 @@ class Weathering(object):
         The two endpoints are measured, not chosen. Goodfellow et al. (2016)
         report granodiorite matrix conductivity rising three to four orders of
         magnitude across weathering grades, from 9e-9 to 8e-8 cm/s in parent
-        rock to 9e-5 to 9e-4 cm/s in the most weathered samples; ``K_sat_matrix``
+        rock to 9e-5 to 9e-4 cm/s in the most weathered samples; ``K_sat_intact``
         and ``K_sat_weathered`` are the mid-points of those ranges. Everything else in
         this module is still a placeholder.
         """
         net = self.network
-        lo, hi = np.log(self.K_sat_matrix_at_T), np.log(self.K_sat_weathered_at_T)
+        lo, hi = np.log(self.K_sat_intact_at_T), np.log(self.K_sat_weathered_at_T)
 
         def K_sat_of(m):
             return np.exp(m * lo + (1.0 - m) * hi)
@@ -2187,7 +2187,7 @@ class Weathering(object):
         on offer and why only an unfractured section ever ponds.
         """
         return np.where(self.network.cell[0, :], self.K_sat_fracture,
-                        self.K_sat_matrix_at_T)
+                        self.K_sat_intact_at_T)
 
     def flow_operator(self):
         """
@@ -2241,7 +2241,7 @@ class Weathering(object):
         # which cost about half a percent in the solute balance while the water
         # balance stayed exact, because water is solved and solute is swept.
         self._k_base = np.where(self.network.cell[-1, :],
-                                self.K_sat_fracture, self.K_sat_matrix_at_T)
+                                self.K_sat_fracture, self.K_sat_intact_at_T)
         self._h_base = -(nz - 0.5) * dx - 0.5 * dx
         rows.append(idx[-1, :]); cols.append(idx[-1, :])
         vals.append(self._k_base)

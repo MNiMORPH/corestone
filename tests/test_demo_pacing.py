@@ -133,7 +133,7 @@ def test_the_spacing_slider_reaches_no_joints_at_all():
     assert not m.network.link_v.any() and not m.network.link_h.any()
     assert m.ponded.all()
     assert m.infiltration < 0.1 * m.rainfall
-    assert m.infiltration == pytest.approx(m.K_sat_matrix_at_T, rel=0.05)
+    assert m.infiltration == pytest.approx(m.K_sat_intact_at_T, rel=0.05)
 
     # ...and any joints at all take every drop, because one 100 um joint
     # carries about twenty-three times the rain on a 3 m section.
