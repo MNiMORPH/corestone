@@ -100,7 +100,7 @@ def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     exported = (m.q_out_base * omega[-1, :]).sum()
     assert supplied == pytest.approx(consumed + exported, rel=1e-9)
 
-    rate = r * m.driving_force(omega) / m.pore_volumes
+    rate = r * m.driving_force_of(omega) / m.pore_volumes
     assert rate.shape == m.M.shape
     assert (rate >= 0.0).all()
 
@@ -411,10 +411,10 @@ def test_diffusion_is_what_lets_a_block_weather_inward():
         m.M[:] = fraction_remaining
         m.solve_flow()
         r = m.reaction_rate
-        on = (m.driving_force(m.solve_solute(r)) > 1e-6).mean()
+        on = (m.driving_force_of(m.solve_solute(r)) > 1e-6).mean()
         m.D_molecular = m.D_O2_molecular = 0.0
         m.grain_size = 0.0
-        off = (m.driving_force(m.solve_solute(r)) > 1e-6).mean()
+        off = (m.driving_force_of(m.solve_solute(r)) > 1e-6).mean()
         return float(on), float(off)
 
     fresh_on, fresh_off = undersaturated(1.0)
@@ -485,7 +485,7 @@ def test_corners_stay_further_from_saturation_than_faces():
     """
     m = _model()
     omega = m.solve_solute(m.reaction_rate)
-    u = m.driving_force(omega)      # where the water can still do work
+    u = m.driving_force_of(omega)      # where the water can still do work
     jc = np.nonzero(m.network.link_v[m.nz // 2, :])[0]
     jr = np.nonzero(m.network.link_h.mean(axis=1) > 0.5)[0]
     c0, r0, r1 = jc[1], jr[1], jr[2]

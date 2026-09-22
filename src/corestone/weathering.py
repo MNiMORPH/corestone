@@ -50,7 +50,7 @@ consumption front BELOW the plagioclase front. Designs 08 and 09 carry the
 whole case.
 
 It is not the default because this model exists to teach basic chemical
-weathering -- rate times affinity, a solubility ceiling, Arrhenius -- and the
+weathering -- rate times driving force, a solubility ceiling, Arrhenius -- and the
 dissolution driver has all three in their textbook form. The oxidation driver
 replaces the ceiling with a gas-solubility story that INVERTS the temperature
 intuition, and it rests on the least defensible parameter in this file. Both
@@ -884,7 +884,7 @@ class Weathering(object):
         # weathering, and design 08 records the case in full.
         #
         # But this model exists to teach basic chemical weathering, and that
-        # is rate times affinity, a solubility ceiling and Arrhenius. The
+        # is rate times driving force, a solubility ceiling and Arrhenius. The
         # dissolution driver has all three in their textbook form. The
         # oxidation driver replaces the ceiling with a gas-solubility story
         # that INVERTS the temperature intuition -- cold weathers faster,
@@ -1825,11 +1825,11 @@ class Weathering(object):
         """
         return 1.0 if self.driver == "oxidation" else 0.0
 
-    def driving_force(self, omega):
+    def driving_force_of(self, omega):
         """
         How hard the reaction is pushed, given the normalised solute ``omega``.
 
-        ``1 - omega`` under dissolution -- the affinity, which falls to zero at
+        ``1 - omega`` under dissolution -- the driving force, which falls to zero at
         saturation -- and ``omega`` itself under oxidation, since a first-order
         reaction in dissolved O2 is driven by how much of it is there. Both
         live in [0, 1] and both vanish where the water can do no more work,
@@ -2433,7 +2433,7 @@ class Weathering(object):
         porosity, and therefore no residence time.
 
         What the rock loses is what the water gains -- or, oxidising, what the
-        water loses is what the rock gains. ``f`` is :meth:`driving_force`,
+        water loses is what the rock gains. ``f`` is :meth:`driving_force_of`,
         and it is the only place the two reactions differ here:
 
             d(M/M0)/dt = - r f(omega) / pore_volumes
@@ -2496,7 +2496,7 @@ class Weathering(object):
             self._omega_held = self.solve_solute(self.reaction_rate)
         omega_held = self._omega_held
         lam = (self.k_reaction
-               * self.driving_force(omega_held) / self.pore_volumes)
+               * self.driving_force_of(omega_held) / self.pore_volumes)
 
         def advance(step):
             # The clip is a guard, not a mechanism: lambda >= 0 because omega <= 1,
@@ -2630,7 +2630,7 @@ class Weathering(object):
         and at the base it is the drainage, so no cell is missing a face.
 
         This is the CAUSE the rest of the model is the effect of, and unlike
-        the affinity field it is not a restatement of the dissolved fraction:
+        the driving-force field it is not a restatement of the dissolved fraction:
         early on the matrix carries about a thousandth of the mean infiltration
         rate while the joints carry twenty times it, and as the rock opens the
         matrix comes up to carry nearly all of it.
@@ -2651,10 +2651,10 @@ class Weathering(object):
         return np.hypot(0.5 * qx, 0.5 * qz) / dx
 
     @property
-    def affinity(self):
+    def driving_force(self):
         """
         How hard the reaction is being pushed, in [0, 1]; see
-        :meth:`driving_force`.
+        :meth:`driving_force_of`.
 
         Under dissolution it is the bracket ``1 - C/C_eq``, how much capacity
         the water has left before saturation stops it. Under oxidation it is
@@ -2662,4 +2662,4 @@ class Weathering(object):
         by how much reactant is present. Zero means the water can do no more
         work, either way, which is what makes it the field worth plotting.
         """
-        return self.driving_force(self.omega)
+        return self.driving_force_of(self.omega)

@@ -1,5 +1,5 @@
 """
-Probe B: does the affinity term alone produce corestones and grus?
+Probe B: does the driving force alone produce corestones and grus?
 
 The whole model rests on one claim. Water enters the top fresh, descends
 preferentially down the joints, and dissolves rock at

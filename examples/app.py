@@ -115,7 +115,7 @@ def draw(net, m):
     fig = Figure(figsize=(9.0, 4.0), layout="constrained")
     extent = [0.0, LX, LZ, 0.0]                     # depth increases downward
     for ax, field, cmap, title, label in (
-            (fig.add_subplot(1, 2, 1), m.affinity, "Greens",
+            (fig.add_subplot(1, 2, 1), m.driving_force, "Greens",
              "Where the water can still dissolve", r"$1 - C/C_{eq}$"),
             (fig.add_subplot(1, 2, 2), m.dissolved_fraction, "Oranges",
              "What is left of the rock", "fraction dissolved")):

@@ -1,5 +1,5 @@
 """
-The affinity term does what the design says, and the flow loses no water.
+The driving_force term does what the design says, and the flow loses no water.
 """
 
 import numpy as np
@@ -100,7 +100,7 @@ def test_water_enters_fresh_and_saturates_with_depth():
     assert m.omega[0, :].max() < 0.1 * np.median(m.omega[5, :])   # rain arrives fresh
     assert np.median(m.omega[5, :]) > 0.9                # matrix saturates quickly
     assert m.omega.max() <= 1.0 + 1e-12
-    assert np.allclose(m.affinity, 1.0 - m.omega, rtol=1e-12, atol=0.0)
+    assert np.allclose(m.driving_force, 1.0 - m.omega, rtol=1e-12, atol=0.0)
 
 
 def test_water_enters_full_of_oxygen_and_gives_it_up_with_depth():
@@ -112,7 +112,7 @@ def test_water_enters_full_of_oxygen_and_gives_it_up_with_depth():
     top row is nearly saturated with oxygen rather than nearly free of silica,
     and the matrix below runs it down rather than filling it up.
 
-    The affinity inverts with it. Under dissolution it is 1 - omega, what the
+    The driving_force inverts with it. Under dissolution it is 1 - omega, what the
     water can still take up; under oxidation it is omega, what the water still has
     to give. Both are zero where the water can do no more work.
     """
@@ -128,7 +128,7 @@ def test_water_enters_full_of_oxygen_and_gives_it_up_with_depth():
     # less than it arrived with.
     assert np.median(m.omega[-1, :]) < 0.8 * np.median(m.omega[0, :])
     assert m.omega.max() <= 1.0 + 1e-12
-    assert np.allclose(m.affinity, m.omega, rtol=1e-12, atol=0.0)
+    assert np.allclose(m.driving_force, m.omega, rtol=1e-12, atol=0.0)
 
 
 def test_raising_the_temperature_shortens_the_saturation_length():
@@ -349,7 +349,7 @@ def test_the_default_driver_is_dissolution_and_the_choice_is_deliberate():
     stronger: Goodfellow et al. (2016) watched biotite weathering begin with
     oxidation by diffusing oxygen. Oxidation is what really paces spheroidal
     weathering. The default is dissolution anyway, because this model exists
-    to teach rate times affinity, a solubility ceiling and Arrhenius, and the
+    to teach rate times driving force, a solubility ceiling and Arrhenius, and the
     oxidation driver inverts the temperature intuition before a student has
     built it.
 

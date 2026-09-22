@@ -3,7 +3,7 @@
 The three-panel figure: the plumbing, the equation, and what is left.
 
 Follows the causal chain rather than showing the answer alone. The middle panel
-is the point of the figure: the affinity term is the only field in the model,
+is the point of the figure: the driving force is the only field in the model,
 so putting it on screen is the difference between seeing the equation and being
 told it.
 
@@ -61,7 +61,7 @@ model = Weathering(net).run(years=KYR * 1e3)
 
 X = model.dissolved_fraction
 q = model.q
-affinity = model.affinity
+driving_force = model.driving_force
 L_eq = model.saturation_length
 # Quote the saturation length for FRESH rock: it scales with the local flux,
 # so a joint and the matrix differ by orders of magnitude.
@@ -139,14 +139,14 @@ bar(im, cbax[0], "water flux, relative to mean infiltration",
 
 # ---- 2: where it can still dissolve ------------------------------------------
 ax = axes[1]
-im = ax.imshow(affinity, extent=EXT, origin="upper", cmap="Greens",
+im = ax.imshow(driving_force, extent=EXT, origin="upper", cmap="Greens",
                vmin=0, vmax=1, interpolation="nearest")
 joints(ax, color="#0b3d20")
 dress(ax, "2   The equation, made visible",
       "Dark green is fresh water with capacity left. Diffusion carries solute\n"
       "out of the blocks toward the flushed joints, so the interiors stay\n"
       "undersaturated and weather inward instead of sitting at saturation.")
-bar(im, cbax[1], r"affinity term  $1 - C/C_{eq}$")
+bar(im, cbax[1], r"driving_force term  $1 - C/C_{eq}$")
 # L_eq is LOCAL: it scales with the flux, so it differs by two orders of
 # magnitude between a joint and the matrix. Quoting one number would mislead.
 ax.text(0.982, 0.045,
