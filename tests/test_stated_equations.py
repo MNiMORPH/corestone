@@ -71,7 +71,7 @@ def test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux(driver):
 @pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
 def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     """
-        d(M/M0)/dt = - r f(omega) / pore_volumes,  f = 1 - omega dissolving, f = omega oxidising
+        dM/dt = - r f(omega) / pore_volumes,  f = 1 - omega dissolving, f = omega oxidising
 
     Solute is conserved, and the books balance the same way whichever
     direction it points: what comes in equals what is consumed plus what
@@ -198,7 +198,7 @@ def test_the_saturation_length_scales_as_C_eq_over_k_not_as_one_over_k():
 
 def test_pore_volumes_falls_as_solubility_rises():
     """
-    ``pore_volumes = M0 / C_eq`` is the second place C_eq enters: a warmer, more soluble
+    ``pore_volumes = N_0 / C_eq`` is the second place C_eq enters: a warmer, more soluble
     fluid carries more away per unit volume. Held constant, the model had no
     solubility response at all.
 

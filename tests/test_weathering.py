@@ -155,7 +155,7 @@ def test_temperature_acts_through_solubility_not_the_rate_constant():
     model with a 5 % response over the same range, which was reported as a
     physical result about Damkohler limits. It was an artefact of a missing
     term: solubility is temperature dependent too, and it enters twice --
-    the saturation length goes as C_eq/k, and pore_volumes = M0/C_eq.
+    the saturation length goes as C_eq/k, and pore_volumes = N_0/C_eq.
 
     Warm therefore does mean weathered here, through solubility. The earlier
     "warm does not mean weathered" story belonged to a model that had no

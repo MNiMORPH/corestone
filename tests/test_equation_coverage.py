@@ -66,7 +66,7 @@ LEDGER = {
     "S_i = q_in dx oxidation: the surface only, inlet omega = 1":
         "test_the_solved_concentration_satisfies_the_stated_cell_balance",
 
-    "d(M/M0)/dt = - r f(omega) / pore_volumes f(omega) = 1 - omega dissolving, f(omega) = omega oxidising":
+    "dM/dt = - r f(omega) / pore_volumes f(omega) = 1 - omega dissolving, f(omega) = omega oxidising":
         "test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base",
 
     "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(omega) / pore_volumes":

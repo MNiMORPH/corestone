@@ -150,7 +150,7 @@ calibrated freely without the chemistry being wrong -- it sets the scale and
 nothing else -- and why ``C_eq`` never appears alone anywhere below.
 
 **C_eq still enters a second time, and not through L.** The rock must supply
-``pore_volumes = M0 / C_eq`` volumes of saturated water per volume dissolved, so a
+``pore_volumes = N_0 / C_eq`` volumes of saturated water per volume dissolved, so a
 warmer, more soluble fluid needs fewer of them. That term carries ``dH_r``
 alone, with no ``E_a`` to cancel against it. So temperature is not one dial:
 it moves where weathering happens (through L) and how much water the job takes
@@ -555,15 +555,15 @@ class Weathering(object):
         # separately, so the pair has to come from one consistent story
         # rather than being picked one at a time.
         self.R_gas = 8.314                # gas constant [J/mol/K]
-        # DERIVED, not calibrated. pore_volumes = M0 / C_eq, and both come from
+        # DERIVED, not calibrated. pore_volumes = N_0 / C_eq, and both come from
         # elsewhere in this file:
         #
-        #   M0: oligoclase An20 has M = 265.4 g/mol at 2640 kg/m3, so a molar
+        #   N_0: oligoclase An20 has a molar mass of 265.4 g/mol at 2640 kg/m3, so a molar
         #       volume of 100.5 cm3/mol. At 30 % of the rock by volume that is
         #       2984 mol/m3 of plagioclase. Dissolving incongruently to
         #       kaolinite releases 2 Si per albite and 0 per anorthite -- the
         #       anorthite silicon stays in the clay -- so 1.6 Si per formula
-        #       unit at An20, giving M0 = 4774 mol Si per m3 of rock.
+        #       unit at An20, giving N_0 = 4774 mol Si per m3 of rock.
         #
         #   C_eq: quartz saturation, 1.0e-4 mol/kg, i.e. 0.10 mol Si/m3. The
         #       same ceiling that sets delta_H_r, so the two agree.
@@ -571,7 +571,7 @@ class Weathering(object):
         # pore_volumes = 4774 / 0.10 = 47744. The placeholder was 6700, seven times
         # too few volumes, and the model therefore weathered seven times too
         # fast. See the note on validation in the module docstring.
-        self.pore_volumes_ref = 47744.0            # M0/C_eq at T_ref: volumes of
+        self.pore_volumes_ref = 47744.0            # N_0/C_eq at T_ref: volumes of
                                           # saturated water per volume of rock
         # ---- the oxidation, design 08. NOT YET WIRED INTO THE SOLVER.
         #
@@ -900,7 +900,7 @@ class Weathering(object):
         self.t = 0.0                      # model time [s]
         self._tort = None                 # link tortuosity, refreshed with
                                           # the head; see solve_flow
-        self.M = None                     # soluble mineral remaining, M/M0
+        self.M = None                     # soluble mineral remaining, N/N_0
         self.omega = None                     # normalised concentration C/C_eq
                                           # LEAVING each cell, not entering
         self.H = None                     # hydraulic head [m]
@@ -1861,7 +1861,7 @@ class Weathering(object):
     @property
     def pore_volumes(self):
         """
-        ``M0 / C_eq``: volumes of saturated water needed per volume of rock.
+        ``N_0 / C_eq``: volumes of saturated water needed per volume of rock.
 
         Falls as solubility rises, so a warmer and more soluble fluid carries
         more away per unit volume. This is the second place ``C_eq`` enters.
@@ -2436,7 +2436,7 @@ class Weathering(object):
         water loses is what the rock gains. ``f`` is :meth:`driving_force_of`,
         and it is the only place the two reactions differ here:
 
-            d(M/M0)/dt = - r f(omega) / pore_volumes
+            dM/dt = - r f(omega) / pore_volumes
             f(omega) = 1 - omega dissolving, f(omega) = omega oxidising
 
         and ``r`` is proportional to ``M``, because the reactive surface area
@@ -2511,7 +2511,7 @@ class Weathering(object):
             self.t += dt
             return dt
 
-        rate = lam * self.M                        # d(M/M0)/dt [1/s]
+        rate = lam * self.M                        # dM/dt [1/s]
         want = min(self.dt_max, self.dx_max / max(rate.max(), 1e-30))
         if self._dt is not None:
             # PREDICT from the drift the last step actually produced, rather

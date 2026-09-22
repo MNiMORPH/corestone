@@ -1,7 +1,7 @@
 """
 Probe F: is forward Euler the right integrator for the rock?
 
-    d(M/M0)/dt = - r (1 - omega) / pore_volumes,      r = r_ref * M * k(T)/C_eq(T)
+    dM/dt = - r (1 - omega) / pore_volumes,      r = r_ref * M * k(T)/C_eq(T)
 
 r is PROPORTIONAL TO M -- the reactive surface area falls as the mineral is
 consumed -- so with omega held over the step the equation is dM/dt = -lambda M,
