@@ -161,7 +161,7 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: corners it does not reach; Run does, unbounded.
 #:
 #: The cap has moved 500 -> 4000 -> 15000 because the MODEL moved, twice:
-#: deriving tau from the mineralogy, then correcting the matrix transport.
+#: deriving pore_volumes from the mineralogy, then correcting the matrix transport.
 #: Each time it is the same criterion applied to new numbers, not a new
 #: judgement.
 #:
@@ -192,7 +192,7 @@ END_KYR = 15000.0
 #: Accuracy is unaffected: the frame sub-steps as c_drift_max demands, so this
 #: sets the pace and the controller still sets the step.
 #:
-#: 1 kyr per frame. The pace rose to this when tau was derived from the
+#: 1 kyr per frame. The pace rose to this when pore_volumes was derived from the
 #: mineralogy rather than calibrated, which made the model sevenfold slower.
 #: It went to 2 kyr briefly when correcting the matrix transport slowed it
 #: another threefold, and came back: 2 kyr put the warm end over the frame
@@ -254,7 +254,7 @@ END_KYR = 15000.0
 #: merely lengthening it.
 #:
 #: an 7.8x spread, and longer runs than before: the model slowed sevenfold
-#: when tau was derived and the pace rose only fourfold, so watching costs
+#: when pore_volumes was derived and the pace rose only fourfold, so watching costs
 #: about 1.7x what it did. That is the price of the timescale being a
 #: prediction rather than a calibration.
 #:

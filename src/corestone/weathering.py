@@ -150,11 +150,11 @@ calibrated freely without the chemistry being wrong -- it sets the scale and
 nothing else -- and why ``C_eq`` never appears alone anywhere below.
 
 **C_eq still enters a second time, and not through L.** The rock must supply
-``tau = M0 / C_eq`` volumes of saturated water per volume dissolved, so a
+``pore_volumes = M0 / C_eq`` volumes of saturated water per volume dissolved, so a
 warmer, more soluble fluid needs fewer of them. That term carries ``dH_r``
 alone, with no ``E_a`` to cancel against it. So temperature is not one dial:
 it moves where weathering happens (through L) and how much water the job takes
-(through tau), and the two do not have to point the same way.
+(through pore_volumes), and the two do not have to point the same way.
 
 Which limit the section is in is one dimensionless number, the Damkohler group
 ``Da = depth / L``, counting the e-foldings of saturation a parcel undergoes
@@ -183,7 +183,7 @@ dissolved O2, good to a factor of three; O2 solubility from the standard
 freshwater correlation; molar volumes from Robie & Hemingway (1995); iron
 content from the USGS reference granites. Shared: matrix conductivities from
 Goodfellow et al. (2016); joint conductivity from a 100 um aperture through
-the cubic law; tau, the reactive surface areas and the dispersivity from the
+the cubic law; pore_volumes, the reactive surface areas and the dispersivity from the
 mineralogy and a 2 mm grain size; every diffusivity scaled by
 Stokes-Einstein. The one number taken from an observation rather than derived
 is ``x_c``, and it is labelled a calibration where it appears.
@@ -227,7 +227,7 @@ not resolved (White & Brantley 2003), and choosing a surface area to make the
 rate come out is the one move that would make the number meaningless.
 
 Earlier versions got closer and were wrong to. A calibrated model ran at
-17.9 m/Myr, three times too FAST, with nothing checking it. Deriving tau
+17.9 m/Myr, three times too FAST, with nothing checking it. Deriving pore_volumes
 brought it to 2.5, which looked like agreement within a factor of two -- but
 30 % of the section was part-dissolved at once, so it was not advancing a
 front. Only with the matrix transport corrected, and the part-dissolved zone
@@ -551,11 +551,11 @@ class Weathering(object):
         # rock slows it down. A real regime, and not this model's.
         self.delta_H_r = 32.9e3           # quartz, llnl.dat at 25 C
         # Both matter twice over. (E_a - delta_H_r) alone sets how the
-        # saturation length moves with temperature, and C_eq enters tau
+        # saturation length moves with temperature, and C_eq enters pore_volumes
         # separately, so the pair has to come from one consistent story
         # rather than being picked one at a time.
         self.R_gas = 8.314                # gas constant [J/mol/K]
-        # DERIVED, not calibrated. tau = M0 / C_eq, and both come from
+        # DERIVED, not calibrated. pore_volumes = M0 / C_eq, and both come from
         # elsewhere in this file:
         #
         #   M0: oligoclase An20 has M = 265.4 g/mol at 2640 kg/m3, so a molar
@@ -568,10 +568,10 @@ class Weathering(object):
         #   C_eq: quartz saturation, 1.0e-4 mol/kg, i.e. 0.10 mol Si/m3. The
         #       same ceiling that sets delta_H_r, so the two agree.
         #
-        # tau = 4774 / 0.10 = 47744. The placeholder was 6700, seven times
+        # pore_volumes = 4774 / 0.10 = 47744. The placeholder was 6700, seven times
         # too few volumes, and the model therefore weathered seven times too
         # fast. See the note on validation in the module docstring.
-        self.tau_ref = 47744.0            # M0/C_eq at T_ref: volumes of
+        self.pore_volumes_ref = 47744.0            # M0/C_eq at T_ref: volumes of
                                           # saturated water per volume of rock
         # ---- the oxidation, design 08. NOT YET WIRED INTO THE SOLVER.
         #
@@ -605,7 +605,7 @@ class Weathering(object):
         # The alternative reading is more ordinary and makes the case for
         # design 08 STRONGER, which is why this one is kept: an X_Fe = 0.5
         # biotite at 6 % holds f_FeO = 0.0072 of the bulk rather than 0.0110,
-        # giving tau_O2 = 444 and a front ceiling of 676 m/Myr instead of 678
+        # giving pore_volumes_O2 = 444 and a front ceiling of 676 m/Myr instead of 678
         # and 442. Taking all the iron as oxidisable is the conservative end
         # of the budget, so the pair is chosen rather than merely inherited.
         self.phi_biotite = 0.06           # biotite, volume fraction [-]
@@ -1213,7 +1213,7 @@ class Weathering(object):
         here, 69.8 - 32.9 = 36.9 kJ/mol, so the length scale is about half as
         temperature-sensitive as the rate constant alone would suggest.
         (The whole model's response is not that number: measured, the time to
-        90 % dissolved gives +52.7 kJ/mol, because ``tau`` carries ``C_eq``
+        90 % dissolved gives +52.7 kJ/mol, because ``pore_volumes`` carries ``C_eq``
         a second time and the section is not at either limit everywhere.)
 
         It can be zero, or negative. If ``delta_H_r`` exceeded ``E_a`` --
@@ -1554,19 +1554,19 @@ class Weathering(object):
         return self.V_goethite / self.V_FeO - 1.0
 
     @property
-    def tau_oxidation(self):
+    def oxygen_pore_volumes(self):
         """
         Volumes of air-saturated water per volume of rock, to oxidise all of
-        the iron in it [-]. The oxygen counterpart of :attr:`tau`.
+        the iron in it [-]. The oxygen counterpart of :attr:`pore_volumes`.
 
-            tau_O2 = f_FeO / (4 V_FeO C_O2(T))
+            pore_volumes_O2 = f_FeO / (4 V_FeO C_O2(T))
 
         The 4 is stoichiometry: four Fe(II) are oxidised per O2. ``f_FeO /
         V_FeO`` is moles of iron per cubic metre of rock, 917 at the granite
         value, so 229 mol of O2 are needed and each cubic metre of water
         brings 0.34.
 
-        WHY IT IS WORTH FORMING. The silica ``tau`` is 47744: dissolving the
+        WHY IT IS WORTH FORMING. The silica ``pore_volumes`` is 47744: dissolving the
         plagioclase out of a cubic metre of granite takes forty-eight thousand
         cubic metres of quartz-saturated water, which is a punishing budget and
         is what makes this model slow. Oxidising its iron takes about 679, one
@@ -1676,7 +1676,7 @@ class Weathering(object):
         Fastest a weathering front could advance if every drop of water gave
         up all of its oxygen [m/s].
 
-            front ceiling = q / tau
+            front ceiling = q / pore_volumes
 
         A stoichiometric ceiling and nothing more: no kinetics, no transport,
         no rock. It is useful precisely because it cannot be beaten -- a model
@@ -1690,7 +1690,7 @@ class Weathering(object):
         running against its own stoichiometry; the oxygen one leaves two
         orders of magnitude of room.
         """
-        return self.rainfall / self.tau_oxidation
+        return self.rainfall / self.oxygen_pore_volumes
 
     def thermo_report(self):
         """
@@ -1716,8 +1716,8 @@ class Weathering(object):
             "warm water" % (self.oxygen_dissolution_enthalpy / 1e3),
             "  E_a                          none      no Arrhenius pair is "
             "measured for this",
-            "  tau_O2                  %8.0f       volumes of water per "
-            "volume of rock" % self.tau_oxidation,
+            "  pore_volumes_O2         %8.0f       volumes of water per "
+            "volume of rock" % self.oxygen_pore_volumes,
             "  oxidation length        %8.1f m     q / k_ox     -- advective"
             % self.oxidation_length,
             "  Damkohler (section)     %8.4f       %s"
@@ -1727,8 +1727,8 @@ class Weathering(object):
             "  O2 penetration          %8.4f m     into INTACT rock; %.1f cells"
             % (self.oxidation_penetration_depth,
                self.oxidation_penetration_depth / self.dx),
-            "  front ceiling           %8.1f m/Myr stoichiometry alone, q/tau"
-            % (self.rainfall / self.tau_oxidation * YEAR * 1e6),
+            "  front ceiling           %8.1f m/Myr stoichiometry alone, q/pore_volumes"
+            % (self.rainfall / self.oxygen_pore_volumes * YEAR * 1e6),
             "  -- and the cracking it drives (design 10):",
             "  bulk strain, fully ox.  %8.5f       phi_bt * dV/V of the grain"
             % self.bulk_volumetric_strain(1.0),
@@ -1754,14 +1754,14 @@ class Weathering(object):
             % float(np.mean(self.rate_factor)),
             "  C_eq(T) / C_eq(T_ref)   %8.3f       each litre carries this "
             "much more" % float(np.mean(self.solubility_factor)),
-            "  tau, silica             %8.0f       %.0fx the oxygen budget"
-            % (self.silica_tau, self.silica_tau / self.tau_oxidation),
+            "  pore_volumes, silica             %8.0f       %.0fx the oxygen budget"
+            % (self.silica_pore_volumes, self.silica_pore_volumes / self.oxygen_pore_volumes),
             "  saturation length       %8.3f m     L_ref * C_eq-factor / "
             "k-factor" % float(np.mean(self.saturation_length)),
             "  Damkohler (section)     %8.2f       %s"
             % (float(np.mean(self.damkohler)), self.regime),
             "  front ceiling           %8.2f m/Myr (field: 4-7 m/Myr)"
-            % (self.rainfall / self.silica_tau * YEAR * 1e6),
+            % (self.rainfall / self.silica_pore_volumes * YEAR * 1e6),
             "",
             "  warming therefore %s the oxidation and %s the dissolution."
             % ("SLOWS", "SPEEDS"),
@@ -1859,28 +1859,28 @@ class Weathering(object):
         return self.k_reaction * np.maximum(self.M, 0.0)
 
     @property
-    def tau(self):
+    def pore_volumes(self):
         """
         ``M0 / C_eq``: volumes of saturated water needed per volume of rock.
 
         Falls as solubility rises, so a warmer and more soluble fluid carries
         more away per unit volume. This is the second place ``C_eq`` enters.
 
-        Under the OXIDATION driver it is :attr:`tau_oxidation` instead, and
+        Under the OXIDATION driver it is :attr:`oxygen_pore_volumes` instead, and
         it moves the opposite way with temperature, because oxygen is a gas
         and comes out of solution as the water warms.
         """
         if self.driver == "oxidation":
-            return self.tau_oxidation
-        return self.silica_tau
+            return self.oxygen_pore_volumes
+        return self.silica_pore_volumes
 
     @property
-    def silica_tau(self):
-        """``tau`` for the DISSOLUTION driver, named so that it can be asked
+    def silica_pore_volumes(self):
+        """``pore_volumes`` for the DISSOLUTION driver, named so that it can be asked
         for whichever reaction is currently driving -- the comparison between
         the two budgets is a teaching point and must not depend on a
         setting."""
-        return self.tau_ref / self.solubility_factor
+        return self.pore_volumes_ref / self.solubility_factor
 
     def local_saturation_length(self):
         """The saturation length cell by cell [m]: ``q / r``."""
@@ -2436,14 +2436,14 @@ class Weathering(object):
         water loses is what the rock gains. ``f`` is :meth:`driving_force`,
         and it is the only place the two reactions differ here:
 
-            d(M/M0)/dt = - r f(c) / tau
+            d(M/M0)/dt = - r f(c) / pore_volumes
             f(c) = 1 - c dissolving, f(c) = c oxidising
 
         and ``r`` is proportional to ``M``, because the reactive surface area
         is. Over a step in which ``c`` is held the equation is therefore linear
         in ``M``, and it integrates EXACTLY:
 
-            M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / tau
+            M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / pore_volumes
 
         Forward Euler stood here before, taking the tangent to that
         exponential. The tangent always undershoots, which is the only reason
@@ -2496,7 +2496,7 @@ class Weathering(object):
             self._c_held = self.solve_solute(self.reaction_rate)
         c_held = self._c_held
         lam = (self.k_reaction
-               * self.driving_force(c_held) / self.tau)
+               * self.driving_force(c_held) / self.pore_volumes)
 
         def advance(step):
             # The clip is a guard, not a mechanism: lambda >= 0 because c <= 1,

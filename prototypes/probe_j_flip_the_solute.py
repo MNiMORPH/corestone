@@ -15,8 +15,8 @@ the volumetric source r dx^2 goes away, and the surface inflow, which
 contributed nothing while it carried c = 0, becomes the only source. The rock
 law loses its complement:
 
-    now   dM/dt = -r (1 - c) / tau          rock stops where water is saturated
-    then  dM/dt = -r c / tau_O2             rock stops where oxygen is gone
+    now   dM/dt = -r (1 - c) / pore_volumes          rock stops where water is saturated
+    then  dM/dt = -r c / pore_volumes_O2             rock stops where oxygen is gone
 
 and the exponential integrator survives untouched, because lambda is still
 independent of M.
@@ -146,20 +146,20 @@ class Oxidation(Weathering):
         return np.clip(x, 0.0, 1.0).reshape(self.nz, self.nx)
 
     def update(self, dt=None, dt_limit=None):
-        """The base method, with ``(1 - c) / tau`` -> ``c / tau_O2``."""
+        """The base method, with ``(1 - c) / pore_volumes`` -> ``c / pore_volumes_O2``."""
         saved = (Weathering.k_reaction,
-                 Weathering.tau)
+                 Weathering.pore_volumes)
         try:
             Weathering.k_reaction = property(
                 lambda s: s.k_oxidation)
-            Weathering.tau = property(lambda s: s.tau_oxidation)
+            Weathering.pore_volumes = property(lambda s: s.oxygen_pore_volumes)
             return self._update_with_flipped_rock_law(dt, dt_limit)
         finally:
-            Weathering.k_reaction, Weathering.tau = saved
+            Weathering.k_reaction, Weathering.pore_volumes = saved
 
     def _update_with_flipped_rock_law(self, dt, dt_limit):
         """
-        ``lambda = (r / M) c / tau_O2``.
+        ``lambda = (r / M) c / pore_volumes_O2``.
 
         The base ``update`` forms ``(1 - c_held)``. Rather than copy sixty
         lines of step control to change one sign, the probe hands it a c that

@@ -66,10 +66,10 @@ LEDGER = {
     "S_i = q_in dx oxidation: the surface only, inlet c = 1":
         "test_the_solved_concentration_satisfies_the_stated_cell_balance",
 
-    "d(M/M0)/dt = - r f(c) / tau f(c) = 1 - c dissolving, f(c) = c oxidising":
+    "d(M/M0)/dt = - r f(c) / pore_volumes f(c) = 1 - c dissolving, f(c) = c oxidising":
         "test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base",
 
-    "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / tau":
+    "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / pore_volumes":
         "test_the_rock_is_integrated_exactly_over_a_step_with_c_held",
 
     "K_sat(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)":
@@ -117,11 +117,11 @@ LEDGER = {
     "dV/V = V_goethite / V_FeO - 1":
         "test_the_volume_expansion_is_the_ratio_of_the_molar_volumes",
 
-    "tau_O2 = f_FeO / (4 V_FeO C_O2(T))":
-        "test_tau_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubility",
+    "pore_volumes_O2 = f_FeO / (4 V_FeO C_O2(T))":
+        "test_pore_volumes_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubility",
 
-    "front ceiling = q / tau":
-        "test_the_front_ceiling_is_the_flux_over_tau",
+    "front ceiling = q / pore_volumes":
+        "test_the_front_ceiling_is_the_flux_over_pore_volumes",
 }
 
 

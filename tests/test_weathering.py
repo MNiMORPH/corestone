@@ -91,7 +91,7 @@ def test_water_enters_fresh_and_saturates_with_depth():
     0.05 against 0.99.
     """
     # 350 kyr, not 50. The claim is about a profile whose top has given up
-    # most of its soluble phase, and deriving tau from the mineralogy made
+    # most of its soluble phase, and deriving pore_volumes from the mineralogy made
     # the model seven times slower, so reaching that state takes seven times
     # as long. The assertion is untouched; only the time needed to get there.
     m = _model()
@@ -155,7 +155,7 @@ def test_temperature_acts_through_solubility_not_the_rate_constant():
     model with a 5 % response over the same range, which was reported as a
     physical result about Damkohler limits. It was an artefact of a missing
     term: solubility is temperature dependent too, and it enters twice --
-    the saturation length goes as C_eq/k, and tau = M0/C_eq.
+    the saturation length goes as C_eq/k, and pore_volumes = M0/C_eq.
 
     Warm therefore does mean weathered here, through solubility. The earlier
     "warm does not mean weathered" story belonged to a model that had no
@@ -171,7 +171,7 @@ def test_temperature_acts_through_solubility_not_the_rate_constant():
     hot.run(years=100e3)
 
     assert hot.solubility_factor > 3.0 * cold.solubility_factor
-    assert hot.tau < cold.tau                       # more soluble carries more
+    assert hot.pore_volumes < cold.pore_volumes                       # more soluble carries more
     change = (hot.dissolved_fraction.mean() - cold.dissolved_fraction.mean())
     assert change / cold.dissolved_fraction.mean() > 1.0     # more than double
 

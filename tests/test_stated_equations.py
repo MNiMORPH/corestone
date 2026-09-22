@@ -71,7 +71,7 @@ def test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux(driver):
 @pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
 def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     """
-        d(M/M0)/dt = - r f(c) / tau,  f = 1 - c dissolving, f = c oxidising
+        d(M/M0)/dt = - r f(c) / pore_volumes,  f = 1 - c dissolving, f = c oxidising
 
     Solute is conserved, and the books balance the same way whichever
     direction it points: what comes in equals what is consumed plus what
@@ -100,14 +100,14 @@ def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     exported = (m.q_out_base * c[-1, :]).sum()
     assert supplied == pytest.approx(consumed + exported, rel=1e-9)
 
-    rate = r * m.driving_force(c) / m.tau
+    rate = r * m.driving_force(c) / m.pore_volumes
     assert rate.shape == m.M.shape
     assert (rate >= 0.0).all()
 
 
 def test_the_rock_is_integrated_exactly_over_a_step_with_c_held():
     """
-        M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - c) / tau
+        M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - c) / pore_volumes
 
     The content of "exactly" is that the answer does not depend on how the
     step is chopped up. With ``c`` held -- which is what the model does within
@@ -149,7 +149,7 @@ def test_forward_euler_would_fail_the_invariance_the_exponential_passes():
     """
     m = _model()
     frozen = m.solve_solute(m.reaction_rate)
-    lam = m.k_reaction * (1.0 - frozen) / m.tau
+    lam = m.k_reaction * (1.0 - frozen) / m.pore_volumes
     dt = 4000.0 * YEAR
 
     one = np.ones((m.nz, m.nx)) * (1.0 - lam * dt)
@@ -196,9 +196,9 @@ def test_the_saturation_length_scales_as_C_eq_over_k_not_as_one_over_k():
             assert m.saturation_length != pytest.approx(naive, rel=1e-6)
 
 
-def test_tau_falls_as_solubility_rises():
+def test_pore_volumes_falls_as_solubility_rises():
     """
-    ``tau = M0 / C_eq`` is the second place C_eq enters: a warmer, more soluble
+    ``pore_volumes = M0 / C_eq`` is the second place C_eq enters: a warmer, more soluble
     fluid carries more away per unit volume. Held constant, the model had no
     solubility response at all.
 
@@ -210,11 +210,11 @@ def test_tau_falls_as_solubility_rises():
     m = _model()
     m.set_driver("dissolution")
     m.set_temperature(m.T_ref)
-    base = m.tau
+    base = m.pore_volumes
     m.set_temperature(m.T_ref + 20.0)
-    assert m.tau < base
-    assert m.tau == pytest.approx(m.tau_ref / m.solubility_factor, rel=1e-12)
-    assert m.tau == m.silica_tau
+    assert m.pore_volumes < base
+    assert m.pore_volumes == pytest.approx(m.pore_volumes_ref / m.solubility_factor, rel=1e-12)
+    assert m.pore_volumes == m.silica_pore_volumes
 
 
 def test_the_matrix_conducts_better_as_it_dissolves():
@@ -262,7 +262,7 @@ def test_the_head_is_re_solved_as_the_rock_changes():
     tie the answer to the step size, and halving the drift budget would
     silently double how often the flow was updated.
     """
-    # 280 kyr, not 40: sourcing tau slowed the model sevenfold, and this
+    # 280 kyr, not 40: sourcing pore_volumes slowed the model sevenfold, and this
     # test needs enough ROCK CHANGE to trigger re-solves, not enough time.
     m = _model()
     m.flow_tolerance = 0.02
@@ -704,9 +704,9 @@ def test_warming_drives_oxygen_out_of_solution_and_silica_into_it():
     assert warm.C_O2 < cold.C_O2
     assert cold.C_O2 / warm.C_O2 == pytest.approx(1.93, rel=0.02)
     assert warm.solubility_factor > cold.solubility_factor
-    # ...and therefore the two taus move in opposite directions.
-    assert warm.tau_oxidation > cold.tau_oxidation
-    assert warm.silica_tau < cold.silica_tau
+    # ...and therefore the two pore_volume_counts move in opposite directions.
+    assert warm.oxygen_pore_volumes > cold.oxygen_pore_volumes
+    assert warm.silica_pore_volumes < cold.silica_pore_volumes
 
 
 def test_the_volume_expansion_is_the_ratio_of_the_molar_volumes():
@@ -727,28 +727,28 @@ def test_the_volume_expansion_is_the_ratio_of_the_molar_volumes():
     assert m.volume_expansion == pytest.approx(0.735, abs=5e-4)
 
 
-def test_tau_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubility():
+def test_pore_volumes_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubility():
     """
-    ``tau_O2 = f_FeO / (4 V_FeO C_O2(T))``
+    ``pore_volumes_O2 = f_FeO / (4 V_FeO C_O2(T))``
 
     Four Fe(II) per O2. Transcribed independently of the property, and pinned
     at the reference state, because the whole case for design 08 is that this
-    number is much smaller than the silica ``tau`` -- so if it is wrong, the
+    number is much smaller than the silica ``pore_volumes`` -- so if it is wrong, the
     case is wrong.
     """
     m = _thermo(11.85)
     iron = m.f_FeO / m.V_FeO                       # mol Fe per m3 of rock
     assert iron == pytest.approx(916.7, rel=1e-3)
-    assert m.tau_oxidation == pytest.approx(0.25 * iron / m.C_O2, rel=1e-12)
-    assert m.tau_oxidation == pytest.approx(678.1, rel=1e-3)
+    assert m.oxygen_pore_volumes == pytest.approx(0.25 * iron / m.C_O2, rel=1e-12)
+    assert m.oxygen_pore_volumes == pytest.approx(678.1, rel=1e-3)
     # The comparison design 08 rests on. NOT 15x: that figure was computed
     # with Fletcher's f_FeO = 0.05, which the same document rejects.
-    assert m.silica_tau / m.tau_oxidation == pytest.approx(70.4, rel=1e-2)
+    assert m.silica_pore_volumes / m.oxygen_pore_volumes == pytest.approx(70.4, rel=1e-2)
 
 
-def test_the_front_ceiling_is_the_flux_over_tau():
+def test_the_front_ceiling_is_the_flux_over_pore_volumes():
     """
-    ``front ceiling = q / tau``
+    ``front ceiling = q / pore_volumes``
 
     Stoichiometry alone: water arriving saturated and leaving stripped. A rate
     no mechanism can beat, which is what makes it worth stating -- the silica
@@ -758,10 +758,10 @@ def test_the_front_ceiling_is_the_flux_over_tau():
     m = _thermo(11.85)
     m.set_rainfall(0.30 / YEAR)
     assert m.oxidation_front_ceiling == pytest.approx(
-        m.rainfall / m.tau_oxidation, rel=1e-12)
+        m.rainfall / m.oxygen_pore_volumes, rel=1e-12)
     per_Myr = m.oxidation_front_ceiling * YEAR * 1e6
     assert per_Myr == pytest.approx(442.4, rel=1e-3)
-    assert (m.rainfall / m.silica_tau * YEAR * 1e6
+    assert (m.rainfall / m.silica_pore_volumes * YEAR * 1e6
             == pytest.approx(6.28, rel=1e-2))
 
 

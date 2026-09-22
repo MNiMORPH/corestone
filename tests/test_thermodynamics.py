@@ -142,12 +142,12 @@ def test_the_thermo_report_puts_the_two_budgets_side_by_side():
     m.set_rainfall(0.30 / YEAR)
     text = m.thermo_report()
     for token in ("OXIDATION --", "DISSOLUTION --", "<== DRIVING",
-                  "C_O2", "tau_O2", "tau, silica", "oxidation length",
+                  "C_O2", "pore_volumes_O2", "pore_volumes, silica", "oxidation length",
                   "O2 penetration", "reaction-limited", "front ceiling"):
         assert token in text, token
 
-    # The regression this exists for: when tau became driver-aware, the line
-    # labelled "tau, silica" started printing the OXYGEN value, and so did
+    # The regression this exists for: when pore_volumes became driver-aware, the line
+    # labelled "pore_volumes, silica" started printing the OXYGEN value, and so did
     # both front ceilings. A report that mislabels a number is worse than no
     # report, so the two are pinned apart.
     ox, diss = text.split("DISSOLUTION --")
@@ -172,7 +172,7 @@ def test_the_oxidation_drivers_whole_temperature_response_is_the_gas_law():
     leaves solution as water warms, and there is no activation energy on the
     other side to cancel it -- so cold rock oxidises faster.
 
-    Checked analytically here rather than by three runs to 90 %: tau_O2 goes
+    Checked analytically here rather than by three runs to 90 %: pore_volumes_O2 goes
     as 1/C_O2 and carries the whole of it. The runs agree -- 653, 869 and
     1238 kyr at 0, 11.85 and 30 C, an apparent -14.6 kJ/mol against this
     quantity's -14.5 -- and are too slow to be a unit test.
@@ -183,16 +183,16 @@ def test_the_oxidation_drivers_whole_temperature_response_is_the_gas_law():
     assert dH < 0.0
     assert dH / 1e3 == pytest.approx(-14.5, abs=0.2)
 
-    # ...and tau_O2 carries exactly that enthalpy, which is what makes it the
+    # ...and pore_volumes_O2 carries exactly that enthalpy, which is what makes it the
     # model's whole response: r has no temperature dependence at all.
     temps = np.array([273.15, 288.15, 303.15])
-    taus = []
+    pore_volume_counts = []
     for T in temps:
         m.set_temperature(T)
-        taus.append(m.tau_oxidation)
+        pore_volume_counts.append(m.oxygen_pore_volumes)
         assert m.k_oxidation == \
             pytest.approx(m.k_oxidation_per_area * m.biotite_surface_area, rel=1e-12)
-    slope = np.polyfit(1.0 / temps, np.log(1.0 / np.array(taus)), 1)[0]
+    slope = np.polyfit(1.0 / temps, np.log(1.0 / np.array(pore_volume_counts)), 1)[0]
     # 6 %, not 2 %: the solubility correlation is a five-term polynomial in
     # 1/T, not a straight line in van 't Hoff coordinates, so the effective
     # enthalpy depends on the interval fitted. Three points over 273-303 K
@@ -221,10 +221,10 @@ def test_the_two_drivers_disagree_about_whether_warm_means_weathered():
     cold, warm = model(0.0), model(30.0)
     for m in (cold, warm):
         m.set_driver("oxidation")
-    assert warm.tau > cold.tau                 # warm water brings less oxygen
+    assert warm.pore_volumes > cold.pore_volumes                 # warm water brings less oxygen
     for m in (cold, warm):
         m.set_driver("dissolution")
-    assert warm.tau < cold.tau                 # warm water carries more silica
+    assert warm.pore_volumes < cold.pore_volumes                 # warm water carries more silica
 
 
 def test_the_regime_names_the_limit_of_the_DRIVING_reaction():

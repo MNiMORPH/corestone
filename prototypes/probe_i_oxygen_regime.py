@@ -105,8 +105,8 @@ def reaction_rate(rate, phi):
 
 def report():
     C_O2 = oxygen_solubility(T_REF)
-    tau_ox = 0.25 * F_FEO / (V_FEO * C_O2)
-    print("oxygen at %.2f K: %.4f mol/m3, tau_O2 = %.0f\n" % (T_REF, C_O2, tau_ox))
+    pore_volumes_ox = 0.25 * F_FEO / (V_FEO * C_O2)
+    print("oxygen at %.2f K: %.4f mol/m3, pore_volumes_O2 = %.0f\n" % (T_REF, C_O2, pore_volumes_ox))
 
     print("           the two length scales, and what they cost")
     print("  k_ox [m/s]   A [m2/m3]   Da(3 m)   front [cm]   cells@5cm   "
@@ -117,7 +117,7 @@ def report():
             r = reaction_rate(rate, phi)
             D_fresh = D_O2 / TORT_FRESH
             pen = np.sqrt(D_fresh / r)          # reaction-diffusion layer [m]
-            v = np.sqrt(D_fresh * r) / tau_ox   # sharp-front speed [m/s]
+            v = np.sqrt(D_fresh * r) / pore_volumes_ox   # sharp-front speed [m/s]
             da = DEPTH * r / Q                  # advective Damkohler [-]
             print("  %.2e     %6.0f    %7.4f   %8.2f   %9.1f   %9.3f"
                   % (rate / 0.25, 6.0 * phi / GRAIN, da, 100 * pen,
@@ -140,10 +140,10 @@ def report():
     print("\n  and once it has cracked -- tortuosity 1e4 -> 10:")
     r = reaction_rate(RATES[1], PHI_BIOTITE[1])
     D_w = D_O2 / TORT_WEATHERED
-    pen_w, v_w = np.sqrt(D_w / r), np.sqrt(D_w * r) / tau_ox
+    pen_w, v_w = np.sqrt(D_w / r), np.sqrt(D_w * r) / pore_volumes_ox
     print("    penetration %.2f m, speed %.1f m/Myr -- a factor of %.0f"
           % (pen_w, v_w * YEAR * 1e6,
-             v_w / (np.sqrt(D_O2 / TORT_FRESH * r) / tau_ox)))
+             v_w / (np.sqrt(D_O2 / TORT_FRESH * r) / pore_volumes_ox)))
     print("    BUT the penetration is now %.2f m against a %.0f m section, so"
           % (pen_w, DEPTH))
     print("    the sharp-front assumption has failed and the speed is a")

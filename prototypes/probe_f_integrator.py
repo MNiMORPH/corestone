@@ -1,7 +1,7 @@
 """
 Probe F: is forward Euler the right integrator for the rock?
 
-    d(M/M0)/dt = - r (1 - c) / tau,      r = r_ref * M * k(T)/C_eq(T)
+    d(M/M0)/dt = - r (1 - c) / pore_volumes,      r = r_ref * M * k(T)/C_eq(T)
 
 r is PROPORTIONAL TO M -- the reactive surface area falls as the mineral is
 consumed -- so with c held over the step the equation is dM/dt = -lambda M,
@@ -32,14 +32,14 @@ def run(dt_years, kyr, exponential, dx_max=0.05):
         r = m.reaction_rate
         c = m.solve_solute(r)
         if exponential:
-            # lambda = r/M * (1-c)/tau, finite as M -> 0 because r is prop. to M
+            # lambda = r/M * (1-c)/pore_volumes, finite as M -> 0 because r is prop. to M
             lam = (m.reaction_rate / np.maximum(m.M, 1e-300)) \
-                  * (1.0 - c) / m.tau
+                  * (1.0 - c) / m.pore_volumes
             lam = np.where(m.M > 0, lam, 0.0)
             step = min(m.dt_max, m.dx_max / max((lam * m.M).max(), 1e-30))
             m.M = np.clip(m.M * np.exp(-lam * step), 0.0, 1.0)
         else:
-            rate = r * (1.0 - c) / m.tau
+            rate = r * (1.0 - c) / m.pore_volumes
             step = min(m.dt_max, m.dx_max / max(rate.max(), 1e-30))
             m.M = np.clip(m.M - rate * step, 0.0, 1.0)
         m.c = c; m.t += step; n += 1
