@@ -293,21 +293,41 @@ def test_periodic_flow_still_conserves_water():
         assert m.q_v[iz, :].sum() == pytest.approx(inflow, rel=1e-8)
 
 
-def test_the_water_speed_is_the_infiltration_rate_where_there_are_no_joints():
+def test_unjointed_rock_passes_its_own_conductivity_and_no_more():
     """
     Unjointed rock has nowhere to focus the flow, so every cell passes exactly
-    what falls on it and the Darcy speed is the infiltration rate everywhere.
+    what the cell above passed it, and the Darcy speed is uniform.
 
-    That is the check the cell-centred reassembly needs: the solver works on
-    faces, and turning face fluxes back into a speed is where a factor of two
-    or a missing boundary face hides. Both would still look plausible on a
-    colour map.
+    WHAT THAT SPEED IS CHANGED when the surface learned to refuse water. It
+    used to be the prescribed infiltration rate, because the model forced that
+    in whatever the rock was like -- which for intact granite meant demanding
+    a gradient of 23 and 67 m of head at the land surface. Now the surface
+    ponds and the section passes K_sat at unit gradient, which is Darcy with
+    gravity and nothing else. That is a stronger check than the old one: it
+    tests the boundary condition AND the cell-centred reassembly, where a
+    factor of two or a missing boundary face would hide and still look
+    plausible on a colour map.
     """
     net = FractureNetwork(30, 30, 0.10, periodic_x=True).seed(sets=[])
     m = Weathering(net).initialize()
     assert not net.link_v.any() and not net.link_h.any()
+
+    assert m.ponded.all(), "intact rock cannot take 0.30 m/yr and must pond"
     v = m.darcy_speed
-    assert np.allclose(v, m.infiltration, rtol=1e-6, atol=0.0), (v.min(), v.max())
+    assert np.ptp(v) < 1e-18, (v.min(), v.max())        # uniform, as it must be
+    assert v.max() < m.infiltration, (v.max(), m.infiltration)
+
+    # NOT exactly K_sat, and the shortfall is exactly the discretisation.
+    # Both boundaries put their external head half a cell outside the last
+    # cell centre but give the link a FULL cell's conductance, so an nz-cell
+    # column carries nz + 1 cells of resistance. 30 cells here, so 30/31.
+    assert v.mean() / m.k_matrix_at_T == pytest.approx(
+        m.nz / (m.nz + 1.0), rel=1e-6), v.mean() / m.k_matrix_at_T
+
+    # ...and the water it would not take is reported rather than lost.
+    rain = m.infiltration * m.dx * m.nx
+    assert m.runoff == pytest.approx(rain - m._in_above[0, :].sum(), rel=1e-12)
+    assert 0.9 < m.runoff / rain < 0.99, m.runoff / rain
 
 
 def test_joints_carry_far_more_than_the_matrix():

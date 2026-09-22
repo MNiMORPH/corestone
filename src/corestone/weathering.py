@@ -466,6 +466,22 @@ class Weathering(object):
                                           # conductivities [K]
         self.k_matrix = 5.0e-10           # intact granite [m/s]
         self.k_weathered = 5.0e-6         # fully weathered matrix [m/s]
+        # THE SURFACE CAN REFUSE WATER. Rain arrives at a rate; the rock takes
+        # it up to its infiltration capacity; the rest runs off. Without this
+        # the model prescribes the flux come what may, which is harmless while
+        # a joint reaches the surface -- one 100 um joint carries 23 times the
+        # rain falling on a 3 m section -- and nonsense without one: intact
+        # granite passes 0.0128 m/yr against a prescribed 0.30, so Darcy
+        # demands a gradient of 23 where gravity gives 1, and the solver
+        # returns +67 m of head at the land surface. Water standing 67 m deep
+        # on the outcrop, reported quietly.
+        #
+        # Measured (prototypes/probe_l_ponding_boundary.py): the constraint
+        # never binds at any joint spacing the demo offers, so it changes no
+        # existing answer. It exists to make the UNFRACTURED case possible.
+        self.pond_head = 0.0              # head at which a surface cell has
+                                          # ponded [m]; 0 is the land surface
+        self.max_ponding_passes = 12      # backstop; two passes settle it
         self.flow_tolerance = 0.01        # re-solve the head once the rock has
                                           # changed this much anywhere. NOT a
                                           # step count: that would tie the
@@ -901,6 +917,8 @@ class Weathering(object):
         self._c_held = None               # the c actually held over a step
         self._drift = None                # the drift the last step produced
         self._M_flow = None               # M when the head was last solved
+        self.ponded = None                # surface cells that have ponded
+        self.runoff = 0.0                 # rain the rock would not take
         self.flow_solves = 0              # how many times the head was solved
         self.rejected_steps = 0           # steps retried for overrunning
         self.factorisations = 0           # how many times it was rebuilt
@@ -2114,6 +2132,19 @@ class Weathering(object):
             kw = np.zeros(self.nz)
         return kv, kh, kw
 
+    @property
+    def surface_conductivity(self):
+        """Conductivity of each surface cell [m/s], joint or matrix.
+
+        What a ponded cell can actually take in, and therefore what sets the
+        infiltration capacity. The contrast is the whole story: a jointed
+        surface cell passes about thirty thousand times what an intact one
+        does, which is why any joint reaching the surface takes all the rain
+        on offer and why only an unfractured section ever ponds.
+        """
+        return np.where(self.network.cell[0, :], self.k_fracture,
+                        self.k_matrix_at_T)
+
     def flow_operator(self):
         """
         The conductance matrix for the head, and the right-hand side.
@@ -2147,9 +2178,17 @@ class Weathering(object):
             cols += [a_, b_, b_, a_]
             vals += [k, -k, k, -k]
 
-        # Infiltration into the top row [m2/s per unit thickness].
+        # Water arriving at the top row [m2/s per unit thickness]. A cell that
+        # has PONDED does not get this: it gets a fixed head instead, applied
+        # below as a conductance to an external head, exactly as the base is.
         rhs = np.zeros(n)
         rhs[idx[0, :]] = self.infiltration * dx
+        ponded = self.ponded
+        if ponded is not None and ponded.any():
+            top = idx[0, :][ponded]
+            k_top = self.surface_conductivity[ponded]
+            rhs[top] = k_top * self.pond_head
+            rows.append(top); cols.append(top); vals.append(k_top)
 
         # Base: the drainage boundary, psi = 0, so H = -depth. Applied as a
         # conductance to an external fixed head rather than by overwriting the
@@ -2223,6 +2262,38 @@ class Weathering(object):
         self._H_prev = x
         return x
 
+    def _settle_ponding(self):
+        """Decide which surface cells have ponded, then leave them set.
+
+        A surface cell keeps its prescribed flux while the head that flux
+        demands stays below :attr:`pond_head`, and switches to a fixed head
+        once it does not. Which cells those are is not known before the solve,
+        so the flow problem is nonlinear and this iterates it: solve, pond any
+        surface cell that has risen above the land surface, release any ponded
+        cell trying to take MORE than the rain, and repeat until the set stops
+        moving. Two passes settle it in every case measured.
+
+        The release test is not decoration. Without it a cell that ponded
+        early -- while the rock around it was still tight -- would stay ponded
+        for the rest of the run, quietly throttling a section that had since
+        opened up.
+        """
+        ponded = np.zeros(self.nx, dtype=bool)
+        for n in range(self.max_ponding_passes):
+            self.ponded = ponded
+            self._flow_lu = None              # the operator changed shape
+            self._H_prev = None
+            A, b = self.flow_operator()
+            H = self._solve_head(A, b).reshape(self.nz, self.nx)
+            k_top = self.surface_conductivity
+            add = (~ponded) & (H[0, :] > self.pond_head)
+            taking = k_top * (self.pond_head - H[0, :])
+            drop = ponded & (taking > self.infiltration * self.dx)
+            if not add.any() and not drop.any():
+                break
+            ponded = (ponded | add) & ~drop
+        self.ponded = ponded
+
     def solve_flow(self):
         """
         Steady Darcy head, and the link fluxes it implies.
@@ -2236,6 +2307,7 @@ class Weathering(object):
         ``flow_tolerance``, which at a converged tolerance is most of the run's
         cost -- half of it at 0.01. See :meth:`_solve_head`.
         """
+        self._settle_ponding()
         nz, nx, dx = self.nz, self.nx, self.dx
         kv, kh, kw = self.link_conductivity()
         # The tortuosity follows the rock on the SAME trigger, and must: it
@@ -2260,7 +2332,14 @@ class Weathering(object):
         # strictly downward (checked in prototypes/probe_d_darcy.py), so the
         # only vertical inflow to a cell is from the row above it.
         self._in_above = np.zeros((nz, nx))
-        self._in_above[0, :] = self.infiltration * dx
+        # What the surface actually TOOK, which for a ponded cell is set by
+        # the head it reached and not by what the sky offered.
+        self._in_above[0, :] = np.where(
+            self.ponded if self.ponded is not None
+            else np.zeros(nx, dtype=bool),
+            np.maximum(self.surface_conductivity * (self.pond_head - H[0, :]),
+                       0.0),
+            self.infiltration * dx)
         self._in_above[1:, :] = np.maximum(self.q_v, 0.0)
         self._in_left = np.zeros((nz, nx))          # from the cell to the left
         self._in_left[:, 1:] = np.maximum(self.q_h, 0.0)
@@ -2272,6 +2351,8 @@ class Weathering(object):
         self.q = self._in_above + self._in_left + self._in_right
         # What leaves the domain through the base, per bottom-row cell.
         self.q_out_base = self._k_base * (H[-1, :] - self._h_base)
+        self.runoff = (self.infiltration * dx * nx
+                       - float(self._in_above[0, :].sum()))
         self._M_flow = None if self.M is None else self.M.copy()
         self.flow_solves += 1
         return self.q
@@ -2514,7 +2595,9 @@ class Weathering(object):
         qz = np.zeros((nz, nx))
         qz[:-1, :] += self.q_v
         qz[1:, :] += self.q_v
-        qz[0, :] += self.infiltration * dx
+        # What the surface actually took, which is the prescribed rate only
+        # where the cell has not ponded.
+        qz[0, :] += self._in_above[0, :]
         qz[-1, :] += self.q_out_base
         qx = np.zeros((nz, nx))
         qx[:, :-1] += self.q_h
