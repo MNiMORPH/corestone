@@ -113,10 +113,10 @@ second one is the larger here. Write both in the textbook form:
     k(T)    = k_0 exp(-E_a      / R_g T)          Arrhenius, on the RATE
     C_eq(T) = C_0 exp(-dH_r     / R_g T)          van 't Hoff, on the CEILING
 
-Warming speeds the reaction. It also raises the ceiling -- which does not make
-the rock dissolve faster where it stands, it lets each litre of water carry
-more away before it stops working. Those are different things and they act on
-different terms.
+Warming raises both. Written out, the rate law is R = k (C_eq - C), so raising
+either factor raises the rate -- an earlier version of this docstring claimed
+the ceiling "does not make the rock dissolve faster where it stands", which is
+wrong. Where the two DO oppose each other is in the length below.
 
 Now form the saturation length, the only length this chemistry has:
 
@@ -1187,13 +1187,17 @@ class Weathering(object):
         """
         ``E_a - delta_H_r`` [J/mol]: what temperature actually does here.
 
-        The single most misread thing in this model. Warming does two opposing
-        things at once -- it speeds the reaction (Arrhenius, ``E_a``) and it
-        raises the solubility (van 't Hoff, ``delta_H_r``), and the second
-        does not make the rock dissolve faster in place, it lets each litre
-        of water carry more away before it stops. The saturation length goes
-        as ``C_eq / k``, so those two enter it with OPPOSITE signs and only
-        the difference survives.
+        The single most misread thing in this model, and a docstring that used
+        to misread it. Warming does two things -- it speeds the reaction
+        (Arrhenius, ``E_a``) and it raises the solubility (van 't Hoff,
+        ``delta_H_r``). BOTH RAISE THE RATE: written out, the rate law is
+        R = k (C_eq - C), so a higher ceiling is a larger driving force at any
+        given C. This docstring previously said the ceiling "does not make the
+        rock dissolve faster in place", which is false.
+
+        Where the two genuinely oppose each other is the saturation LENGTH,
+        which goes as ``C_eq / k``: there they enter with opposite signs and
+        only the difference survives.
 
         That difference is the apparent activation energy of the weathering
         *length scale*, and it is what a field study measuring weathering
