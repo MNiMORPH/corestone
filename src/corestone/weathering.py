@@ -111,7 +111,12 @@ Temperature enters twice, with opposite effects on the length scale, and the
 second one is the larger here. Write both in the textbook form:
 
     k(T)    = A   exp(-E_a      / R_g T)          Arrhenius, on the RATE
-    C_eq(T) = C_0 exp(-dH_r     / R_g T)          van 't Hoff, on the CEILING
+    C_eq(T) = C_eq_0 exp(-dH_r  / R_g T)          van 't Hoff, on the CEILING
+
+C_eq is the equilibrium concentration of the dissolved species -- the value
+C climbs to when the reaction has run as far as it can. A is an attempt
+frequency (surface area enters here); C_eq_0 is an entropy, proportional to
+exp(dS_r / R_g). The two laws are the halves of dG_r = dH_r - T dS_r.
 
 Warming raises both. Written out, the rate law is r = k (C_eq - C), so raising
 either factor raises the rate -- an earlier version of this docstring claimed
@@ -121,7 +126,7 @@ wrong. Where the two DO oppose each other is in the length below.
 Now form the saturation length, the only length this chemistry has:
 
     L = q C_eq / k
-      = (q C_0 / A) exp( -(dH_r - E_a) / R_g T )
+      = (q C_eq_0 / A) exp( -(dH_r - E_a) / R_g T )
       = L_ref exp( +(E_a - dH_r) / R_g ( 1/T - 1/T_ref ) )      *
 
 ``E_a`` and ``dH_r`` enter with OPPOSITE SIGNS and only their difference
@@ -136,9 +141,10 @@ is a real regime and this model does not forbid it; see
 
 Two things follow that are easy to miss:
 
-**A and C_0 are gone.** Step * absorbed them into ``L_ref``, and every rate
-in the code is a ratio to the reference state, so the absolute pre-exponential
-factors cancel and are never evaluated. This model has a NORMALISATION where a
+**A and C_eq_0 are gone.** Step * absorbed them into ``L_ref``, and every
+rate in the code is a ratio to the reference state, so both cancel and are
+never evaluated. They are real quantities, not mere scales; what is normalised
+away is their absolute size, not their meaning. This model has a NORMALISATION where a
 research model would need a thermodynamics. That is why ``L_ref`` can be
 calibrated freely without the chemistry being wrong -- it sets the scale and
 nothing else -- and why ``C_eq`` never appears alone anywhere below.

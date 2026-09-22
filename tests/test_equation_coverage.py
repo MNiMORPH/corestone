@@ -76,10 +76,10 @@ LEDGER = {
         "test_the_matrix_conducts_better_as_it_dissolves",
 
     "k(T) = A exp(-E_a / R_g T) Arrhenius, on the RATE "
-    "C_eq(T) = C_0 exp(-dH_r / R_g T) van 't Hoff, on the CEILING":
+    "C_eq(T) = C_eq_0 exp(-dH_r / R_g T) van 't Hoff, on the CEILING":
         "test_the_factors_are_the_textbook_arrhenius_and_van_t_hoff",
 
-    "L = q C_eq / k = (q C_0 / A) exp( -(dH_r - E_a) / R_g T ) "
+    "L = q C_eq / k = (q C_eq_0 / A) exp( -(dH_r - E_a) / R_g T ) "
     "= L_ref exp( +(E_a - dH_r) / R_g ( 1/T - 1/T_ref ) ) *":
         "test_only_the_DIFFERENCE_of_the_two_enthalpies_sets_the_length_scale",
 
