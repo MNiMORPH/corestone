@@ -51,8 +51,8 @@ LEDGER = {
     "saturation_length = q * C_eq / (k(T) * A)":
         "test_the_saturation_length_is_proportional_to_the_local_flux",
 
-    "div(q c) - div(D grad c) + r c = S, S = r dissolving, S = 0 oxidising "
-    "inlet c = 0 dissolving, c = 1 oxidising":
+    "div(q omega) - div(D grad omega) + r omega = S, S = r dissolving, S = 0 oxidising "
+    "inlet omega = 0 dissolving, omega = 1 oxidising":
         "test_the_solved_concentration_satisfies_the_stated_cell_balance",
 
     "div( K grad H ) = 0, H = psi - d (d is depth, positive down)":
@@ -61,15 +61,15 @@ LEDGER = {
     "D = D_aqueous(T) / tortuosity(M) + grain_size * |v|":
         "test_the_transport_coefficient_is_molecular_plus_dispersive",
 
-    "sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j) + r dx^2 c_i "
-    "= S_i S_i = r dx^2 dissolution: every cell a source, inlet c = 0 "
-    "S_i = q_in dx oxidation: the surface only, inlet c = 1":
+    "sum_out f omega_i - sum_in f omega_j + sum_links D (omega_i - omega_j) + r dx^2 omega_i "
+    "= S_i S_i = r dx^2 dissolution: every cell a source, inlet omega = 0 "
+    "S_i = q_in dx oxidation: the surface only, inlet omega = 1":
         "test_the_solved_concentration_satisfies_the_stated_cell_balance",
 
-    "d(M/M0)/dt = - r f(c) / pore_volumes f(c) = 1 - c dissolving, f(c) = c oxidising":
+    "d(M/M0)/dt = - r f(omega) / pore_volumes f(omega) = 1 - omega dissolving, f(omega) = omega oxidising":
         "test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base",
 
-    "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / pore_volumes":
+    "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(omega) / pore_volumes":
         "test_the_rock_is_integrated_exactly_over_a_step_with_c_held",
 
     "K_sat(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)":

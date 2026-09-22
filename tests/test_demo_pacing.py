@@ -52,7 +52,7 @@ def test_the_frame_respects_the_drift_budget():
     the demo offers. That is not the accuracy control being switched off; it
     is a 1 kyr frame being short enough that one step stays inside the budget,
     and the model saying so. Measured, sub-steps in a 1 kyr frame at
-    c_drift_max = 0.01:
+    omega_drift_max = 0.01:
 
         driver        30 C 1.00   30 C 0.30   0 C 0.30
         dissolution       7           2          1
@@ -76,7 +76,7 @@ def test_the_frame_respects_the_drift_budget():
     demo.step()
     demo.rainfall.value = 0.30                # leave the sliders as found
     assert drifts, "the frame took no step at all"
-    assert all(d is not None and d <= m.c_drift_max * 1.001 for d in drifts), \
+    assert all(d is not None and d <= m.omega_drift_max * 1.001 for d in drifts), \
         drifts
 
 

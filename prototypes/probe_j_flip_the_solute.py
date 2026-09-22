@@ -6,17 +6,17 @@ can be judged before 200 lines of docstring are rewritten around it.
 
 WHAT CHANGES, and it is three lines of arithmetic:
 
-    now   div(q c) - div(D grad c) + r c = r          inlet c = 0, c -> 1
-    then  div(q c) - div(D grad c) + r c = q_in dx     inlet c = 1, c -> 0
+    now   div(q omega) - div(D grad omega) + r omega = r          inlet omega = 0, omega -> 1
+    then  div(q omega) - div(D grad omega) + r omega = q_in dx     inlet omega = 1, omega -> 0
 
 The operator is IDENTICAL -- the reaction still sits on the diagonal as r dx^2
 and the advection and diffusion are untouched. Only the right-hand side moves:
 the volumetric source r dx^2 goes away, and the surface inflow, which
-contributed nothing while it carried c = 0, becomes the only source. The rock
+contributed nothing while it carried omega = 0, becomes the only source. The rock
 law loses its complement:
 
-    now   dM/dt = -r (1 - c) / pore_volumes          rock stops where water is saturated
-    then  dM/dt = -r c / pore_volumes_O2             rock stops where oxygen is gone
+    now   dM/dt = -r (1 - omega) / pore_volumes          rock stops where water is saturated
+    then  dM/dt = -r omega / pore_volumes_O2             rock stops where oxygen is gone
 
 and the exponential integrator survives untouched, because lambda is still
 independent of M.
@@ -121,7 +121,7 @@ class Oxidation(Weathering):
         dx = self.dx
         A = self._step_matrix(r)
         b = np.zeros(self.nz * self.nx)
-        # Rain arrives air-saturated, so c = 1 at the surface by construction
+        # Rain arrives air-saturated, so omega = 1 at the surface by construction
         # -- there is no parameter here. An inflow with a known concentration
         # is a source, and it is the only one now.
         b.reshape(self.nz, self.nx)[0, :] = self.rainfall * dx
@@ -146,7 +146,7 @@ class Oxidation(Weathering):
         return np.clip(x, 0.0, 1.0).reshape(self.nz, self.nx)
 
     def update(self, dt=None, dt_limit=None):
-        """The base method, with ``(1 - c) / pore_volumes`` -> ``c / pore_volumes_O2``."""
+        """The base method, with ``(1 - omega) / pore_volumes`` -> ``omega / pore_volumes_O2``."""
         saved = (Weathering.k_reaction,
                  Weathering.pore_volumes)
         try:
@@ -159,25 +159,25 @@ class Oxidation(Weathering):
 
     def _update_with_flipped_rock_law(self, dt, dt_limit):
         """
-        ``lambda = (r / M) c / pore_volumes_O2``.
+        ``lambda = (r / M) omega / pore_volumes_O2``.
 
-        The base ``update`` forms ``(1 - c_held)``. Rather than copy sixty
-        lines of step control to change one sign, the probe hands it a c that
+        The base ``update`` forms ``(1 - omega_held)``. Rather than copy sixty
+        lines of step control to change one sign, the probe hands it a omega that
         has already been complemented, and complements the stored field back
-        afterwards so that ``self.c`` still means dissolved oxygen.
+        afterwards so that ``self.omega`` still means dissolved oxygen.
         """
-        if self._c_held is None:
-            self._c_held = self.solve_solute(self.reaction_rate)
+        if self._omega_held is None:
+            self._omega_held = self.solve_solute(self.reaction_rate)
         real_solve = self.solve_solute
         self.solve_solute = lambda r: 1.0 - real_solve(r)
-        self._c_held = 1.0 - self._c_held
+        self._omega_held = 1.0 - self._omega_held
         try:
             step = Weathering.update(self, dt=dt, dt_limit=dt_limit)
         finally:
             self.solve_solute = real_solve
-            if self._c_held is not None:
-                self._c_held = 1.0 - self._c_held
-            self.c = 1.0 - self.c
+            if self._omega_held is not None:
+                self._omega_held = 1.0 - self._omega_held
+            self.omega = 1.0 - self.omega
         return step
 
 
@@ -196,8 +196,8 @@ def profile(m, name):
     joint = m.network.cell
     print("  %-10s mean %.4f  max %.4f  | joints %.4f  interiors %.4f"
           % (name, x.mean(), x.max(), x[joint].mean(), x[~joint].mean()))
-    print("             c: surface %.4f  base %.4f  min %.4f  max %.4f"
-          % (m.c[0, :].mean(), m.c[-1, :].mean(), m.c.min(), m.c.max()))
+    print("             omega: surface %.4f  base %.4f  min %.4f  max %.4f"
+          % (m.omega[0, :].mean(), m.omega[-1, :].mean(), m.omega.min(), m.omega.max()))
     rows = x.mean(axis=1)
     print("             by depth: " +
           "  ".join("%.0fm %.3f" % (i * m.dx, rows[i])
@@ -253,12 +253,12 @@ def figure(path, target=0.10):
         a.set_ylabel("Depth [m]")
         fig.colorbar(im, ax=a, label="extent of reaction")
         b = axes[1, col]
-        im2 = b.imshow(m.c, extent=ext, cmap="Blues", vmin=0, vmax=1,
+        im2 = b.imshow(m.omega, extent=ext, cmap="Blues", vmin=0, vmax=1,
                        interpolation="nearest")
         b.set_xlabel("Distance [m]")
         b.set_ylabel("Depth [m]")
-        b.set_title("solute: %s" % ("dissolved silica, c = C/C_eq" if col == 0
-                                    else "dissolved O2, c = C/C_sat"),
+        b.set_title("solute: %s" % ("dissolved silica, omega = C/C_eq" if col == 0
+                                    else "dissolved O2, omega = C/C_sat"),
                     fontsize=10)
         fig.colorbar(im2, ax=b, label="saturated ->" if col == 0
                      else "<- oxygen used up")
@@ -282,9 +282,9 @@ if __name__ == "__main__":
     print("t = 0, fresh rock: where does the solute sit?\n")
     for cls, name in ((Weathering, "silica"), (Oxidation, "oxygen")):
         m = build(cls)
-        m.c = m.solve_solute(m.reaction_rate)
-        print("  %-8s c surface %.4f  base %.4f   (silica c rises with depth,"
-              % (name, m.c[0, :].mean(), m.c[-1, :].mean()))
+        m.omega = m.solve_solute(m.reaction_rate)
+        print("  %-8s omega surface %.4f  base %.4f   (silica omega rises with depth,"
+              % (name, m.omega[0, :].mean(), m.omega[-1, :].mean()))
         print("           %sDamkohler %.4f)"
               % (" " * 8, m.damkohler if cls is Weathering
                  else m.oxidation_damkohler))

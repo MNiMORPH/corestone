@@ -2,7 +2,7 @@
 Probe E: does adding diffusion let blocks weather inward?
 
 The model has pure advection. Water that is not on a flow path never carries
-solute away, so a block interior saturates and then sits at c = 1 for ever: the
+solute away, so a block interior saturates and then sits at omega = 1 for ever: the
 picture is binary, joints entirely dissolved and blocks entirely untouched,
 with nothing in between. Real rock does not do that. The concentration gradient
 between a saturated block interior and a fracture that is being flushed drives
@@ -35,7 +35,7 @@ to the flux, the reaction coefficient
     r = q / L_eq = q_ref / (dx * L_ref)          [1/s]
 
 is a CONSTANT -- a property of the rock, with the flux cancelled out
-explicitly rather than implicitly. Production per cell is r * dx^2 * (1 - c).
+explicitly rather than implicitly. Production per cell is r * dx^2 * (1 - omega).
 
 Run:  PYTHONPATH=src python3 prototypes/probe_e_diffusion.py
 """
@@ -77,10 +77,10 @@ def solve_solute(m, net, D_v, D_h, r):
     """
     Steady advection-diffusion-reaction for the normalised concentration.
 
-        sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j) + r dx^2 c_i
+        sum_out f omega_i - sum_in f omega_j + sum_links D (omega_i - omega_j) + r dx^2 omega_i
             = r dx^2
 
-    Linear in c, so one sparse solve. Water entering the top carries c = 0, so
+    Linear in omega, so one sparse solve. Water entering the top carries omega = 0, so
     it contributes nothing to the inflow sum -- the undersaturation enters the
     problem entirely through the reaction term on the right.
     """
@@ -162,9 +162,9 @@ print("  (real rindlets are about 2.5 cm)")
 print()
 
 t0 = time.perf_counter()
-c_diff = solve_solute(m, net, D_v, D_h, r)
+omega_diff = solve_solute(m, net, D_v, D_h, r)
 t_diff = time.perf_counter() - t0
-c_adv = solve_solute(m, net, D_v * 0.0, D_h * 0.0, r)
+omega_adv = solve_solute(m, net, D_v * 0.0, D_h * 0.0, r)
 print("solve cost: %.2f s for %d cells (once per step, matrix changes with M)"
       % (t_diff, NZ * NX))
 print()
@@ -173,13 +173,13 @@ print()
 jc = np.nonzero(net.link_v[NZ // 2, :])[0]
 mid_block = (jc[0] + jc[1]) // 2
 row = NZ // 2
-print("undersaturation (1-c) across one block at mid-depth:")
+print("undersaturation (1-omega) across one block at mid-depth:")
 print("  distance from joint [cells]:", list(range(0, 16, 3)))
-print("  advection only :", " ".join("%.2e" % (1 - c_adv[row, jc[0] + k])
+print("  advection only :", " ".join("%.2e" % (1 - omega_adv[row, jc[0] + k])
                                      for k in range(0, 16, 3)))
-print("  with diffusion :", " ".join("%.2e" % (1 - c_diff[row, jc[0] + k])
+print("  with diffusion :", " ".join("%.2e" % (1 - omega_diff[row, jc[0] + k])
                                      for k in range(0, 16, 3)))
 print()
-print("fraction of the domain with (1-c) > 1e-6:")
+print("fraction of the domain with (1-omega) > 1e-6:")
 print("  advection only %.1f %%   with diffusion %.1f %%"
-      % (100 * ((1 - c_adv) > 1e-6).mean(), 100 * ((1 - c_diff) > 1e-6).mean()))
+      % (100 * ((1 - omega_adv) > 1e-6).mean(), 100 * ((1 - omega_diff) > 1e-6).mean()))

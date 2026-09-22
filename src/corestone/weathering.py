@@ -14,13 +14,13 @@ therefore decide where weathering happens, and rock the water never reached --
 or reached already saturated -- survives as a corestone.
 
 The soluble phase is plagioclase, and the ceiling on the solute is quartz
-saturation. Working in normalised concentration ``c = C / C_eq`` removes the
+saturation. Working in normalised concentration ``omega = C / C_eq`` removes the
 need to assert a solubility. The scale it sets is the **saturation length**
 
     saturation_length = q * C_eq / (k(T) * A)
 
 the e-folding length of the approach to saturation -- *not* a distance at which
-equilibrium is reached, because there is no equilibrium here. ``c`` approaches
+equilibrium is reached, because there is no equilibrium here. ``omega`` approaches
 1 asymptotically and never arrives.
 
 A SECOND REACTION IS BUILT IN, AND IT IS NOT THE DEFAULT ON PURPOSE
@@ -237,15 +237,15 @@ learned a third time.
 
 Solute moves by advection **and by diffusion**:
 
-    div(q c) - div(D grad c) + r c = S,   S = r dissolving, S = 0 oxidising
-    inlet c = 0 dissolving, c = 1 oxidising
+    div(q omega) - div(D grad omega) + r omega = S,   S = r dissolving, S = 0 oxidising
+    inlet omega = 0 dissolving, omega = 1 oxidising
 
 and the operator is the same either way; only ``S`` and the inlet move. See
 :meth:`Weathering._solute_source`.
 
 Without the diffusive term the model is broken in both directions. Dissolving,
 rock off a flow path never weathers at all: a block interior saturates, sits
-at ``c = 1`` for ever, and the picture is joints entirely dissolved beside
+at ``omega = 1`` for ever, and the picture is joints entirely dissolved beside
 blocks entirely untouched with nothing in between. Oxidising, diffusion is
 what puts oxygen into the matrix in the first place -- turn it off and the
 mean concentration one cell from a joint falls from 0.27 to 0.04, and three
@@ -838,7 +838,7 @@ class Weathering(object):
         # the oxidation driver. Measured over 280 kyr at 3 m and 5 cm against
         # a reference at 0.001, mean extent of reaction:
         #
-        #   c_drift_max    dissolution        oxidation
+        #   omega_drift_max    dissolution        oxidation
         #        0.10      0.0982 (-5.8 %)   0.3089 (-13.2 %)
         #        0.03      0.1022 (-2.0 %)   0.3133 (-11.9 %)
         #        0.01      0.1039 (-0.4 %)   0.3479 ( -2.2 %)
@@ -846,12 +846,12 @@ class Weathering(object):
         #        0.001     0.1043             0.3558
         #
         # Both converge monotonically; oxidation simply needs one more notch,
-        # because c spans the full range inside a moving rind where under
+        # because omega spans the full range inside a moving rind where under
         # dissolution it sits near saturation and barely moves. It costs
         # nothing: at 0.01 the oxidation run took 21 factorisations against
         # the dissolution run's 59 at the same setting. The demo already ran
         # at 0.01, so this aligns the library with it.
-        self.c_drift_max = 0.01           # THE step control: how far c may move
+        self.omega_drift_max = 0.01           # THE step control: how far omega may move
                                           # while it is held across a step.
                                           # This is the model's one time-step
                                           # approximation, so it is the thing
@@ -901,7 +901,7 @@ class Weathering(object):
         self._tort = None                 # link tortuosity, refreshed with
                                           # the head; see solve_flow
         self.M = None                     # soluble mineral remaining, M/M0
-        self.c = None                     # normalised concentration C/C_eq
+        self.omega = None                     # normalised concentration C/C_eq
                                           # LEAVING each cell, not entering
         self.H = None                     # hydraulic head [m]
         self.q = None                     # through-flux per cell [m2/s]
@@ -922,7 +922,7 @@ class Weathering(object):
         self._lu = None                   # cached factorisation, reused
         self._x = None                    # last solute solution, unclipped
         self._dt = None                   # the step the drift control chose
-        self._c_held = None               # the c actually held over a step
+        self._omega_held = None               # the omega actually held over a step
         self._drift = None                # the drift the last step produced
         self._M_flow = None               # M when the head was last solved
         self.ponded = None                # surface cells that have ponded
@@ -964,7 +964,7 @@ class Weathering(object):
         self._T_key = None
         self._lu = None
         self._x = None
-        self._c_held = None
+        self._omega_held = None
 
     def set_saturation_length(self, value):
         """Saturation length at the reference temperature [m]."""
@@ -1001,7 +1001,7 @@ class Weathering(object):
             saturation_length = q * C_eq / (k(T) * A)
 
         **Not** a distance at which equilibrium is reached. There is no
-        equilibrium: ``c`` approaches 1 asymptotically, and after n of these
+        equilibrium: ``omega`` approaches 1 asymptotically, and after n of these
         lengths the undersaturation is ``exp(-n)`` of what it was. The system
         has an asymptote, and the model has a normalisation rather than a
         thermodynamics -- ``C_eq`` never appears alone.
@@ -1778,9 +1778,9 @@ class Weathering(object):
     #
     # The physical difference is one of sign. Under DISSOLUTION the solute is
     # a PRODUCT: it enters at zero, accumulates, and stops the reaction when
-    # it reaches saturation, so the driving force is (1 - c) and rock is
+    # it reaches saturation, so the driving force is (1 - omega) and rock is
     # sheltered by water that arrived already full. Under OXIDATION it is a
-    # REACTANT: it enters at one, is consumed, and the driving force is c.
+    # REACTANT: it enters at one, is consumed, and the driving force is omega.
     #
     # The asymmetry matters more than it looks. A product reaches its ceiling
     # and the reaction STOPS; a reactant only thins out, and the reaction
@@ -1825,18 +1825,18 @@ class Weathering(object):
         """
         return 1.0 if self.driver == "oxidation" else 0.0
 
-    def driving_force(self, c):
+    def driving_force(self, omega):
         """
-        How hard the reaction is pushed, given the normalised solute ``c``.
+        How hard the reaction is pushed, given the normalised solute ``omega``.
 
-        ``1 - c`` under dissolution -- the affinity, which falls to zero at
-        saturation -- and ``c`` itself under oxidation, since a first-order
+        ``1 - omega`` under dissolution -- the affinity, which falls to zero at
+        saturation -- and ``omega`` itself under oxidation, since a first-order
         reaction in dissolved O2 is driven by how much of it is there. Both
         live in [0, 1] and both vanish where the water can do no more work,
         which is why the rest of the model does not need to know which is
         which.
         """
-        return c if self.driver == "oxidation" else 1.0 - c
+        return omega if self.driver == "oxidation" else 1.0 - omega
 
     @property
     def solute_diffusivity(self):
@@ -1902,7 +1902,7 @@ class Weathering(object):
 
         Without this term the model is pure advection, and rock that is not on
         a flow path never weathers at all: a block interior saturates and then
-        sits at ``c = 1`` for ever. Diffusive export of solute toward a flushed
+        sits at ``omega = 1`` for ever. Diffusive export of solute toward a flushed
         joint is what keeps the interior undersaturated, and is therefore what
         lets a weathering rind form. It is also the geometric route to
         spheroidal rounding, since a corner sheds solute to two faces and an
@@ -2011,8 +2011,8 @@ class Weathering(object):
         Under DISSOLUTION every cell is a source: rock puts solute into the
         water, at ``r dx^2`` per cell, and the water arrives clean, so the
         surface inflow contributes nothing. Under OXIDATION the rock is a
-        SINK -- it is already on the diagonal, as ``r dx^2 c_i`` -- and the
-        only source is the rain, which arrives at ``c = 1`` and carries
+        SINK -- it is already on the diagonal, as ``r dx^2 omega_i`` -- and the
+        only source is the rain, which arrives at ``omega = 1`` and carries
         ``q_in dx`` of oxygen into each surface cell.
 
         The operator is identical either way. That is the whole reason the
@@ -2033,14 +2033,14 @@ class Weathering(object):
         """
         Steady advection-diffusion-reaction for the normalised concentration.
 
-            sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j)
-                + r dx^2 c_i  =  S_i
-            S_i = r dx^2   dissolution: every cell a source, inlet c = 0
-            S_i = q_in dx  oxidation: the surface only, inlet c = 1
+            sum_out f omega_i - sum_in f omega_j + sum_links D (omega_i - omega_j)
+                + r dx^2 omega_i  =  S_i
+            S_i = r dx^2   dissolution: every cell a source, inlet omega = 0
+            S_i = q_in dx  oxidation: the surface only, inlet omega = 1
 
         One sparse solve for the whole field. Diffusion is not directional, so
         the row-by-row sweep that pure advection allowed is gone -- and with it
-        the cyclic Sherman-Morrison seam solve and the ``Q * beta * (1 - c)``
+        the cyclic Sherman-Morrison seam solve and the ``Q * beta * (1 - omega)``
         pickup, which cancelled catastrophically once ``beta`` grew past about
         1e5. The reaction term here is linear and bounded, so neither hazard
         remains.
@@ -2412,14 +2412,14 @@ class Weathering(object):
         self._lu = None
         self._x = None
         self._dt = None
-        self._c_held = None
+        self._omega_held = None
         self._drift = None
         self.rejected_steps = 0
         self.factorisations = 0
         self._M_flow = None
         self.flow_solves = 0
         self.M = np.ones((self.nz, self.nx))
-        self.c = np.full((self.nz, self.nx), self.inlet_concentration)
+        self.omega = np.full((self.nz, self.nx), self.inlet_concentration)
         self.t = 0.0
         self.solve_flow()
         return self
@@ -2436,14 +2436,14 @@ class Weathering(object):
         water loses is what the rock gains. ``f`` is :meth:`driving_force`,
         and it is the only place the two reactions differ here:
 
-            d(M/M0)/dt = - r f(c) / pore_volumes
-            f(c) = 1 - c dissolving, f(c) = c oxidising
+            d(M/M0)/dt = - r f(omega) / pore_volumes
+            f(omega) = 1 - omega dissolving, f(omega) = omega oxidising
 
         and ``r`` is proportional to ``M``, because the reactive surface area
-        is. Over a step in which ``c`` is held the equation is therefore linear
+        is. Over a step in which ``omega`` is held the equation is therefore linear
         in ``M``, and it integrates EXACTLY:
 
-            M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / pore_volumes
+            M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(omega) / pore_volumes
 
         Forward Euler stood here before, taking the tangent to that
         exponential. The tangent always undershoots, which is the only reason
@@ -2452,10 +2452,10 @@ class Weathering(object):
         ``lambda`` is formed from :attr:`k_reaction` and so
         never divides by a mineral content approaching zero.
 
-        WHAT LIMITS THE STEP. Holding ``c`` across it is the only
+        WHAT LIMITS THE STEP. Holding ``omega`` across it is the only
         approximation left, so that is what is bounded: after each solve the
         new field is compared with the one that was held, and the next step is
-        scaled so the drift lands near ``c_drift_max``.
+        scaled so the drift lands near ``omega_drift_max``.
 
         ``dx_max`` used to do this job and did it badly. It bounds the change
         in ``M`` in the single fastest-dissolving cell, which is a proxy for
@@ -2464,10 +2464,10 @@ class Weathering(object):
         limiter. Measured on the 3 m section at ``dt_max`` = 50 kyr:
         ``dx_max`` 0.05 gave 1.18e-4, 0.10 gave 2.66e-5, 0.20 gave 2.27e-4.
         Nothing can be chosen against a curve like that. Against
-        ``c_drift_max`` the error is monotone on every case tried and close to
+        ``omega_drift_max`` the error is monotone on every case tried and close to
         linear, so it is a dial:
 
-            c_drift_max   3 m app    45 deg   12 x 9 m   3 m at dx.02
+            omega_drift_max   3 m app    45 deg   12 x 9 m   3 m at dx.02
                   0.003   8.1e-06   2.1e-03    3.3e-03        1.2e-05
                   0.01    3.1e-05   8.2e-03    1.1e-02        4.7e-05
                   0.03    1.1e-04   2.5e-02    3.1e-02        1.6e-04
@@ -2492,22 +2492,22 @@ class Weathering(object):
         caps the automatic choice without replacing it, which is what
         :meth:`run` uses to land exactly on the time asked for.
         """
-        if self._c_held is None:
-            self._c_held = self.solve_solute(self.reaction_rate)
-        c_held = self._c_held
+        if self._omega_held is None:
+            self._omega_held = self.solve_solute(self.reaction_rate)
+        omega_held = self._omega_held
         lam = (self.k_reaction
-               * self.driving_force(c_held) / self.pore_volumes)
+               * self.driving_force(omega_held) / self.pore_volumes)
 
         def advance(step):
-            # The clip is a guard, not a mechanism: lambda >= 0 because c <= 1,
+            # The clip is a guard, not a mechanism: lambda >= 0 because omega <= 1,
             # so the exponential cannot leave (0, 1] on its own.
             return np.clip(self.M * np.exp(-lam * step), 0.0, 1.0)
 
         if dt is not None:
             M_new = advance(dt)
             self.M = M_new
-            self._c_held = self.solve_solute(self.reaction_rate)
-            self.c = self._c_held
+            self._omega_held = self.solve_solute(self.reaction_rate)
+            self.omega = self._omega_held
             self.t += dt
             return dt
 
@@ -2523,22 +2523,22 @@ class Weathering(object):
             # solves per step and gave back the whole saving.
             predicted = self._dt * min(
                 self.dt_growth,
-                0.9 * self.c_drift_max / max(self._drift, 1e-300))
+                0.9 * self.omega_drift_max / max(self._drift, 1e-300))
             want = min(want, predicted)
         step = want if dt_limit is None else min(want, dt_limit)
 
         while True:
             M_new = advance(step)
             saved_M, self.M = self.M, M_new
-            c_new = self.solve_solute(self.reaction_rate)
+            omega_new = self.solve_solute(self.reaction_rate)
             self.M = saved_M
-            drift = np.abs(c_new - c_held).max()
-            if drift <= self.c_drift_max or step <= self.dt_min:
+            drift = np.abs(omega_new - omega_held).max()
+            if drift <= self.omega_drift_max or step <= self.dt_min:
                 self._drift = drift
                 break
             self.rejected_steps += 1
             step = max(self.dt_min,
-                       0.9 * step * self.c_drift_max / max(drift, 1e-300))
+                       0.9 * step * self.omega_drift_max / max(drift, 1e-300))
 
         # Remember what the control would have allowed, undoing any cap the end
         # of the run imposed -- otherwise a short final step would be read as
@@ -2547,8 +2547,8 @@ class Weathering(object):
         self._dt = step if dt_limit is None or step < dt_limit else want
 
         self.M = M_new
-        self._c_held = c_new
-        self.c = c_new
+        self._omega_held = omega_new
+        self.omega = omega_new
         self.t += step
 
         # Re-solve the head once the ROCK has changed enough to have moved the
@@ -2561,7 +2561,7 @@ class Weathering(object):
         if self._M_flow is not None and \
                 np.abs(self.M - self._M_flow).max() >= self.flow_tolerance:
             self.solve_flow()
-            self._c_held = None           # the flow moved; c must be re-solved
+            self._omega_held = None           # the flow moved; omega must be re-solved
         return step
 
     def run(self, years):
@@ -2662,4 +2662,4 @@ class Weathering(object):
         by how much reactant is present. Zero means the water can do no more
         work, either way, which is what makes it the field worth plotting.
         """
-        return self.driving_force(self.c)
+        return self.driving_force(self.omega)

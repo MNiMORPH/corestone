@@ -71,7 +71,7 @@ def test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux(driver):
 @pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
 def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     """
-        d(M/M0)/dt = - r f(c) / pore_volumes,  f = 1 - c dissolving, f = c oxidising
+        d(M/M0)/dt = - r f(omega) / pore_volumes,  f = 1 - omega dissolving, f = omega oxidising
 
     Solute is conserved, and the books balance the same way whichever
     direction it points: what comes in equals what is consumed plus what
@@ -90,27 +90,27 @@ def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     m = _model()
     m.set_driver(driver)
     r = m.reaction_rate
-    c = m.solve_solute(r)
+    omega = m.solve_solute(r)
 
     if driver == "oxidation":
-        supplied = m.rainfall * m.dx * m.nx    # rain, at c = 1
+        supplied = m.rainfall * m.dx * m.nx    # rain, at omega = 1
     else:
         supplied = (r * m.dx * m.dx).sum()         # rock, in every cell
-    consumed = (r * c * m.dx * m.dx).sum()
-    exported = (m.q_out_base * c[-1, :]).sum()
+    consumed = (r * omega * m.dx * m.dx).sum()
+    exported = (m.q_out_base * omega[-1, :]).sum()
     assert supplied == pytest.approx(consumed + exported, rel=1e-9)
 
-    rate = r * m.driving_force(c) / m.pore_volumes
+    rate = r * m.driving_force(omega) / m.pore_volumes
     assert rate.shape == m.M.shape
     assert (rate >= 0.0).all()
 
 
 def test_the_rock_is_integrated_exactly_over_a_step_with_c_held():
     """
-        M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - c) / pore_volumes
+        M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) (1 - omega) / pore_volumes
 
     The content of "exactly" is that the answer does not depend on how the
-    step is chopped up. With ``c`` held -- which is what the model does within
+    step is chopped up. With ``omega`` held -- which is what the model does within
     a step -- taking one step of dt and ten steps of dt/10 must give the same
     M to roundoff. Forward Euler cannot do this: subdividing changes its
     answer, which is precisely the error it makes.
@@ -120,7 +120,7 @@ def test_the_rock_is_integrated_exactly_over_a_step_with_c_held():
     """
     m = _model()
     frozen = m.solve_solute(m.reaction_rate)
-    m.solve_solute = lambda r: frozen              # hold c, as a step does
+    m.solve_solute = lambda r: frozen              # hold omega, as a step does
 
     dt = 4000.0 * YEAR
     m.dx_max = np.inf                              # let the step be the step
@@ -271,7 +271,7 @@ def test_the_head_is_re_solved_as_the_rock_changes():
 
     fine = _model()
     fine.flow_tolerance = 0.02
-    fine.c_drift_max = 0.25 * fine.c_drift_max    # four times the steps
+    fine.omega_drift_max = 0.25 * fine.omega_drift_max    # four times the steps
     fine.run(years=280e3)
 
     # The ANSWER is what must not depend on the step size, and it does not.
@@ -338,10 +338,10 @@ def test_the_transport_coefficient_is_molecular_plus_dispersive():
 @pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
 def test_the_solved_concentration_satisfies_the_stated_cell_balance(driver):
     """
-        sum_out f c_i - sum_in f c_j + sum_links D (c_i - c_j) + r dx^2 c_i
+        sum_out f omega_i - sum_in f omega_j + sum_links D (omega_i - omega_j) + r dx^2 omega_i
             = S_i
-        S_i = r dx^2   dissolution: every cell a source, inlet c = 0
-        S_i = q_in dx  oxidation: the surface only, inlet c = 1
+        S_i = r dx^2   dissolution: every cell a source, inlet omega = 0
+        S_i = q_in dx  oxidation: the surface only, inlet omega = 1
 
     Assembled here from the model's own fluxes, independently of the sparse
     matrix the solver builds, and checked PER CELL.
@@ -354,18 +354,18 @@ def test_the_solved_concentration_satisfies_the_stated_cell_balance(driver):
     m = _model()
     m.set_driver(driver)
     r = m.reaction_rate
-    c = m.solve_solute(r)
+    omega = m.solve_solute(r)
     nz, nx, dx = m.nz, m.nx, m.dx
     D_v, D_h = m.transport_coefficients()
     source = np.zeros((nz, nx))
     if driver == "oxidation":
-        source[0, :] = m.rainfall * dx      # rain, at c = 1
+        source[0, :] = m.rainfall * dx      # rain, at omega = 1
     else:
         source += r * dx * dx                   # rock, in every cell
-    res = r * dx * dx * c - source
+    res = r * dx * dx * omega - source
 
     def flux(a_slice, b_slice, f, D):
-        ca, cb = c[a_slice], c[b_slice]
+        ca, cb = omega[a_slice], omega[b_slice]
         adv = np.where(f > 0, f * ca, f * cb)           # upwind
         return adv + D * (ca - cb)
 
@@ -381,11 +381,11 @@ def test_the_solved_concentration_satisfies_the_stated_cell_balance(driver):
         Dw = np.where(m.network.link_wrap, m.D_aqueous,
                       m.D_aqueous / m.link_tortuosity_wrap()) \
             + m.dispersivity * np.abs(m.q_wrap) / dx
-        fw = np.where(m.q_wrap > 0, m.q_wrap * c[:, -1], m.q_wrap * c[:, 0]) \
-            + Dw * (c[:, -1] - c[:, 0])
+        fw = np.where(m.q_wrap > 0, m.q_wrap * omega[:, -1], m.q_wrap * omega[:, 0]) \
+            + Dw * (omega[:, -1] - omega[:, 0])
         res[:, -1] += fw
         res[:, 0] -= fw
-    res[-1, :] += m.q_out_base * c[-1, :]
+    res[-1, :] += m.q_out_base * omega[-1, :]
 
     scale = max((r * dx * dx).max(), source.max())
     assert np.abs(res).max() / scale < 1e-8
@@ -394,7 +394,7 @@ def test_the_solved_concentration_satisfies_the_stated_cell_balance(driver):
 def test_diffusion_is_what_lets_a_block_weather_inward():
     """
     Not a transcription but the reason the diffusive term is there. With pure
-    advection a block interior saturates and stays at c = 1 for ever, so rock
+    advection a block interior saturates and stays at omega = 1 for ever, so rock
     off a flow path never weathers and the model is binary. Turning the
     transport coefficients off must reproduce that, and turning them on must
     not.
@@ -430,13 +430,13 @@ def test_diffusion_is_what_gives_the_oxidation_rind_its_width():
     The oxidation counterpart, and it is a different statement.
 
     Under dissolution the test above works because a block interior reaches
-    c = 1 EXACTLY and the driving force vanishes, so "what fraction of the
+    omega = 1 EXACTLY and the driving force vanishes, so "what fraction of the
     domain is still reacting" is a clean binary. A reactant has no such
     shut-off: pure advection still carries some oxygen everywhere, so that
     measure saturates at 1.0 and says nothing.
 
     What diffusion does is set the LEVEL of oxygen in the matrix, not the
-    shape of its decline. Measured on this fixture at t = 0, mean c one cell
+    shape of its decline. Measured on this fixture at t = 0, mean omega one cell
     and three cells from a joint:
 
         with diffusion     0.2728    0.0694
@@ -464,10 +464,10 @@ def test_diffusion_is_what_gives_the_oxidation_rind_its_width():
             # matrix it beats mechanical dispersion by about two hundred to
             # one, which :attr:`diffusivity_factor` states and this relies on.
         m.solve_flow()
-        c = m.solve_solute(m.reaction_rate)
+        omega = m.solve_solute(m.reaction_rate)
         d = m.network.distance_to_fracture()
-        near = c[np.isclose(d, m.dx)].mean()
-        far = c[np.isclose(d, 3.0 * m.dx)].mean()
+        near = omega[np.isclose(d, m.dx)].mean()
+        far = omega[np.isclose(d, 3.0 * m.dx)].mean()
         return float(near), float(far)
 
     on_near, on_far = rind(True)
@@ -484,8 +484,8 @@ def test_corners_stay_further_from_saturation_than_faces():
     saturation and therefore weathers faster.
     """
     m = _model()
-    c = m.solve_solute(m.reaction_rate)
-    u = m.driving_force(c)      # where the water can still do work
+    omega = m.solve_solute(m.reaction_rate)
+    u = m.driving_force(omega)      # where the water can still do work
     jc = np.nonzero(m.network.link_v[m.nz // 2, :])[0]
     jr = np.nonzero(m.network.link_h.mean(axis=1) > 0.5)[0]
     c0, r0, r1 = jc[1], jr[1], jr[2]

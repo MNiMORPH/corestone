@@ -216,7 +216,7 @@ fig.text(0.045, 0.915,
 
 p2 = axes[1].get_position()
 fig.text(p2.x0 + p2.width / 2, 0.845,
-         r"$\nabla\!\cdot\!(q c) - \nabla\!\cdot\!(D\,\nabla c) \;=\; r\,(1 - c)$",
+         r"$\nabla\!\cdot\!(q omega) - \nabla\!\cdot\!(D\,\nabla omega) \;=\; r\,(1 - omega)$",
          fontsize=17, color="#0b3d20", ha="center", va="center")
 
 for ax, caption in CAPTIONS:

@@ -1,10 +1,10 @@
 """
 Probe F: is forward Euler the right integrator for the rock?
 
-    d(M/M0)/dt = - r (1 - c) / pore_volumes,      r = r_ref * M * k(T)/C_eq(T)
+    d(M/M0)/dt = - r (1 - omega) / pore_volumes,      r = r_ref * M * k(T)/C_eq(T)
 
 r is PROPORTIONAL TO M -- the reactive surface area falls as the mineral is
-consumed -- so with c held over the step the equation is dM/dt = -lambda M,
+consumed -- so with omega held over the step the equation is dM/dt = -lambda M,
 whose solution is an exponential and not a straight line. Forward Euler takes
 the tangent, which always undershoots M and is why the step needs a dx_max
 limiter and a clip at zero at all.
@@ -30,19 +30,19 @@ def run(dt_years, kyr, exponential, dx_max=0.05):
     target = kyr * 1e3 * YEAR
     while m.t < target:
         r = m.reaction_rate
-        c = m.solve_solute(r)
+        omega = m.solve_solute(r)
         if exponential:
-            # lambda = r/M * (1-c)/pore_volumes, finite as M -> 0 because r is prop. to M
+            # lambda = r/M * (1-omega)/pore_volumes, finite as M -> 0 because r is prop. to M
             lam = (m.reaction_rate / np.maximum(m.M, 1e-300)) \
-                  * (1.0 - c) / m.pore_volumes
+                  * (1.0 - omega) / m.pore_volumes
             lam = np.where(m.M > 0, lam, 0.0)
             step = min(m.dt_max, m.dx_max / max((lam * m.M).max(), 1e-30))
             m.M = np.clip(m.M * np.exp(-lam * step), 0.0, 1.0)
         else:
-            rate = r * (1.0 - c) / m.pore_volumes
+            rate = r * (1.0 - omega) / m.pore_volumes
             step = min(m.dt_max, m.dx_max / max(rate.max(), 1e-30))
             m.M = np.clip(m.M - rate * step, 0.0, 1.0)
-        m.c = c; m.t += step; n += 1
+        m.omega = omega; m.t += step; n += 1
     return time.perf_counter()-t0, n, m.M
 
 for KYR in (50, 200):

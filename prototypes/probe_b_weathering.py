@@ -11,10 +11,10 @@ creeps through the matrix it reaches C_eq, the bracket goes to zero, and
 weathering stops -- with the rock just as soluble and the water just as warm.
 The claim is that this, and nothing else, leaves corestones.
 
-Working in normalised concentration c = C/C_eq removes the need to assert a
+Working in normalised concentration omega = C/C_eq removes the need to assert a
 solubility. Integrating the rate over a cell of height dx is then exact:
 
-    dc/dz = (1 - c) / L_eq        ->   c_out = 1 + (c_in - 1) * exp(-dx/L_eq)
+    dc/dz = (1 - omega) / L_eq        ->   omega_out = 1 + (omega_in - 1) * exp(-dx/L_eq)
 
 with the EQUILIBRATION LENGTH
 

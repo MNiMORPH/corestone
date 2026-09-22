@@ -18,16 +18,16 @@ def _model(nz=75, nx=100, dx=0.20, spacing=1.5):
 def test_the_rock_starts_fresh_and_the_water_starts_at_the_inlet(driver):
     """
     "The water starts clean" was true of one reaction and is not a general
-    statement. Rain carries no dissolved silica, so it starts at c = 0 when
+    statement. Rain carries no dissolved silica, so it starts at omega = 0 when
     silica is the solute; it is in equilibrium with the atmosphere, so it
-    starts at c = 1 when oxygen is. Neither is a parameter -- both are exact
+    starts at omega = 1 when oxygen is. Neither is a parameter -- both are exact
     by construction -- and the initial field is the inlet value either way.
     """
     m = _model()
     m.set_driver(driver)
     m.initialize()
     assert np.all(m.dissolved_fraction == 0.0)
-    assert np.all(m.c == m.inlet_concentration)
+    assert np.all(m.omega == m.inlet_concentration)
     assert m.inlet_concentration == (1.0 if driver == "oxidation" else 0.0)
     assert m.t == 0.0
 
@@ -71,7 +71,7 @@ def test_the_horizontal_joints_carry_water():
 
 def test_water_enters_fresh_and_saturates_with_depth():
     """
-    ``c`` is the concentration leaving a cell, not entering it, so the top row
+    ``omega`` is the concentration leaving a cell, not entering it, so the top row
     is small rather than exactly zero: rain arrives fresh and picks up a little
     on its way through.
 
@@ -97,10 +97,10 @@ def test_water_enters_fresh_and_saturates_with_depth():
     m = _model()
     m.set_driver("dissolution")
     m.run(years=350e3)
-    assert m.c[0, :].max() < 0.1 * np.median(m.c[5, :])   # rain arrives fresh
-    assert np.median(m.c[5, :]) > 0.9                # matrix saturates quickly
-    assert m.c.max() <= 1.0 + 1e-12
-    assert np.allclose(m.affinity, 1.0 - m.c, rtol=1e-12, atol=0.0)
+    assert m.omega[0, :].max() < 0.1 * np.median(m.omega[5, :])   # rain arrives fresh
+    assert np.median(m.omega[5, :]) > 0.9                # matrix saturates quickly
+    assert m.omega.max() <= 1.0 + 1e-12
+    assert np.allclose(m.affinity, 1.0 - m.omega, rtol=1e-12, atol=0.0)
 
 
 def test_water_enters_full_of_oxygen_and_gives_it_up_with_depth():
@@ -112,23 +112,23 @@ def test_water_enters_full_of_oxygen_and_gives_it_up_with_depth():
     top row is nearly saturated with oxygen rather than nearly free of silica,
     and the matrix below runs it down rather than filling it up.
 
-    The affinity inverts with it. Under dissolution it is 1 - c, what the
-    water can still take up; under oxidation it is c, what the water still has
+    The affinity inverts with it. Under dissolution it is 1 - omega, what the
+    water can still take up; under oxidation it is omega, what the water still has
     to give. Both are zero where the water can do no more work.
     """
     m = _model()
     m.set_driver("oxidation")
     m.run(years=350e3)
-    assert m.c[0, :].min() > 0.99                    # rain arrives full
+    assert m.omega[0, :].min() > 0.99                    # rain arrives full
     # ...and gives it up on the way down. Asserted top against base rather
     # than at a fixed row: this grid is 20 cm cells against a 4.5 cm
     # penetration depth, so no single row resolves the depletion, and by
     # 350 kyr the matrix has opened enough to carry oxygen deep. The claim
     # that survives coarsening is the one that matters -- water leaves with
     # less than it arrived with.
-    assert np.median(m.c[-1, :]) < 0.8 * np.median(m.c[0, :])
-    assert m.c.max() <= 1.0 + 1e-12
-    assert np.allclose(m.affinity, m.c, rtol=1e-12, atol=0.0)
+    assert np.median(m.omega[-1, :]) < 0.8 * np.median(m.omega[0, :])
+    assert m.omega.max() <= 1.0 + 1e-12
+    assert np.allclose(m.affinity, m.omega, rtol=1e-12, atol=0.0)
 
 
 def test_raising_the_temperature_shortens_the_saturation_length():

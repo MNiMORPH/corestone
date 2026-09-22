@@ -147,7 +147,7 @@ SPACING_LOW, SPACING_HIGH = 0.3, 3.0
 #: is about, and a good question to hand a student rather than a defect.
 #:
 #: (The dissolution rows are within 1-2 % of the previous measurement, taken
-#: at c_drift_max 0.03 against 0.01 now. The harness was validated on that
+#: at omega_drift_max 0.03 against 0.01 now. The harness was validated on that
 #: agreement -- its first run compared model time in SECONDS against a cap
 #: written in years and reported every case as >20000.)
 #:
@@ -189,7 +189,7 @@ END_KYR = 15000.0
 #: behaviour and were measured before E_a and delta_H_r were sourced; they are
 #: kept as the record of why this changed, not as current numbers.)
 #:
-#: Accuracy is unaffected: the frame sub-steps as c_drift_max demands, so this
+#: Accuracy is unaffected: the frame sub-steps as omega_drift_max demands, so this
 #: sets the pace and the controller still sets the step.
 #:
 #: 1 kyr per frame. The pace rose to this when pore_volumes was derived from the
@@ -475,11 +475,11 @@ def _build():
     m.set_driver(DRIVER_LABELS[driver.value])
     m.set_rainfall(rainfall.value / YEAR)
     m.set_temperature(temperature.value + 273.15)
-    m.c_drift_max = C_DRIFT_MAX
+    m.omega_drift_max = C_DRIFT_MAX
     m.flow_tolerance = FLOW_TOLERANCE
     m.dt_max = YEARS_PER_FRAME * YEAR
     m.initialize()
-    m.c = m.solve_solute(m.reaction_rate)
+    m.omega = m.solve_solute(m.reaction_rate)
     return net, m
 
 

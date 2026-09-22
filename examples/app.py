@@ -107,7 +107,7 @@ def simulate():
         m.run(years=elapsed.value * 1e3)
     else:
         m.initialize()
-        m.c = m.solve_solute(m.reaction_rate)
+        m.omega = m.solve_solute(m.reaction_rate)
     return net, m
 
 
@@ -163,7 +163,7 @@ go()
 app = pn.Column(
     pn.pane.Markdown(
         "## corestone — fracture-controlled granite weathering\n"
-        r"$$\nabla\cdot(qc) - \nabla\cdot(D\nabla c) = r\,(1-c)$$"
+        r"$$\nabla\cdot(qc) - \nabla\cdot(D\nabla omega) = r\,(1-omega)$$"
         "\n\nWater runs down the joints and dissolves the rock it touches. "
         "Where it has equilibrated it stops, however soluble the rock. "
         "Blocks weather inward from every face and fastest at the corners, "

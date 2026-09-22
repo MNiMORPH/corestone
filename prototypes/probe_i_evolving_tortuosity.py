@@ -74,7 +74,7 @@ def build(cls, tC=12.0, **kw):
         setattr(m, k, v)
     m.set_rainfall(0.30 / YEAR)
     m.set_temperature(tC + 273.15)
-    m.c_drift_max = 0.01
+    m.omega_drift_max = 0.01
     m.flow_tolerance = 0.05
     m.dt_max = 1000.0 * YEAR
     return m.initialize()

@@ -195,7 +195,7 @@ def test_the_base_conductance_reaches_the_matrix_through_the_triplets():
 
 def test_the_step_control_makes_the_error_a_dial():
     """
-    The property that justifies replacing dx_max: tightening ``c_drift_max``
+    The property that justifies replacing dx_max: tightening ``omega_drift_max``
     must reduce the error, every time, on the way to the converged answer.
 
     dx_max could not do this. It bounds the change in M in whichever cell is
@@ -215,12 +215,12 @@ def test_the_step_control_makes_the_error_a_dial():
 
     def at(drift):
         m = _model()
-        m.c_drift_max = drift
+        m.omega_drift_max = drift
         m.run(years=YEARS)
         return m.M
 
     m = _model()
-    m.c_drift_max = 3e-4
+    m.omega_drift_max = 3e-4
     m.run(years=YEARS)
     ref = m.M
 
@@ -257,7 +257,7 @@ def test_run_lands_on_the_time_it_was_asked_for():
     """
     for drift in (0.03, 0.003):
         m = _model()
-        m.c_drift_max = drift
+        m.omega_drift_max = drift
         m.run(years=30e3)
         assert m.t == pytest.approx(30e3 * YEAR, rel=1e-12)
 
