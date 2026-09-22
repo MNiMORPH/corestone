@@ -107,7 +107,7 @@ def simulate():
         m.run(years=elapsed.value * 1e3)
     else:
         m.initialize()
-        m.c = m.solve_solute(m.reaction_coefficient)
+        m.c = m.solve_solute(m.reaction_rate)
     return net, m
 
 

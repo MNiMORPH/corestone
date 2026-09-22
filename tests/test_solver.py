@@ -82,7 +82,7 @@ def test_the_in_place_step_matrix_equals_the_sparse_addition_exactly():
     tolerance -- if it ever needs a tolerance, something else has changed.
     """
     m = _model()
-    r = m.reaction_coefficient
+    r = m.reaction_rate
     fast = m._step_matrix(r).tocsc()
     slow = (m._transport_operator()
             + sp.diags((r * m.dx * m.dx).ravel())).tocsc()
@@ -98,7 +98,7 @@ def test_the_step_matrix_is_rebuilt_when_the_transport_coefficients_change():
     gets the same test as the first.
     """
     m = _model()
-    r = m.reaction_coefficient
+    r = m.reaction_rate
     before = m._step_matrix(r).copy()
     m.D_molecular = 0.0
     m.grain_size = 0.0
@@ -118,7 +118,7 @@ def test_the_reused_solution_does_not_change_the_answer():
     import scipy.sparse.linalg as spl
     m = _model()
     m.run(years=40e3)
-    r = m.reaction_coefficient
+    r = m.reaction_rate
     warm = m.solve_solute(r)
     assert m._x is not None                       # the guess was actually kept
 
@@ -139,7 +139,7 @@ def test_the_residual_of_the_returned_field_meets_the_tolerance():
     """
     m = _model()
     m.run(years=40e3)
-    r = m.reaction_coefficient
+    r = m.reaction_rate
     x = m.solve_solute(r)
     A = m._step_matrix(r)
     # The model's own right-hand side: the claim here is about the SOLVER

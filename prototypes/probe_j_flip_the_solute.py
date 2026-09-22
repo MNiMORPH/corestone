@@ -80,7 +80,7 @@ class Oxidation(Weathering):
     """Weathering paced by oxidation of biotite Fe(II) by dissolved O2."""
 
     @property
-    def reaction_coefficient(self):
+    def reaction_rate(self):
         """``r = k_ox A`` [1/s], falling with the biotite remaining."""
         return self.k_oxidation * np.maximum(self.M, 0.0)
 
@@ -167,7 +167,7 @@ class Oxidation(Weathering):
         afterwards so that ``self.c`` still means dissolved oxygen.
         """
         if self._c_held is None:
-            self._c_held = self.solve_solute(self.reaction_coefficient)
+            self._c_held = self.solve_solute(self.reaction_rate)
         real_solve = self.solve_solute
         self.solve_solute = lambda r: 1.0 - real_solve(r)
         self._c_held = 1.0 - self._c_held
@@ -282,7 +282,7 @@ if __name__ == "__main__":
     print("t = 0, fresh rock: where does the solute sit?\n")
     for cls, name in ((Weathering, "silica"), (Oxidation, "oxygen")):
         m = build(cls)
-        m.c = m.solve_solute(m.reaction_coefficient)
+        m.c = m.solve_solute(m.reaction_rate)
         print("  %-8s c surface %.4f  base %.4f   (silica c rises with depth,"
               % (name, m.c[0, :].mean(), m.c[-1, :].mean()))
         print("           %sDamkohler %.4f)"

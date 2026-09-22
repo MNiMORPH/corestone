@@ -479,7 +479,7 @@ def _build():
     m.flow_tolerance = FLOW_TOLERANCE
     m.dt_max = YEARS_PER_FRAME * YEAR
     m.initialize()
-    m.c = m.solve_solute(m.reaction_coefficient)
+    m.c = m.solve_solute(m.reaction_rate)
     return net, m
 
 

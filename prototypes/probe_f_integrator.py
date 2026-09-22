@@ -29,11 +29,11 @@ def run(dt_years, kyr, exponential, dx_max=0.05):
     t0 = time.perf_counter()
     target = kyr * 1e3 * YEAR
     while m.t < target:
-        r = m.reaction_coefficient
+        r = m.reaction_rate
         c = m.solve_solute(r)
         if exponential:
             # lambda = r/M * (1-c)/tau, finite as M -> 0 because r is prop. to M
-            lam = (m.reaction_coefficient / np.maximum(m.M, 1e-300)) \
+            lam = (m.reaction_rate / np.maximum(m.M, 1e-300)) \
                   * (1.0 - c) / m.tau
             lam = np.where(m.M > 0, lam, 0.0)
             step = min(m.dt_max, m.dx_max / max((lam * m.M).max(), 1e-30))

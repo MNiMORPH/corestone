@@ -98,7 +98,7 @@ T_REF = 285.0                    # [K]
 CELL_SIZES = (0.05, 0.025, 0.02)  # what the demo offers [m]
 
 
-def reaction_coefficient(rate, phi):
+def reaction_rate(rate, phi):
     """``r = k_ox A`` [1/s], from a measured rate and a mineral abundance."""
     return (rate / 0.25) * (6.0 * phi / GRAIN)
 
@@ -114,7 +114,7 @@ def report():
     lo_pen, hi_pen, lo_v, hi_v, lo_da, hi_da = 9e9, 0.0, 9e9, 0.0, 9e9, 0.0
     for rate in RATES:
         for phi in PHI_BIOTITE:
-            r = reaction_coefficient(rate, phi)
+            r = reaction_rate(rate, phi)
             D_fresh = D_O2 / TORT_FRESH
             pen = np.sqrt(D_fresh / r)          # reaction-diffusion layer [m]
             v = np.sqrt(D_fresh * r) / tau_ox   # sharp-front speed [m/s]
@@ -138,7 +138,7 @@ def report():
               % (100 * dx, lo_pen / dx, hi_pen / dx))
 
     print("\n  and once it has cracked -- tortuosity 1e4 -> 10:")
-    r = reaction_coefficient(RATES[1], PHI_BIOTITE[1])
+    r = reaction_rate(RATES[1], PHI_BIOTITE[1])
     D_w = D_O2 / TORT_WEATHERED
     pen_w, v_w = np.sqrt(D_w / r), np.sqrt(D_w * r) / tau_ox
     print("    penetration %.2f m, speed %.1f m/Myr -- a factor of %.0f"

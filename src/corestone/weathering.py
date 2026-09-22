@@ -1840,7 +1840,7 @@ class Weathering(object):
                 else self.D_molecular)
 
     @property
-    def reaction_coefficient(self):
+    def reaction_rate(self):
         """
         ``r = k A / C_eq`` [1/s]: the rate at which undersaturation is consumed.
 
@@ -1878,7 +1878,7 @@ class Weathering(object):
 
     def local_saturation_length(self):
         """The saturation length cell by cell [m]: ``q / r``."""
-        r = self.reaction_coefficient
+        r = self.reaction_rate
         return (self.q / self.dx) / np.maximum(r, 1e-300)
 
     def transport_coefficients(self):
@@ -2487,7 +2487,7 @@ class Weathering(object):
         :meth:`run` uses to land exactly on the time asked for.
         """
         if self._c_held is None:
-            self._c_held = self.solve_solute(self.reaction_coefficient)
+            self._c_held = self.solve_solute(self.reaction_rate)
         c_held = self._c_held
         lam = (self.k_reaction
                * self.driving_force(c_held) / self.tau)
@@ -2500,7 +2500,7 @@ class Weathering(object):
         if dt is not None:
             M_new = advance(dt)
             self.M = M_new
-            self._c_held = self.solve_solute(self.reaction_coefficient)
+            self._c_held = self.solve_solute(self.reaction_rate)
             self.c = self._c_held
             self.t += dt
             return dt
@@ -2524,7 +2524,7 @@ class Weathering(object):
         while True:
             M_new = advance(step)
             saved_M, self.M = self.M, M_new
-            c_new = self.solve_solute(self.reaction_coefficient)
+            c_new = self.solve_solute(self.reaction_rate)
             self.M = saved_M
             drift = np.abs(c_new - c_held).max()
             if drift <= self.c_drift_max or step <= self.dt_min:

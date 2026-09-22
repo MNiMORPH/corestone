@@ -60,7 +60,7 @@ def test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux(driver):
     """
     m = _model()
     m.set_driver(driver)
-    r = m.reaction_coefficient
+    r = m.reaction_rate
     # The flux distribution is bimodal, so select by structure, not quantile.
     fast, slow = m.network.cell, ~m.network.cell
     assert fast.any() and slow.any()
@@ -89,7 +89,7 @@ def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     """
     m = _model()
     m.set_driver(driver)
-    r = m.reaction_coefficient
+    r = m.reaction_rate
     c = m.solve_solute(r)
 
     if driver == "oxidation":
@@ -119,7 +119,7 @@ def test_the_rock_is_integrated_exactly_over_a_step_with_c_held():
     that the test cannot pass by reproducing a mistake in the code.
     """
     m = _model()
-    frozen = m.solve_solute(m.reaction_coefficient)
+    frozen = m.solve_solute(m.reaction_rate)
     m.solve_solute = lambda r: frozen              # hold c, as a step does
 
     dt = 4000.0 * YEAR
@@ -148,7 +148,7 @@ def test_forward_euler_would_fail_the_invariance_the_exponential_passes():
     written out here and required to disagree with itself.
     """
     m = _model()
-    frozen = m.solve_solute(m.reaction_coefficient)
+    frozen = m.solve_solute(m.reaction_rate)
     lam = m.k_reaction * (1.0 - frozen) / m.tau
     dt = 4000.0 * YEAR
 
@@ -353,7 +353,7 @@ def test_the_solved_concentration_satisfies_the_stated_cell_balance(driver):
     """
     m = _model()
     m.set_driver(driver)
-    r = m.reaction_coefficient
+    r = m.reaction_rate
     c = m.solve_solute(r)
     nz, nx, dx = m.nz, m.nx, m.dx
     D_v, D_h = m.transport_coefficients()
@@ -410,7 +410,7 @@ def test_diffusion_is_what_lets_a_block_weather_inward():
         m.set_driver("dissolution")
         m.M[:] = fraction_remaining
         m.solve_flow()
-        r = m.reaction_coefficient
+        r = m.reaction_rate
         on = (m.driving_force(m.solve_solute(r)) > 1e-6).mean()
         m.D_molecular = m.D_O2_molecular = 0.0
         m.grain_size = 0.0
@@ -464,7 +464,7 @@ def test_diffusion_is_what_gives_the_oxidation_rind_its_width():
             # matrix it beats mechanical dispersion by about two hundred to
             # one, which :attr:`diffusivity_factor` states and this relies on.
         m.solve_flow()
-        c = m.solve_solute(m.reaction_coefficient)
+        c = m.solve_solute(m.reaction_rate)
         d = m.network.distance_to_fracture()
         near = c[np.isclose(d, m.dx)].mean()
         far = c[np.isclose(d, 3.0 * m.dx)].mean()
@@ -484,7 +484,7 @@ def test_corners_stay_further_from_saturation_than_faces():
     saturation and therefore weathers faster.
     """
     m = _model()
-    c = m.solve_solute(m.reaction_coefficient)
+    c = m.solve_solute(m.reaction_rate)
     u = m.driving_force(c)      # where the water can still do work
     jc = np.nonzero(m.network.link_v[m.nz // 2, :])[0]
     jr = np.nonzero(m.network.link_h.mean(axis=1) > 0.5)[0]
