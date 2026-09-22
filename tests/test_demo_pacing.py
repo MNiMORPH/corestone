@@ -62,7 +62,7 @@ def test_the_frame_respects_the_drift_budget():
     drift each one produced is inside the budget.
     """
     demo.temperature.value = 30.0
-    demo.infiltration.value = 1.00
+    demo.rainfall.value = 1.00
     demo.do_reset()
     m = demo.sim["model"]
     drifts = []
@@ -73,7 +73,7 @@ def test_the_frame_respects_the_drift_budget():
         return out
     m.update = watched
     demo.step()
-    demo.infiltration.value = 0.30                # leave the sliders as found
+    demo.rainfall.value = 0.30                # leave the sliders as found
     assert drifts, "the frame took no step at all"
     assert all(d is not None and d <= m.c_drift_max * 1.001 for d in drifts), \
         drifts
@@ -106,3 +106,36 @@ def test_the_demo_opens_on_the_in_class_activity():
     Pinned so that it cannot drift; see the library's own default test."""
     assert demo.driver.value == "Feldspar dissolution"
     assert demo.DRIVER_LABELS[demo.driver.value] == "dissolution"
+
+
+def test_the_spacing_slider_reaches_no_joints_at_all():
+    """
+    The endpoint that shows what the joints were for.
+
+    With no joints the rock can take only what its own matrix passes, so the
+    surface ponds and most of the rain runs off. That setting is only
+    meaningful because the surface can refuse water: without the ponding
+    boundary the model forces the full rainfall through intact granite, which
+    needs a hydraulic gradient of 23 and reports 67 m of head at the land
+    surface.
+    """
+    demo.spacing.value = demo.NO_JOINTS
+    m = demo.sim["model"]
+    assert not m.network.link_v.any() and not m.network.link_h.any()
+    assert m.ponded.all()
+    assert m.infiltration < 0.1 * m.rainfall
+    assert m.infiltration == pytest.approx(m.k_matrix_at_T, rel=0.05)
+
+    # ...and any joints at all take every drop, because one 100 um joint
+    # carries about twenty-three times the rain on a 3 m section.
+    demo.spacing.value = 1.0
+    m = demo.sim["model"]
+    assert not m.ponded.any()
+    assert m.infiltration == pytest.approx(m.rainfall, rel=1e-9)
+
+
+def test_the_slider_is_named_for_what_arrives_not_what_enters():
+    """A teaching page should not call the prescribed rate 'infiltration' when
+    the model can now deliver less than it."""
+    assert "Rainfall" in demo.rainfall.name
+    assert not hasattr(demo, "infiltration")

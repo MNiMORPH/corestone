@@ -386,10 +386,23 @@ angle = pn.widgets.DiscreteSlider(
     name="Joint orientation [°]",
     options={"%.1f°" % a: a for a, _, _ in _angles(0.05)}, value=0.0,
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
+# NO JOINTS is an option, at the far end, and it is not a spacing at all --
+# which is why it is a sentinel rather than a large number. It is the
+# endpoint that shows what the joints were for: with none of them the rock
+# can only take what its own matrix passes, about 0.013 m/yr against the
+# 0.30 falling on it, and 96 % of the rain runs off. Weathering then has to
+# stay near the surface.
+#
+# It needs the ponding boundary to be meaningful. Without it the model forces
+# the full rainfall through intact granite, which demands a hydraulic gradient
+# of 23 and reports 67 m of head at the land surface.
+NO_JOINTS = 0.0
+
 spacing = pn.widgets.DiscreteSlider(
     name="Joint spacing [m]",
-    options={"%.2f m" % s: s for s in _spacings(0.0, 0.05)}, value=1.0,
-    sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
+    options=dict([("%.2f m" % s, s) for s in _spacings(0.0, 0.05)]
+                 + [("none", NO_JOINTS)]),
+    value=1.0, sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 # WHICH REACTION. Two assignments live in this one app: the in-class activity
 # runs feldspar dissolution, which is the textbook case -- an Arrhenius rate
 # constant, a solubility ceiling, and water that stops working once it is full
@@ -406,8 +419,14 @@ driver = pn.widgets.RadioButtonGroup(
     button_type="default", sizing_mode="stretch_width",
     max_width=2 * SLIDER_WIDTH)
 
-infiltration = pn.widgets.FloatSlider(
-    name="Infiltration [m/yr]", start=0.05, end=1.00, step=0.05,
+# RAINFALL, NOT INFILTRATION, and the distinction became real when the surface
+# learned to refuse water. This is what arrives; what gets in is capped by the
+# rock's conductivity, and the difference runs off. They are equal at every
+# setting on this slider that has joints in it -- one 100 um joint carries
+# twenty-three times the rain falling on a 3 m section -- and differ by a
+# factor of twenty-four with the joints switched off.
+rainfall = pn.widgets.FloatSlider(
+    name="Rainfall [m/yr]", start=0.05, end=1.00, step=0.05,
     value=0.30, format="0.00",
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 # Offered in degrees Celsius, because a reader thinks in a climate rather than
@@ -423,12 +442,13 @@ temperature = pn.widgets.FloatSlider(
 def _build():
     """A fresh network and a fresh model at the current slider settings."""
     n = _cells(cell.value)
-    net = FractureNetwork(n, n, cell.value, periodic_x=True).seed(
-        sets=orthogonal_grid(spacing.value, rotation=angle.value),
-        rng=np.random.default_rng(12345))
+    net = FractureNetwork(n, n, cell.value, periodic_x=True)
+    sets = ([] if spacing.value == NO_JOINTS
+            else orthogonal_grid(spacing.value, rotation=angle.value))
+    net = net.seed(sets=sets, rng=np.random.default_rng(12345))
     m = Weathering(net)
     m.set_driver(DRIVER_LABELS[driver.value])
-    m.set_rainfall(infiltration.value / YEAR)
+    m.set_rainfall(rainfall.value / YEAR)
     m.set_temperature(temperature.value + 273.15)
     m.c_drift_max = C_DRIFT_MAX
     m.flow_tolerance = FLOW_TOLERANCE
@@ -685,7 +705,7 @@ jump.on_click(show_result)
 # ...and so does the driver, which is more than a rebuild: it changes which
 # equation is being solved, so the cached operator and factorisation go with
 # it. set_driver does that; this only has to start the clock again.
-for w in (angle, spacing, infiltration, temperature, driver):
+for w in (angle, spacing, rainfall, temperature, driver):
     w.param.watch(lambda event: do_reset(), "value")
 
 
@@ -747,7 +767,7 @@ pn.Column(
                             width=80),
            driver, pn.Spacer(sizing_mode="stretch_width"),
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
-    pn.Row(angle, spacing, infiltration, temperature, cell,
+    pn.Row(angle, spacing, rainfall, temperature, cell,
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     figures,
     # Centred, not jammed left. The cap means the app can be narrower than the
