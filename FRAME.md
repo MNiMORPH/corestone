@@ -34,7 +34,7 @@ matplotlib` reports all three bundled by Pyodide.
    `design/08-oxidation-drives-it.md`. **Step 1 is DONE** (`3323bae`,
    `c1532cc`, `3befa2e`, `4235b1f`): the O2 solubility correlation, the iron
    budget, the volume expansion, and both checks the plan asked for --
-   `tau_O2` 678 and the front ceiling 442 m/Myr. **Step 2 is NOT started, and
+   `pore_volumes_O2` 678 and the front ceiling 442 m/Myr. **Step 2 is NOT started, and
    probe I changed what it means -- read `prototypes/probe_i_oxygen_regime.py`
    before writing it.** Biotite Fe(II) oxidation
    by dissolved O2 replaces plagioclase dissolution as the driver; `M` becomes
@@ -135,7 +135,7 @@ scaling analysis across the full parameter bracket, not the model:
   good to a factor of three.
 
 **Design 08's own table was stale and it was corrected (`fabb81c`).** It read
-tau_O2 = 3086 and a 97.2 m/Myr ceiling, both computed with Fletcher's
+pore_volumes_O2 = 3086 and a 97.2 m/Myr ceiling, both computed with Fletcher's
 f_FeO = 0.05 -- the value the same document rejects. Correct: 678 and 442.
 
 **WARNING -- designs 02 to 06 contain numbers measured before three corrections
@@ -178,7 +178,7 @@ warm start (`8395d97`); the base boundary and the reaction term both assembled
 without a format round trip (`ed30aca`, `739754b`).
 
 **The integrator and the step control, 2026-09-02.** Same method as above;
-`c_drift_max` at its default 0.03.
+`omega_drift_max` at its default 0.03.
 
     case      before    after     ratio   steps
     3 m app    0.511 s   0.215 s   x2.38   107 -> 79
@@ -189,7 +189,8 @@ without a format round trip (`ed30aca`, `739754b`).
 - **`M(t+dt) = M(t) exp(-lambda dt)`** replaces forward Euler (`78eb750`). `r`
   is proportional to `M`, so with `c` held the step integrates exactly. 1.1x
   to 8.4x more accurate at identical step counts, for one `np.exp`.
-- **`c_drift_max` replaces `dx_max` as the control** (`ebf8f65`). It bounds the
+- **`c_drift_max` replaces `dx_max` as the control** (`ebf8f65`; the
+  parameter is now `omega_drift_max`). It bounds the
   model's one time-step approximation -- `c` held while the rock moves --
   rather than a proxy for it, and the error is monotone in it and nearly first
   order. It is **a chosen error budget**, ~3 % of full scale, one line to
