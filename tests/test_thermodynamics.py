@@ -25,7 +25,7 @@ def model(tC=11.85, **kw):
     m = Weathering(net)
     for k, v in kw.items():
         setattr(m, k, v)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     m.set_temperature(tC + 273.15)
     m.initialize()
     return m
@@ -98,7 +98,7 @@ def test_the_regime_belongs_to_the_SECTION_and_not_to_the_model():
         net = FractureNetwork(cells, cells, dx, periodic_x=True).seed(
             sets=orthogonal_grid(0.5), rng=np.random.default_rng(0))
         m = Weathering(net)
-        m.set_infiltration(0.30 / YEAR); m.set_temperature(285.0); m.initialize()
+        m.set_rainfall(0.30 / YEAR); m.set_temperature(285.0); m.initialize()
         return float(np.mean(m.damkohler)), m.regime
 
     da3, regime3 = da(60)                       # the exercise's 3 m section
@@ -139,7 +139,7 @@ def test_the_thermo_report_puts_the_two_budgets_side_by_side():
     been running against its own stoichiometry; oxygen caps it at 442.
     """
     m = model()
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     text = m.thermo_report()
     for token in ("OXIDATION --", "DISSOLUTION --", "<== DRIVING",
                   "C_O2", "tau_O2", "tau, silica", "oxidation length",
@@ -242,7 +242,7 @@ def test_the_regime_names_the_limit_of_the_DRIVING_reaction():
     net = FractureNetwork(60, 60, 0.05, periodic_x=True).seed(
         sets=orthogonal_grid(1.0), rng=np.random.default_rng(0))
     m = Weathering(net)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     m.set_temperature(285.0)
     m.initialize()
 

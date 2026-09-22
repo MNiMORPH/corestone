@@ -93,7 +93,7 @@ def test_what_the_rock_loses_is_what_the_water_carries_out_of_the_base(driver):
     c = m.solve_solute(r)
 
     if driver == "oxidation":
-        supplied = m.infiltration * m.dx * m.nx    # rain, at c = 1
+        supplied = m.rainfall * m.dx * m.nx    # rain, at c = 1
     else:
         supplied = (r * m.dx * m.dx).sum()         # rock, in every cell
     consumed = (r * c * m.dx * m.dx).sum()
@@ -304,9 +304,9 @@ def test_the_head_field_satisfies_the_darcy_equation_cell_by_cell():
     if m.network.periodic_x:
         div[:, -1] += m.q_wrap
         div[:, 0] -= m.q_wrap
-    div[0, :] -= m.infiltration * m.dx          # source in at the surface
+    div[0, :] -= m.rainfall * m.dx          # source in at the surface
     div[-1, :] += m.q_out_base                  # sink out at the base
-    scale = m.infiltration * m.dx
+    scale = m.rainfall * m.dx
     assert np.abs(div).max() / scale < 1e-9
 
 
@@ -359,7 +359,7 @@ def test_the_solved_concentration_satisfies_the_stated_cell_balance(driver):
     D_v, D_h = m.transport_coefficients()
     source = np.zeros((nz, nx))
     if driver == "oxidation":
-        source[0, :] = m.infiltration * dx      # rain, at c = 1
+        source[0, :] = m.rainfall * dx      # rain, at c = 1
     else:
         source += r * dx * dx                   # rock, in every cell
     res = r * dx * dx * c - source
@@ -507,7 +507,7 @@ def _thermo(tC=11.85, **kw):
     m = Weathering(net)
     for k, v in kw.items():
         setattr(m, k, v)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     m.set_temperature(tC + 273.15)
     return m.initialize()
 
@@ -624,7 +624,7 @@ def test_temperature_does_not_move_the_flow_field():
         net = FractureNetwork(30, 30, 0.05, periodic_x=True).seed(
             sets=orthogonal_grid(0.5), rng=np.random.default_rng(12345))
         m = Weathering(net)
-        m.set_infiltration(0.30 / YEAR)
+        m.set_rainfall(0.30 / YEAR)
         m.set_temperature(tC + 273.15)
         return m.initialize().darcy_speed.copy()
     cold, warm = speed(0.0), speed(30.0)
@@ -756,12 +756,12 @@ def test_the_front_ceiling_is_the_flux_over_tau():
     field, so this model has been running against its own budget.
     """
     m = _thermo(11.85)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     assert m.oxidation_front_ceiling == pytest.approx(
-        m.infiltration / m.tau_oxidation, rel=1e-12)
+        m.rainfall / m.tau_oxidation, rel=1e-12)
     per_Myr = m.oxidation_front_ceiling * YEAR * 1e6
     assert per_Myr == pytest.approx(442.4, rel=1e-3)
-    assert (m.infiltration / m.silica_tau * YEAR * 1e6
+    assert (m.rainfall / m.silica_tau * YEAR * 1e6
             == pytest.approx(6.28, rel=1e-2))
 
 
@@ -798,7 +798,7 @@ def test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length():
     the page's claim about what shelters a corestone must be re-read.
     """
     m = _thermo(11.85)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     want = np.sqrt(m.D_O2_aqueous / m.tortuosity_fresh
                    / m.specific_oxidation_coefficient)
     assert m.oxidation_penetration_depth == pytest.approx(want, rel=1e-12)
@@ -810,7 +810,7 @@ def test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length():
     # the demo actually uses -- 3 m -- and not on this fixture's 1 m.
     deep = Weathering(FractureNetwork(60, 60, 0.05, periodic_x=True).seed(
         sets=orthogonal_grid(1.0), rng=np.random.default_rng(0)))
-    deep.set_infiltration(0.30 / YEAR)
+    deep.set_rainfall(0.30 / YEAR)
     deep.set_temperature(11.85 + 273.15)
     deep.initialize()
     assert deep.damkohler > 3.0                    # saturation-limited

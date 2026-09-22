@@ -82,7 +82,7 @@ def build(cls, nx=60, dx=0.05, spacing=1.0):
     net = FractureNetwork(nx, nx, dx, periodic_x=True).seed(
         sets=orthogonal_grid(spacing), rng=np.random.default_rng(12345))
     m = cls(net)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     m.c_drift_max = 0.01
     m.initialize()
     return m

@@ -38,7 +38,7 @@ def test_the_flow_solution_conserves_water():
     cross every horizontal plane and leave at the base.
     """
     m = _model().initialize()
-    inflow = m.infiltration * m.dx * m.nx
+    inflow = m.rainfall * m.dx * m.nx
     for iz in range(m.nz - 1):
         assert m.q_v[iz, :].sum() == pytest.approx(inflow, rel=1e-9)
 
@@ -238,7 +238,7 @@ def test_no_rain_means_no_weathering():
     roundoff -- the exact solution is a uniform head and identically zero flux.
     """
     m = _model()
-    m.set_infiltration(0.0)
+    m.set_rainfall(0.0)
     m.run(years=100e3)
     assert np.abs(m.q_v).max() < 1e-15
     assert m.dissolved_fraction.max() < 1e-8
@@ -288,7 +288,7 @@ def test_the_periodic_network_tiles_across_the_seam():
 
 def test_periodic_flow_still_conserves_water():
     m = _periodic_model().initialize()
-    inflow = m.infiltration * m.dx * m.nx
+    inflow = m.rainfall * m.dx * m.nx
     for iz in range(m.nz - 1):
         assert m.q_v[iz, :].sum() == pytest.approx(inflow, rel=1e-8)
 
@@ -315,7 +315,7 @@ def test_unjointed_rock_passes_its_own_conductivity_and_no_more():
     assert m.ponded.all(), "intact rock cannot take 0.30 m/yr and must pond"
     v = m.darcy_speed
     assert np.ptp(v) < 1e-18, (v.min(), v.max())        # uniform, as it must be
-    assert v.max() < m.infiltration, (v.max(), m.infiltration)
+    assert v.max() < m.rainfall, (v.max(), m.rainfall)
 
     # NOT exactly K_sat, and the shortfall is exactly the discretisation.
     # Both boundaries put their external head half a cell outside the last
@@ -325,7 +325,7 @@ def test_unjointed_rock_passes_its_own_conductivity_and_no_more():
         m.nz / (m.nz + 1.0), rel=1e-6), v.mean() / m.k_matrix_at_T
 
     # ...and the water it would not take is reported rather than lost.
-    rain = m.infiltration * m.dx * m.nx
+    rain = m.rainfall * m.dx * m.nx
     assert m.runoff == pytest.approx(rain - m._in_above[0, :].sum(), rel=1e-12)
     assert 0.9 < m.runoff / rain < 0.99, m.runoff / rain
 
@@ -337,7 +337,7 @@ def test_joints_carry_far_more_than_the_matrix():
     assert np.median(v[joint]) > 100.0 * np.median(v[~joint])
     # and the mean flux through any depth still equals what fell on the surface
     assert m.q_v.sum(axis=1)[m.nz // 2] == pytest.approx(
-        m.infiltration * m.dx * m.nx, rel=1e-8)
+        m.rainfall * m.dx * m.nx, rel=1e-8)
 
 
 def test_the_default_driver_is_dissolution_and_the_choice_is_deliberate():

@@ -235,7 +235,7 @@ def test_a_network_can_be_supplied_instead_of_seeded():
     m = Weathering(net).run(years=20e3)
     assert np.isfinite(m.dissolved_fraction).all()
     assert (m.dissolved_fraction > 0.0).any()
-    inflow = m.infiltration * dx * nx
+    inflow = m.rainfall * dx * nx
     assert m.q_out_base.sum() == pytest.approx(inflow, rel=1e-8)
 
 

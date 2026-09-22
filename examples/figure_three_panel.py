@@ -65,7 +65,7 @@ affinity = model.affinity
 L_eq = model.saturation_length
 # Quote the saturation length for FRESH rock: it scales with the local flux,
 # so a joint and the matrix differ by orders of magnitude.
-L_fresh = L_eq * model.q / (model.infiltration * model.dx)
+L_fresh = L_eq * model.q / (model.rainfall * model.dx)
 L_joint = np.median(L_fresh[net.cell])
 L_matrix = np.median(L_fresh[~net.cell])
 LX, LZ = net.lx, net.lz

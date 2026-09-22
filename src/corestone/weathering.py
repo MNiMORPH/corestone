@@ -412,7 +412,7 @@ class Weathering(object):
         self.nx = network.nx              # columns, increasing rightward
 
         # ---- parameters. ALL PLACEHOLDERS; see design/02-teaching-scope.md
-        self.infiltration = 0.30 / YEAR   # recharge at the surface [m/s]
+        self.rainfall = 0.30 / YEAR   # recharge at the surface [m/s]
         # A JOINT IS A GEOMETRY, NOT A CONDUCTIVITY. What is set here is the
         # aperture; the conductivity follows from it by the cubic law, and so
         # does its dependence on cell size. See :attr:`k_fracture`.
@@ -929,9 +929,22 @@ class Weathering(object):
         """Temperature [K]. Higher shrinks the equilibration length."""
         self.T = value
 
-    def set_infiltration(self, value):
-        """Recharge at the ground surface [m/s]."""
-        self.infiltration = value
+    def set_rainfall(self, value):
+        """
+        Rate at which water ARRIVES at the ground surface [m/s].
+
+        Not the rate at which it gets in. The rock accepts water up to its
+        infiltration capacity and the rest runs off, so what enters is
+        :attr:`infiltration` and the difference is :attr:`runoff`. The two are
+        equal whenever a joint reaches the surface -- one 100 um joint carries
+        twenty-three times the rain falling on a 3 m section -- and differ by a
+        factor of twenty-four in unfractured rock.
+
+        This was called ``infiltration`` until 2026-09-22, which named the
+        wrong quantity: it is what the sky delivers, and the model had no way
+        to deliver less.
+        """
+        self.rainfall = value
 
     def set_driver(self, value):
         """Which reaction paces the weathering; see :attr:`driver`."""
@@ -1593,7 +1606,7 @@ class Weathering(object):
         driver cannot be swapped without re-reading what the exercise claims;
         see :attr:`oxidation_damkohler`.
         """
-        return self.infiltration / self.specific_oxidation_coefficient
+        return self.rainfall / self.specific_oxidation_coefficient
 
     @property
     def oxidation_damkohler(self):
@@ -1659,7 +1672,7 @@ class Weathering(object):
         running against its own stoichiometry; the oxygen one leaves two
         orders of magnitude of room.
         """
-        return self.infiltration / self.tau_oxidation
+        return self.rainfall / self.tau_oxidation
 
     def thermo_report(self):
         """
@@ -1697,7 +1710,7 @@ class Weathering(object):
             % (self.oxidation_penetration_depth,
                self.oxidation_penetration_depth / self.dx),
             "  front ceiling           %8.1f m/Myr stoichiometry alone, q/tau"
-            % (self.infiltration / self.tau_oxidation * YEAR * 1e6),
+            % (self.rainfall / self.tau_oxidation * YEAR * 1e6),
             "  -- and the cracking it drives (design 10):",
             "  bulk strain, fully ox.  %8.5f       phi_bt * dV/V of the grain"
             % self.bulk_volumetric_strain(1.0),
@@ -1730,7 +1743,7 @@ class Weathering(object):
             "  Damkohler (section)     %8.2f       %s"
             % (float(np.mean(self.damkohler)), self.regime),
             "  front ceiling           %8.2f m/Myr (field: 4-7 m/Myr)"
-            % (self.infiltration / self.silica_tau * YEAR * 1e6),
+            % (self.rainfall / self.silica_tau * YEAR * 1e6),
             "",
             "  warming therefore %s the oxidation and %s the dissolution."
             % ("SLOWS", "SPEEDS"),
@@ -1768,7 +1781,7 @@ class Weathering(object):
         is on its way to zero. It is what lets the rock be integrated exactly
         rather than tangentially; see :meth:`update`.
         """
-        return ((self.infiltration / self.L_ref)
+        return ((self.rainfall / self.L_ref)
                 * self.rate_factor / self.solubility_factor)
 
     @property
@@ -1990,7 +2003,7 @@ class Weathering(object):
         b = np.zeros(self.nz * self.nx)
         if self.driver == "oxidation":
             b.reshape(self.nz, self.nx)[0, :] = \
-                self.infiltration * self.dx * self.inlet_concentration
+                self.rainfall * self.dx * self.inlet_concentration
         else:
             b[:] = np.broadcast_to(r * self.dx * self.dx,
                                    (self.nz, self.nx)).ravel()
@@ -2133,6 +2146,17 @@ class Weathering(object):
         return kv, kh, kw
 
     @property
+    def infiltration(self):
+        """Water actually entering the section, per unit area [m/s].
+
+        The rainfall, less whatever ran off. Equal to :attr:`rainfall` unless
+        the surface ponded.
+        """
+        if self._in_above is None:
+            return self.rainfall
+        return float(self._in_above[0, :].sum()) / (self.dx * self.nx)
+
+    @property
     def surface_conductivity(self):
         """Conductivity of each surface cell [m/s], joint or matrix.
 
@@ -2182,7 +2206,7 @@ class Weathering(object):
         # has PONDED does not get this: it gets a fixed head instead, applied
         # below as a conductance to an external head, exactly as the base is.
         rhs = np.zeros(n)
-        rhs[idx[0, :]] = self.infiltration * dx
+        rhs[idx[0, :]] = self.rainfall * dx
         ponded = self.ponded
         if ponded is not None and ponded.any():
             top = idx[0, :][ponded]
@@ -2288,7 +2312,7 @@ class Weathering(object):
             k_top = self.surface_conductivity
             add = (~ponded) & (H[0, :] > self.pond_head)
             taking = k_top * (self.pond_head - H[0, :])
-            drop = ponded & (taking > self.infiltration * self.dx)
+            drop = ponded & (taking > self.rainfall * self.dx)
             if not add.any() and not drop.any():
                 break
             ponded = (ponded | add) & ~drop
@@ -2339,7 +2363,7 @@ class Weathering(object):
             else np.zeros(nx, dtype=bool),
             np.maximum(self.surface_conductivity * (self.pond_head - H[0, :]),
                        0.0),
-            self.infiltration * dx)
+            self.rainfall * dx)
         self._in_above[1:, :] = np.maximum(self.q_v, 0.0)
         self._in_left = np.zeros((nz, nx))          # from the cell to the left
         self._in_left[:, 1:] = np.maximum(self.q_h, 0.0)
@@ -2351,7 +2375,7 @@ class Weathering(object):
         self.q = self._in_above + self._in_left + self._in_right
         # What leaves the domain through the base, per bottom-row cell.
         self.q_out_base = self._k_base * (H[-1, :] - self._h_base)
-        self.runoff = (self.infiltration * dx * nx
+        self.runoff = (self.rainfall * dx * nx
                        - float(self._in_above[0, :].sum()))
         self._M_flow = None if self.M is None else self.M.copy()
         self.flow_solves += 1

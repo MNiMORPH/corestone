@@ -19,7 +19,7 @@ from corestone import FractureNetwork, Weathering, orthogonal_grid, YEAR
 def build(dx=0.05, nx=60, nz=61, spacing=0.5):
     net = FractureNetwork(nz, nx, dx, periodic_x=True).seed(
         sets=orthogonal_grid(spacing), rng=np.random.default_rng(12345))
-    m = Weathering(net); m.set_infiltration(0.30/YEAR)
+    m = Weathering(net); m.set_rainfall(0.30/YEAR)
     return m
 
 def run(dt_years, kyr, exponential, dx_max=0.05):

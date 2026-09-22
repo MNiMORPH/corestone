@@ -135,7 +135,7 @@ net = FractureNetwork(NZ, NX, DX, periodic_x=True).seed(
     sets=orthogonal_grid(SPACING), rng=np.random.default_rng(12345))
 m = Weathering(net).initialize()
 
-q_ref = m.infiltration * m.dx
+q_ref = m.rainfall * m.dx
 r = q_ref / (m.dx * m.L_eq_ref)          # constant reaction coefficient [1/s]
 
 D_v, D_h = transport_coefficients(m, net)

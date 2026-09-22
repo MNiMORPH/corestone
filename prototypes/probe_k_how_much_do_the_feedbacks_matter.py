@@ -121,7 +121,7 @@ def run(driver, years, freeze_k=False, freeze_tort=False):
     m = Frozen(net)
     m.freeze_k, m.freeze_tort = freeze_k, freeze_tort
     m.set_driver(driver)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     m.set_temperature(285.0)
     m.initialize()
     m.run(years=years)

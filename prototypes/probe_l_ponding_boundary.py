@@ -153,7 +153,7 @@ class Ponding(Weathering):
             k_top = np.where(self.network.cell[0, :], self.k_fracture,
                              self.k_matrix_at_T)
             taking = k_top * (self.h_pond - H[0, :])
-            drop = ponded & (taking > self.infiltration * self.dx)
+            drop = ponded & (taking > self.rainfall * self.dx)
             if not add.any() and not drop.any():
                 break
             ponded = (ponded | add) & ~drop
@@ -175,11 +175,11 @@ class Ponding(Weathering):
                              self.k_matrix_at_T)
             taken = np.where(self.ponded,
                              k_top * (self.h_pond - self.H[0, :]),
-                             self.infiltration * self.dx)
+                             self.rainfall * self.dx)
             self._in_above[0, :] = np.maximum(taken, 0.0)
             self.q = self._in_above + self._in_left + self._in_right
 
-        rain = self.infiltration * self.dx * self.nx
+        rain = self.rainfall * self.dx * self.nx
         took = float(self._in_above[0, :].sum())
         self.runoff = rain - took
         return out
@@ -196,7 +196,7 @@ def build(cls, spacing=1.0, fractured=True, q=0.30, tC=11.85):
         net.link_wrap = np.zeros(60, dtype=bool)
         net.cell = np.zeros((60, 60), dtype=bool)
     m = cls(net)
-    m.set_infiltration(q / YEAR)
+    m.set_rainfall(q / YEAR)
     m.set_temperature(tC + 273.15)
     m.initialize()
     return m

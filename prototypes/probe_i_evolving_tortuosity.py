@@ -72,7 +72,7 @@ def build(cls, tC=12.0, **kw):
     m = cls(net)
     for k, v in kw.items():
         setattr(m, k, v)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     m.set_temperature(tC + 273.15)
     m.c_drift_max = 0.01
     m.flow_tolerance = 0.05

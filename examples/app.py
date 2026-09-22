@@ -102,7 +102,7 @@ def simulate():
         sets=orthogonal_grid(spacing.value, rotation=angle.value),
         rng=np.random.default_rng(12345))
     m = Weathering(net)
-    m.set_infiltration(velocity.value / YEAR)
+    m.set_rainfall(velocity.value / YEAR)
     if elapsed.value > 0:
         m.run(years=elapsed.value * 1e3)
     else:

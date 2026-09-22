@@ -124,7 +124,7 @@ class Oxidation(Weathering):
         # Rain arrives air-saturated, so c = 1 at the surface by construction
         # -- there is no parameter here. An inflow with a known concentration
         # is a source, and it is the only one now.
-        b.reshape(self.nz, self.nx)[0, :] = self.infiltration * dx
+        b.reshape(self.nz, self.nx)[0, :] = self.rainfall * dx
 
         def direct():
             self._lu = spl.splu(A, permc_spec=ORDERING)
@@ -185,7 +185,7 @@ def build(cls, nx=60, nz=60, dx=0.05, spacing=1.0, tC=11.85):
     net = FractureNetwork(nz, nx, dx, periodic_x=True).seed(
         sets=orthogonal_grid(spacing), rng=np.random.default_rng(12345))
     m = cls(net)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     m.set_temperature(tC + 273.15)
     m.initialize()
     return m

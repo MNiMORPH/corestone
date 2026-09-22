@@ -24,7 +24,7 @@ def _model(nz=41, nx=40, dx=0.10, spacing=0.8, periodic=True):
     net = FractureNetwork(nz, nx, dx, periodic_x=periodic).seed(
         sets=orthogonal_grid(spacing), rng=np.random.default_rng(12345))
     m = Weathering(net)
-    m.set_infiltration(0.30 / YEAR)
+    m.set_rainfall(0.30 / YEAR)
     return m.initialize()
 
 

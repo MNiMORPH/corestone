@@ -428,7 +428,7 @@ def _build():
         rng=np.random.default_rng(12345))
     m = Weathering(net)
     m.set_driver(DRIVER_LABELS[driver.value])
-    m.set_infiltration(infiltration.value / YEAR)
+    m.set_rainfall(infiltration.value / YEAR)
     m.set_temperature(temperature.value + 273.15)
     m.c_drift_max = C_DRIFT_MAX
     m.flow_tolerance = FLOW_TOLERANCE
