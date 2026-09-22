@@ -119,6 +119,14 @@ def test_the_spacing_slider_reaches_no_joints_at_all():
     needs a hydraulic gradient of 23 and reports 67 m of head at the land
     surface.
     """
+    # The unfractured case is INFINITE spacing, and sits at the far left of a
+    # slider that runs descending, so the sequence stays monotonic.
+    opts = list(demo.spacing.options.items())
+    assert opts[0][1] == demo.NO_JOINTS, opts[0]
+    assert opts[0][1] == float("inf")
+    assert [v for _, v in opts[1:]] == sorted(
+        [v for _, v in opts[1:]], reverse=True), opts
+
     demo.spacing.value = demo.NO_JOINTS
     m = demo.sim["model"]
     assert not m.network.link_v.any() and not m.network.link_h.any()

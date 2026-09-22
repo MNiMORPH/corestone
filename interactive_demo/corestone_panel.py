@@ -386,22 +386,29 @@ angle = pn.widgets.DiscreteSlider(
     name="Joint orientation [°]",
     options={"%.1f°" % a: a for a, _, _ in _angles(0.05)}, value=0.0,
     sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
-# NO JOINTS is an option, at the far end, and it is not a spacing at all --
-# which is why it is a sentinel rather than a large number. It is the
-# endpoint that shows what the joints were for: with none of them the rock
-# can only take what its own matrix passes, about 0.013 m/yr against the
-# 0.30 falling on it, and 96 % of the rain runs off. Weathering then has to
-# stay near the surface.
+# NO JOINTS is INFINITE SPACING, and that is where it belongs on the slider.
+# This one runs descending -- 3 m at the left, 0.5 m at the right -- so the
+# unfractured case is the far LEFT, one step beyond the widest spacing, and
+# the sequence stays monotonic. It first shipped at the right end, after the
+# closest spacing, which put it against the trend.
 #
-# It needs the ponding boundary to be meaningful. Without it the model forces
+# The value is a genuine infinity rather than a sentinel, so that the test for
+# it reads as what it means and cannot collide with a real spacing.
+#
+# It is the endpoint that shows what the joints were for: with none of them
+# the rock takes only what its own matrix passes, about 0.013 m/yr against
+# the 0.30 falling on it, and 96 % of the rain runs off. Weathering then has
+# to stay near the surface.
+#
+# It needs the ponding boundary to mean anything. Without it the model forces
 # the full rainfall through intact granite, which demands a hydraulic gradient
 # of 23 and reports 67 m of head at the land surface.
-NO_JOINTS = 0.0
+NO_JOINTS = float("inf")
 
 spacing = pn.widgets.DiscreteSlider(
     name="Joint spacing [m]",
-    options=dict([("%.2f m" % s, s) for s in _spacings(0.0, 0.05)]
-                 + [("none", NO_JOINTS)]),
+    options=dict([("∞ (no joints)", NO_JOINTS)]
+                 + [("%.2f m" % s, s) for s in _spacings(0.0, 0.05)]),
     value=1.0, sizing_mode="stretch_width", max_width=SLIDER_WIDTH)
 # WHICH REACTION. Two assignments live in this one app: the in-class activity
 # runs feldspar dissolution, which is the textbook case -- an Arrhenius rate
@@ -443,7 +450,7 @@ def _build():
     """A fresh network and a fresh model at the current slider settings."""
     n = _cells(cell.value)
     net = FractureNetwork(n, n, cell.value, periodic_x=True)
-    sets = ([] if spacing.value == NO_JOINTS
+    sets = ([] if not np.isfinite(spacing.value)
             else orthogonal_grid(spacing.value, rotation=angle.value))
     net = net.seed(sets=sets, rng=np.random.default_rng(12345))
     m = Weathering(net)
