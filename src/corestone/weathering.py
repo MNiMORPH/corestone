@@ -670,7 +670,9 @@ class Weathering(object):
         # Temperature still acts on the oxidation, twice and in opposite
         # directions, through two quantities that ARE measured: oxygen
         # solubility falls as water warms, and diffusivity rises.
-        self.k_oxidation = 4.0e-13        # oxidation rate constant [m/s]
+        self.k_oxidation_per_area = 4.0e-13  # oxidation rate constant, PER UNIT
+        # reactive area [m/s]. Multiply by biotite_surface_area for the bulk
+        # first-order constant k_oxidation [1/s], which is what the rate uses.
         # Free-water diffusivity of dissolved O2 [m2/s] at T_D_ref. About
         # twice the silica value, because O2 is a small neutral molecule and
         # silicic acid is not. Scaled to the working temperature by the same
@@ -882,7 +884,7 @@ class Weathering(object):
         # that INVERTS the temperature intuition -- cold weathers faster,
         # -14.5 kJ/mol -- before a student has built the intuition being
         # inverted, and it rests on the least defensible parameter in the
-        # file (see k_oxidation). So oxidation is a documented, tested mode
+        # file (see k_oxidation_per_area). So oxidation is a documented, tested mode
         # rather than the default, and the exercise page treats it
         # qualitatively at the end.
         self.driver = "dissolution"
@@ -1591,9 +1593,9 @@ class Weathering(object):
         order in it. Same algebra, different physics.
 
         No temperature dependence, and that is deliberate; see
-        ``k_oxidation``. Nothing measured supports one.
+        ``k_oxidation_per_area``. Nothing measured supports one.
         """
-        return self.k_oxidation * self.biotite_surface_area
+        return self.k_oxidation_per_area * self.biotite_surface_area
 
     @property
     def oxidation_length(self):

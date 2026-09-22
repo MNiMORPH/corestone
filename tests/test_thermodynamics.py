@@ -191,7 +191,7 @@ def test_the_oxidation_drivers_whole_temperature_response_is_the_gas_law():
         m.set_temperature(T)
         taus.append(m.tau_oxidation)
         assert m.specific_oxidation_coefficient == \
-            pytest.approx(m.k_oxidation * m.biotite_surface_area, rel=1e-12)
+            pytest.approx(m.k_oxidation_per_area * m.biotite_surface_area, rel=1e-12)
     slope = np.polyfit(1.0 / temps, np.log(1.0 / np.array(taus)), 1)[0]
     # 6 %, not 2 %: the solubility correlation is a five-term polynomial in
     # 1/T, not a straight line in van 't Hoff coordinates, so the effective
