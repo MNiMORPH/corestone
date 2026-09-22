@@ -449,10 +449,28 @@ temperature = pn.widgets.FloatSlider(
 def _build():
     """A fresh network and a fresh model at the current slider settings."""
     n = _cells(cell.value)
-    net = FractureNetwork(n, n, cell.value, periodic_x=True)
-    sets = ([] if not np.isfinite(spacing.value)
-            else orthogonal_grid(spacing.value, rotation=angle.value))
-    net = net.seed(sets=sets, rng=np.random.default_rng(12345))
+    if np.isfinite(spacing.value):
+        net = FractureNetwork(n, n, cell.value, periodic_x=True).seed(
+            sets=orthogonal_grid(spacing.value, rotation=angle.value),
+            rng=np.random.default_rng(12345))
+    else:
+        # ONE COLUMN, NOT A GRID. With no joints the rock and the rain are both
+        # uniform across the section, so the answer is too, and solving for a
+        # single column imposes a symmetry the problem genuinely has. Verified:
+        # the 1-D and 2-D solutions agree to 6e-15 before the 2-D one departs.
+        #
+        # WHY THE 2-D ONE DEPARTS. Dissolving rock conducts better, which draws
+        # more water, which dissolves it faster -- the reactive-infiltration
+        # instability, and it is real. What is not real is its wavelength here.
+        # The section is uniform to machine precision, so the only thing
+        # available to grow is floating-point rounding error, and the model has
+        # nothing to select a length scale with: diffusion through intact rock
+        # is ~7e-14 m2/s, far too weak to smooth anything at centimetre scale.
+        # Measured, the fingers come out 2.1 cells wide at 5 cm and 13.3 at
+        # 2.5 cm -- a pattern that follows the mesh. The jointed cases are
+        # untouched by this: there the wavelength is 20 cells and equals the
+        # joint spacing, because real structure sets it.
+        net = FractureNetwork(n, 1, cell.value, periodic_x=False).seed(sets=[])
     m = Weathering(net)
     m.set_driver(DRIVER_LABELS[driver.value])
     m.set_rainfall(rainfall.value / YEAR)
@@ -589,10 +607,22 @@ def _speed_field(m):
     return np.log10(np.maximum(m.darcy_speed, 1e-30) * YEAR)
 
 
+def _wide(field):
+    """A field as the figures want it, full width.
+
+    A one-column run is repeated across the section, which is not a cosmetic
+    choice: with no joints the solution IS uniform across x, so every column
+    is that column.
+    """
+    if field.shape[1] == 1:
+        return np.repeat(field, _cells(cell.value), axis=1)
+    return field
+
+
 def _redraw():
     m = sim["model"]
-    speed.data = {"image": [_speed_field(m)]}
-    dissolved.data = {"image": [m.dissolved_fraction]}
+    speed.data = {"image": [_wide(_speed_field(m))]}
+    dissolved.data = {"image": [_wide(m.dissolved_fraction)]}
     fig_left.title.text = "How fast the water is moving"
     fig_right.title.text = "What is left of the rock"
     # Time and a mean, and nothing that needs a threshold. This used to read

@@ -14,6 +14,7 @@ model, which is worse than teaching nothing.
 import os
 import sys
 
+import numpy as np
 import pytest
 
 from corestone import YEAR
@@ -147,3 +148,33 @@ def test_the_slider_is_named_for_what_arrives_not_what_enters():
     the model can now deliver less than it."""
     assert "Rainfall" in demo.rainfall.name
     assert not hasattr(demo, "infiltration")
+
+
+def test_the_unjointed_case_is_solved_as_one_column():
+    """
+    With no joints the rock and the rain are both uniform across the section,
+    so the solution is too. Solving one column imposes a symmetry the problem
+    genuinely has, and the figures repeat it across the width.
+
+    THE ALTERNATIVE IS WORSE, which is why this exists. Solved as a grid, the
+    reactive-infiltration instability amplifies floating-point rounding error
+    -- the only asymmetry a uniform section has -- and the model has nothing to
+    select a wavelength with, diffusion through intact rock being ~7e-14 m2/s.
+    Measured, the fingers are 2.1 cells wide at 5 cm cells and 13.3 at 2.5 cm:
+    a pattern that follows the mesh rather than the rock.
+    """
+    demo.spacing.value = demo.NO_JOINTS
+    m = demo.sim["model"]
+    assert m.nx == 1, "no joints should be solved as a single column"
+    assert not m.network.periodic_x, "one column has no seam to wrap"
+
+    demo._redraw()
+    img = demo.dissolved.data["image"][0]
+    assert img.shape == (m.nz, demo._cells(demo.cell.value))
+    assert np.ptp(img, axis=1).max() == 0.0, "every column is that column"
+
+    # ...and a jointed run is still solved as a grid.
+    demo.spacing.value = 1.0
+    m = demo.sim["model"]
+    assert m.nx == demo._cells(demo.cell.value)
+    assert m.network.periodic_x
