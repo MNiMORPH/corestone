@@ -1619,12 +1619,18 @@ class Weathering(object):
         and a 3 m section, against 6.56 on silica.
 
         Under 1/3 is REACTION-LIMITED by :attr:`regime`'s own thresholds, so
-        flipping the driver flips the limit. A corestone in this model would
-        no longer be sheltered by saturation -- oxygen reaches every joint --
-        but by :attr:`oxidation_penetration_depth`, which is a diffusive
-        length and a hundred times shorter. Both are "the water never got
-        there"; they are not the same mechanism and the page teaches the
-        first.
+        flipping the driver flips the limit -- and with it, whether a core is
+        sheltered at all. IT IS NOT. Measured at 30 % mean extent, the driving
+        force 40 cm inside a block is 0.03 of its joint value under
+        dissolution and 0.61 under oxidation: saturated water stops the
+        reaction dead, dilute oxygen only slows it. The oxidising section
+        disaggregates more or less evenly.
+
+        Not, as this docstring used to say, sheltered instead by
+        :attr:`oxidation_penetration_depth`. Freezing the tortuosity at its
+        fresh value -- which fixes that depth at 4.5 cm -- changes the
+        sheltered fraction from 3.5 % to 4.9 %, i.e. hardly at all. The
+        geometry was never what protected the core.
         """
         return (self.network.nz * self.network.dx) / self.oxidation_length
 
@@ -1766,11 +1772,13 @@ class Weathering(object):
     # a PRODUCT: it enters at zero, accumulates, and stops the reaction when
     # it reaches saturation, so the driving force is (1 - c) and rock is
     # sheltered by water that arrived already full. Under OXIDATION it is a
-    # REACTANT: it enters at one, is consumed, and the reaction stops where it
-    # runs out, so the driving force is c and rock is sheltered by oxygen that
-    # never got in. Both are "the water never got there"; they are not the
-    # same mechanism, and the pictures differ -- see
-    # prototypes/probe_j_flip_the_solute.py.
+    # REACTANT: it enters at one, is consumed, and the driving force is c.
+    #
+    # The asymmetry matters more than it looks. A product reaches its ceiling
+    # and the reaction STOPS; a reactant only thins out, and the reaction
+    # carries on slower. So dissolution shelters a block interior and
+    # oxidation does not -- it disaggregates the section more or less evenly.
+    # See prototypes/probe_j_flip_the_solute.py for the pictures.
 
     @property
     def specific_dissolution_coefficient(self):
