@@ -6,7 +6,7 @@ Dissolve granite along its joints, and see what is left.
 The model is one equation. Dissolution runs at an Arrhenius rate constant
 multiplied by how far the pore water is from equilibrium,
 
-    R = k(T) * A * (1 - C / C_eq)
+    r = k(T) * (1 - C / C_eq)
 
 so water that has equilibrated stops weathering rock, however soluble the rock
 and however warm the water. Fresh water descends the joints; the joints
@@ -29,11 +29,11 @@ A SECOND REACTION IS BUILT IN, AND IT IS NOT THE DEFAULT ON PURPOSE
 ``Weathering.driver`` switches between two reactions that are the same
 transport problem with the solute pointing opposite ways:
 
-    R = k(T) * A * (1 - C / C_eq)   "dissolution", the default: plagioclase
+    r = k(T) * (1 - C / C_eq)   "dissolution", the default: plagioclase
                                     into water approaching quartz saturation.
                                     A PRODUCT -- it accumulates until it stops
                                     the reaction.
-    R = k_ox * A * C                "oxidation": biotite Fe(II) by dissolved
+    r = k_ox * C                "oxidation": biotite Fe(II) by dissolved
                                     O2. A REACTANT -- it is consumed until
                                     there is none left.
 
@@ -70,7 +70,7 @@ depth delivers it at very nearly full strength.
 What shelters a block interior, then, is not the section-scale supply but a
 DIFFUSIVE length -- how far O2 gets into intact rock before it is consumed,
 
-    penetration = sqrt(D_O2 / (tortuosity_fresh k_ox A))
+    penetration = sqrt(D_O2 / (tortuosity_fresh k_ox))
 
 which is 4.5 cm at 12 C. See :attr:`Weathering.oxidation_penetration_depth`.
 
@@ -110,18 +110,18 @@ THE THERMODYNAMICS, IN FULL, BECAUSE IT IS THE PART MOST OFTEN GOT WRONG
 Temperature enters twice, with opposite effects on the length scale, and the
 second one is the larger here. Write both in the textbook form:
 
-    k(T)    = k_0 exp(-E_a      / R_g T)          Arrhenius, on the RATE
+    k(T)    = A   exp(-E_a      / R_g T)          Arrhenius, on the RATE
     C_eq(T) = C_0 exp(-dH_r     / R_g T)          van 't Hoff, on the CEILING
 
-Warming raises both. Written out, the rate law is R = k (C_eq - C), so raising
+Warming raises both. Written out, the rate law is r = k (C_eq - C), so raising
 either factor raises the rate -- an earlier version of this docstring claimed
 the ceiling "does not make the rock dissolve faster where it stands", which is
 wrong. Where the two DO oppose each other is in the length below.
 
 Now form the saturation length, the only length this chemistry has:
 
-    L = q C_eq / (k A)
-      = (q C_0 / (k_0 A)) exp( -(dH_r - E_a) / R_g T )
+    L = q C_eq / k
+      = (q C_0 / A) exp( -(dH_r - E_a) / R_g T )
       = L_ref exp( +(E_a - dH_r) / R_g ( 1/T - 1/T_ref ) )      *
 
 ``E_a`` and ``dH_r`` enter with OPPOSITE SIGNS and only their difference
@@ -136,7 +136,7 @@ is a real regime and this model does not forbid it; see
 
 Two things follow that are easy to miss:
 
-**k_0 and C_0 are gone.** Step * absorbed them into ``L_ref``, and every rate
+**A and C_0 are gone.** Step * absorbed them into ``L_ref``, and every rate
 in the code is a ratio to the reference state, so the absolute pre-exponential
 factors cancel and are never evaluated. This model has a NORMALISATION where a
 research model would need a thermodynamics. That is why ``L_ref`` can be
@@ -494,7 +494,7 @@ class Weathering(object):
                                           # numerical quantity and should be
                                           # converged; the uncertainty belongs
                                           # in the conductivities.
-        # DERIVED. L = q C_eq / (k A), and every term is sourced:
+        # DERIVED. L = q C_eq / k, and every term is sourced:
         #   q    0.30 m/yr infiltration = 9.51e-9 m/s
         #   C_eq 0.10 mol Si/m3, quartz saturation
         #   k    10^-11.84 mol m-2 s-1, oligoclase neutral (Palandri &
@@ -1193,7 +1193,7 @@ class Weathering(object):
         to misread it. Warming does two things -- it speeds the reaction
         (Arrhenius, ``E_a``) and it raises the solubility (van 't Hoff,
         ``delta_H_r``). BOTH RAISE THE RATE: written out, the rate law is
-        R = k (C_eq - C), so a higher ceiling is a larger driving force at any
+        r = k (C_eq - C), so a higher ceiling is a larger driving force at any
         given C. This docstring previously said the ceiling "does not make the
         rock dissolve faster in place", which is false.
 
@@ -1220,7 +1220,7 @@ class Weathering(object):
 
         UNDER OXIDATION THIS RETURNS ZERO, AND THAT IS A NARROWER STATEMENT
         THAN IT LOOKS. It is exactly zero for the ADVECTIVE length,
-        ``q / (k_ox A)``: the rate constant has no measured temperature
+        ``q / k_ox``: the rate constant has no measured temperature
         dependence and none is assumed, the infiltration is prescribed, and
         the surface area is geometry, so nothing in it moves.
 
@@ -1511,7 +1511,7 @@ class Weathering(object):
         """
         Reactive surface area of the biotite [m2 per m3 of rock].
 
-            A = 6 phi / d
+            s_geo = 6 phi / d
 
         Cubic grains of side ``d`` at volume fraction ``phi``: six faces each
         of area ``d^2``, in a cube of volume ``d^3``, times the fraction of
@@ -1578,7 +1578,7 @@ class Weathering(object):
     @property
     def k_oxidation(self):
         """
-        ``k_ox A`` [1/s]: the rate at which fresh biotite consumes dissolved
+        ``k_ox`` [1/s]: the rate at which fresh biotite consumes dissolved
         oxygen, per unit of oxygen present. The oxygen counterpart of
         :attr:`k_reaction`, and like it a scalar.
 
@@ -1600,7 +1600,7 @@ class Weathering(object):
     @property
     def oxidation_length(self):
         """
-        How far water travels before its oxygen is used up [m]: ``q / k_ox A``.
+        How far water travels before its oxygen is used up [m]: ``q / k_ox``.
 
         The advective counterpart of :attr:`saturation_length`, and it is
         enormous -- 132 m at 6 % biotite, against a 3 m section. Water crosses
@@ -1641,7 +1641,7 @@ class Weathering(object):
         """
         How far oxygen penetrates intact rock before it is consumed [m].
 
-            penetration = sqrt(D_O2 / (tortuosity_fresh k_ox A))
+            penetration = sqrt(D_O2 / (tortuosity_fresh k_ox))
 
         The reaction-diffusion boundary layer, and once advection has stopped
         mattering it is the only length left. 4.5 cm at 6 % biotite and
@@ -1712,7 +1712,7 @@ class Weathering(object):
             "measured for this",
             "  tau_O2                  %8.0f       volumes of water per "
             "volume of rock" % self.tau_oxidation,
-            "  oxidation length        %8.1f m     q / k_ox A -- advective"
+            "  oxidation length        %8.1f m     q / k_ox     -- advective"
             % self.oxidation_length,
             "  Damkohler (section)     %8.4f       %s"
             % (self.oxidation_damkohler,
@@ -1842,7 +1842,7 @@ class Weathering(object):
     @property
     def reaction_rate(self):
         """
-        ``r = k A / C_eq`` [1/s]: the rate at which undersaturation is consumed.
+        ``r = k M`` [1/s]: the rate at which undersaturation is consumed.
 
         This is the flux-independent form. Since ``r = q / saturation_length``
         and the saturation length is itself proportional to ``q``, the flux
@@ -2115,7 +2115,7 @@ class Weathering(object):
         -- linearly in the logarithm, which is how conductivity varies --
         between intact granite and fully dissolved rock:
 
-            k(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)
+            K_sat(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)
 
         on the mean of the two cells a link joins. A jointed link keeps
         ``K_sat_fracture``: an open joint is an open joint whatever the rock beside

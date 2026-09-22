@@ -38,13 +38,13 @@ EXPECTED_BLOCKS = 28
 EXPECTED_DISTINCT = 25
 
 LEDGER = {
-    "R = k(T) * A * (1 - C / C_eq)":
+    "r = k(T) * (1 - C / C_eq)":
         "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
 
-    "R = k(T) * A * (1 - C / C_eq) \"dissolution\", the default: "
+    "r = k(T) * (1 - C / C_eq) \"dissolution\", the default: "
     "plagioclase into water approaching quartz saturation. A "
-    "PRODUCT -- it accumulates until it stops the reaction. R = "
-    "k_ox * A * C \"oxidation\": biotite Fe(II) by dissolved O2. A "
+    "PRODUCT -- it accumulates until it stops the reaction. r = "
+    "k_ox * C \"oxidation\": biotite Fe(II) by dissolved O2. A "
     "REACTANT -- it is consumed until there is none left.":
         "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
 
@@ -72,14 +72,14 @@ LEDGER = {
     "M(t + dt) = M(t) exp(-lambda dt), lambda = (r / M) f(c) / tau":
         "test_the_rock_is_integrated_exactly_over_a_step_with_c_held",
 
-    "k(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)":
+    "K_sat(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)":
         "test_the_matrix_conducts_better_as_it_dissolves",
 
-    "k(T) = k_0 exp(-E_a / R_g T) Arrhenius, on the RATE "
+    "k(T) = A exp(-E_a / R_g T) Arrhenius, on the RATE "
     "C_eq(T) = C_0 exp(-dH_r / R_g T) van 't Hoff, on the CEILING":
         "test_the_factors_are_the_textbook_arrhenius_and_van_t_hoff",
 
-    "L = q C_eq / (k A) = (q C_0 / (k_0 A)) exp( -(dH_r - E_a) / R_g T ) "
+    "L = q C_eq / k = (q C_0 / A) exp( -(dH_r - E_a) / R_g T ) "
     "= L_ref exp( +(E_a - dH_r) / R_g ( 1/T - 1/T_ref ) ) *":
         "test_only_the_DIFFERENCE_of_the_two_enthalpies_sets_the_length_scale",
 
@@ -108,10 +108,10 @@ LEDGER = {
     "Gamma = sigma_t^2 d (1 - nu) / (2 E)":
         "test_the_stress_and_energy_criteria_are_one_criterion",
 
-    "penetration = sqrt(D_O2 / (tortuosity_fresh k_ox A))":
+    "penetration = sqrt(D_O2 / (tortuosity_fresh k_ox))":
         "test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length",
 
-    "A = 6 phi / d":
+    "s_geo = 6 phi / d":
         "test_the_reactive_surface_area_is_six_phi_over_d",
 
     "dV/V = V_goethite / V_FeO - 1":

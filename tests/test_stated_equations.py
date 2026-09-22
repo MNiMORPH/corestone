@@ -44,9 +44,9 @@ def _model(dx=0.10, spacing=1.5, width=12.0, depth=9.0):
 @pytest.mark.parametrize("driver", ["dissolution", "oxidation"])
 def test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux(driver):
     """
-        R = k(T) * A * (1 - C / C_eq) dissolving: a product, driven by
+        r = k(T) * (1 - C / C_eq) dissolving: a product, driven by
         how far the water is from saturation
-        R = k_ox * A * C oxidising: a reactant, driven by how much of it
+        r = k_ox * C oxidising: a reactant, driven by how much of it
         there is
 
     The rate per unit volume is a property of the rock. It may not depend on
@@ -219,7 +219,7 @@ def test_tau_falls_as_solubility_rises():
 
 def test_the_matrix_conducts_better_as_it_dissolves():
     """
-        k(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)
+        K_sat(M) = K_sat_matrix(T)^M * K_sat_weathered(T)^(1 - M)
 
     Geometric interpolation: linear in the LOGARITHM of conductivity, which is
     how conductivity varies and why the endpoints span four orders of
@@ -767,7 +767,7 @@ def test_the_front_ceiling_is_the_flux_over_tau():
 
 def test_the_reactive_surface_area_is_six_phi_over_d():
     """
-    ``A = 6 phi / d``
+    ``s_geo = 6 phi / d``
 
     Cubic grains, the model's one convention for surface area, applied to the
     biotite exactly as it is to the plagioclase behind ``L_ref``. Checked
@@ -784,7 +784,7 @@ def test_the_reactive_surface_area_is_six_phi_over_d():
 
 def test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length():
     """
-    ``penetration = sqrt(D_O2 / (tortuosity_fresh k_ox A))``
+    ``penetration = sqrt(D_O2 / (tortuosity_fresh k_ox))``
 
     Once the advective Damkohler is far below one, this is the only length
     left, and it is what would shelter a corestone in an oxygen-driven model.
