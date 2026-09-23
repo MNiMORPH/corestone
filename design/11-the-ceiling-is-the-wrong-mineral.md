@@ -112,7 +112,7 @@ thermodynamic drive to dissolve them at all.
 | **Leave it.** Treat `C_eq` as a teaching abstraction: "the ceiling", never identified with a real mineral. | Free. But the page names quartz, and 32.9 kJ/mol IS quartz's, so the identification is already made in print. |
 | **Move `C_eq` to amorphous silica** (1931 uM). | `pore_volumes` 47 740 -> 2 473, so **19.3x faster weathering**. Every timescale on the page and in `pacing.txt` is invalidated. The demo's pacing table must be re-measured. |
 | **Move `C_eq` to kaolinite-buffered silica.** | Most defensible physically. Needs an activity diagram and a stated pH/Al assumption -- i.e. a thermodynamics where the model currently has a normalisation. Same timescale blast radius. |
-| **Keep quartz, and say plainly that it is a proxy** for whatever stops the reaction. | Free, honest, and consistent with design 10 section on what `delta_H_r` belongs to. Does not fix the sign problem, only stops claiming it is not there. |
+| **Keep quartz, and say plainly that it is a proxy** for whatever stops the reaction. | Free, honest, and consistent with design 10 on what `delta_H_r` belongs to. Leaves the model 2-4x slow for this reason, but stops the page asserting a mineral identity it cannot support. |
 
 **Not decided. Andy's call.** The blast radius on options 2 and 3 is the reason
 it was not done on the spot: they are not parameter edits, they are a
