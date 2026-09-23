@@ -1,5 +1,21 @@
 # 11 -- The ceiling is the wrong mineral's
 
+> **CORRECTION, 2026-09-23, after the literature chase in design 13.** This
+> file proposes KAOLINITE-BUFFERED silica as the replacement ceiling. That is
+> wrong, and wrong in the unhelpful direction. Kaolinite + H2O = 2 gibbsite +
+> 2 SiO2(aq) fixes log a(SiO2) = -4.35 (llnl) / -4.39 (phreeqc), i.e. **2.68
+> mg/L, BELOW quartz's 6.02**. It is the LOWER limit of kaolinite stability,
+> not an upper bound on silica; adopting it would slow the model by 2.3x.
+> Plagioclase-kaolinite fixes no silica value either -- it depends on
+> a(Na+)/a(H+), and at realistic granite-groundwater ratios it demands silica
+> above amorphous saturation, which is *why* plagioclase never equilibrates
+> (section 3 below is right about that). **The phase whose solubility actually
+> lands in the 14-25 mg/L field band is CHALCEDONY**: 11.2 mg/L (llnl) to
+> 16.9 mg/L (phreeqc/WATEQ) at 25 C, the latter sitting on Hem's granitic
+> groundwater median of 17. Read section 5's option list with that substituted
+> for "kaolinite-buffered", and note the database spread is itself 1.9x.
+
+
 Written 2026-09-23, before any code change, in answer to Andy's remark that
 *"quartz/silica should always be saturated in water, I think"*.
 
