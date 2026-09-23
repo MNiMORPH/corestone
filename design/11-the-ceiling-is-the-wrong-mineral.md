@@ -52,6 +52,14 @@ mol/kg already in the file. Read correctly, the table says: real water holds
 
 ## 2a. What that costs, and the awkward part
 
+**The table below was computed against the pre-design-12 baseline and its
+absolute numbers are stale.** With the temperature correction restored,
+`pore_volumes` at 12 C is 88 080 rather than 47 744 and the front figure is
+0.20 m/Myr rather than 0.81. The RATIOS still hold -- raising the ceiling by a
+factor still buys that factor on the budget -- and so does the argument. The
+gap it is being measured against is now 20-35x, not 4.9-8.6x.
+
+
 `pore_volumes = N_0 / C_eq`, so a ceiling set low makes the water requirement
 high in exact proportion:
 
@@ -66,10 +74,13 @@ high in exact proportion:
 against Panola at 7 and Davis Run at 4, i.e. **4.9x to 8.6x too slow**. The
 ceiling would account for most of that gap on its own.
 
-But the page already attributes the whole gap to REACTIVE SURFACE AREA -- the
-geometric 900 m2/m3 of 2 mm grains against a BET area orders larger. **These are
-two candidate explanations for one discrepancy, and they are not independent.
-Fixing both overshoots.** Whichever is adopted, the other's claim on the gap has
+The page attributed the whole gap to REACTIVE SURFACE AREA -- the geometric
+900 m2/m3 of 2 mm grains against a BET area orders larger. **That attribution
+was withdrawn on 2026-09-23 after being measured: raising the area a
+thousandfold buys 1.72 in rock consumed, because water in the joints does not
+touch the matrix however reactive it is.** The ceiling and the area are in any
+case two arms of one saturating function, not independent multipliers, so
+fixing both overshoots. Whichever is adopted, the other's claim on the gap has
 to be withdrawn in the same edit, or the page will be explaining the same factor
 twice.
 
