@@ -194,18 +194,26 @@ Stokes-Einstein. The one number taken from an observation rather than derived
 is ``x_c``, and it is labelled a calibration where it appears.
 
 Which makes the timescale a PREDICTION. On the default 3 m section -- 1 m
-joints, 0.30 m/yr, 12 C -- 90 % of the rock has reacted after 869 kyr
-oxidising and 3773 kyr dissolving.
+joints, 0.30 m/yr, 12 C -- 90 % of the rock has reacted after about 1000 kyr
+oxidising and 15000 kyr dissolving. (Both re-measured after design 12; the
+dissolving figure was 3773 kyr while the temperature correction was silenced.)
 
-**AND 3 m / t90 IS NOT A FRONT RATE UNDER OXIDATION. Do not report it as
-one.** The arithmetic gives 3.45 m/Myr, which sits beautifully inside the
+**AND 3 m / t90 IS NOT A FRONT RATE UNDER EITHER REACTION. Do not report it
+as one.** Oxidising it gives 3.00 m/Myr, which sits beautifully inside the
 4-7 m/Myr measured for temperate granite regoliths (Panola 7, Davis Run 4;
 White et al. 2001) -- and it is exactly the trap this file already records
 having fallen into once. Dividing depth by t90 measures a front only if there
 IS a front, and at t90:
 
-    dissolving   4.8 % of the section part-reacted, about 14 cm
+    dissolving    91 % of the section part-reacted
     oxidising    100 % of the section part-reacted
+
+**The dissolving figure used to read 4.8 % and it no longer does.** Measured
+2026-09-23 at 1.5, 3 and 6 m: 91.6, 91.5 and 91.2 %, and D/t90 rises with the
+depth drawn -- 0.333, 0.444, 0.706 m/Myr -- which is what a number that is not
+a front rate does. The profile says the same thing plainly: the top cell goes
+to M = 0.02 and everything below sits flat at the joint fraction, so the joint
+network dissolves at ALL depths at once and nothing propagates downward.
 
 Oxygen crosses 3 m barely consumed, which is what Da = 0.023 says it does, so
 the whole section oxidises together and there is no depth front to time. The
@@ -222,23 +230,33 @@ likely absent from this model: in the shallow subsurface the oxygen budget is
 dominated by organic matter and root respiration, not by biotite. There is no
 organic carbon here.
 
-**Dissolving, the timescale is a genuine front rate and it is too slow.**
-0.80 m/Myr against 4-7 measured, five to nine times slower, with nothing tuned
-to it. The gap sits in the reactive surface area, the GEOMETRIC 900 m2/m3 of
-2 mm grains against a BET 3e5 to 3e6 for granite -- two to three orders
-higher, so closing the gap needs a factor of five and would still leave five
-hundred times of headroom. The discrepancy lives inside a range the field has
-not resolved (White & Brantley 2003), and choosing a surface area to make the
-rate come out is the one move that would make the number meaningless.
+**Dissolving, the model is slow, and how slow is now the open question.**
+0.20 m/Myr against 4-7 measured, twenty to thirty-five times slower, with
+nothing tuned to it. It was 0.80 and "five to nine times" until design 12
+un-silenced the temperature correction, which made the model slower and the
+gap wider.
+
+**Where the gap sits is NOT settled, and this file used to say it was.** It
+attributed the whole of it to the reactive surface area, the GEOMETRIC
+900 m2/m3 of 2 mm grains against a BET 3e5 to 3e6 for granite. That does not
+survive measurement: raising the area a thousandfold raises the rock consumed
+in 300 kyr by 1.72, because water in the joints does not touch the matrix
+however reactive the matrix is, so area cannot buy what contacting does not
+deliver. Two other candidates are written up and neither is chosen -- the
+solubility ceiling (design 11) and the contacting efficiency itself, which
+measures 0.09: the water leaves the base carrying 0.55 mg/L of silica against
+14-25 measured in granitic waters. Choosing a surface area to make the rate
+come out is still the one move that would make the number meaningless.
 
 Earlier versions got closer and were wrong to. A calibrated model ran at
 17.9 m/Myr, three times too FAST, with nothing checking it. Deriving pore_volumes
 brought it to 2.5, which looked like agreement within a factor of two -- but
 30 % of the section was part-dissolved at once, so it was not advancing a
-front. Only with the matrix transport corrected, and the part-dissolved zone
-down to 4.8 %, is the dissolving number a front rate at all. It is a worse
-match and a better measurement, and the oxidising number is the same lesson
-learned a third time.
+front. The matrix transport correction was read at the time as bringing the
+part-dissolved zone down to 4.8 % and so earning the word "front"; re-measured
+in 2026 it is 91 %, and the dissolving number was never a front rate either.
+It is a worse match and a better measurement, and the oxidising number is the
+same lesson learned a third time.
 
 Solute moves by advection **and by diffusion**:
 
