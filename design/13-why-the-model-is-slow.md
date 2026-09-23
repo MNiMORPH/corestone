@@ -28,6 +28,43 @@ Raising the area a thousandfold raises the rock consumed in 300 kyr by 1.72.
 Water in a joint does not touch the block interior however reactive that
 interior is, so area cannot buy what contacting does not deliver.
 
+## 1a. The comparison was between two different quantities (2026-09-23)
+
+Andy: *"Are you comparing directly field rates against weathering rates in
+fractures and at the surface?"* **No -- and worse.** `3 m / t90` is BULK
+dissolution of a section that is mostly inert block. A field weathering front
+is a BOUNDARY advancing through rock that is reacting. Those are different
+quantities, and section 1 above had already rejected the first one.
+
+Measured properly -- how fast the reacted rind eats into a block from its
+bounding joint, which IS a front:
+
+| time | rind depth (dissolved = 0.5) | advance |
+|---|---|---|
+| 400 kyr | 0.050 m | 0.25 m/Myr |
+| 1600 kyr | 0.100 m | 0.06 m/Myr |
+| 3200 kyr | 0.150 m | 0.03 m/Myr |
+
+**It decelerates, as sqrt(t).** That is not a calibration problem; it is the
+signature of diffusion into a fixed geometry, and it is exactly the case
+Fletcher et al. (2006) show cannot sustain a steady front. Their fractured case
+advances at constant rate; their unfractured case goes parabolic and falls
+behind. **This model is the unfractured case**, whatever joints it was seeded
+with, because the joints never change.
+
+**The mechanism is diagnosed but not wired.** `cracking_number`,
+`fracture_energy` and `cracking_threshold` exist, are computed from Goodfellow's
+criterion (design 10) and are printed in `thermo_report` -- and nothing writes
+to `link_v` or `link_h` after seeding. The model knows when the rock should
+crack and never cracks it.
+
+**So "the model is 20-35x too slow" was the wrong frame.** The model is doing
+something structurally different from the field sites: a fixed-geometry
+diffusion problem against a self-fracturing front. Closing the gap by moving
+`C_eq`, the surface area or the conductivity would be fitting a constant-rate
+observation with a decelerating model. The levers in section 3 are still
+correctly measured; what changes is that none of them addresses this.
+
 ## 2. The identity that organises everything
 
 Section-integrated, the rate of rock consumption is
