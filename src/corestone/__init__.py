@@ -9,7 +9,7 @@ which the water did reach, falls apart into grus.
 The physics, in one line: dissolution runs at an Arrhenius rate constant
 multiplied by how far the pore water is from equilibrium,
 
-    -dN/dt = k(T) * (1 - C / C_eq)
+    dN/dt = -k(T) * (1 - C / C_eq)
 
 so water that has equilibrated stops weathering rock however soluble the rock
 and however warm the water. Fresh water descends the joints; the joints
