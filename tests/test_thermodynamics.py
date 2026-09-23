@@ -103,11 +103,14 @@ def test_the_regime_belongs_to_the_SECTION_and_not_to_the_model():
 
     da3, regime3 = da(60)                       # the exercise's 3 m section
     da1, regime1 = da(20)                       # 1 m of the same rock
-    # 3.0 m / L_ref, with L_ref now derived from grain size rather than
-    # calibrated, so 0.457 m and Da = 6.56 where the round 0.50 gave 6.00.
-    assert da3 == pytest.approx(3.0 / 0.457, rel=1e-3)
+    # 3.0 m / saturation_length AT 285 K, which is 0.9083 m. L_ref is 0.457 m
+    # but that is its value at T_ref = 298.15, where its two sources were
+    # measured; running at 285 K applies both corrections and roughly doubles
+    # it. Before design 12 the reference and the default were one variable, so
+    # neither correction fired and this read 3.0 / 0.457 = 6.56.
+    assert da3 == pytest.approx(3.0 / 0.9083, rel=1e-3)
     assert regime3 == "saturation-limited"
-    assert da1 == pytest.approx(1.0 / 0.457, rel=1e-3)
+    assert da1 == pytest.approx(1.0 / 0.9083, rel=1e-3)
     assert regime1 == "mixed"
     assert da3 == pytest.approx(3.0 * da1, rel=1e-9)
 
@@ -152,8 +155,10 @@ def test_the_thermo_report_puts_the_two_budgets_side_by_side():
     # report, so the two are pinned apart.
     ox, diss = text.split("DISSOLUTION --")
     assert "678" in ox and "442" in ox, ox
-    assert "47744" in diss and "6.28" in diss, diss
-    assert "47744" not in ox and "678 " not in diss, text
+    # 88080 and 3.41 since design 12; they were 47744 and 6.28 while T_ref and
+    # the default temperature were one variable and neither correction fired.
+    assert "88080" in diss and "3.41" in diss, diss
+    assert "88080" not in ox and "678 " not in diss, text
     assert "SLOWS the oxidation" in text and "SPEEDS the dissolution" in text
 
 

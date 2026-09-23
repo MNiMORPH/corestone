@@ -527,7 +527,18 @@ class Weathering(object):
         # does.
         self.L_ref = 0.457                # saturation length at T_ref, mean
                                           # infiltration, fresh rock [m]
-        self.T_ref = 285.0                # reference temperature [K]
+        # THE REFERENCE SITS WHERE THE DATA SIT, which is 25 C: Palandri &
+        # Kharaka's rate constant and llnl.dat's quartz solubility are both
+        # 25 C values, so L_ref and pore_volumes_ref above are 25 C values and
+        # this is the temperature at which the two correction factors are 1.
+        # It is NOT the temperature the model runs at; that is T_default. The
+        # two were one variable until 2026-09-23, which silenced both
+        # corrections at the default and ran 25 C chemistry while reporting
+        # 12 C. Design 12. T_K_ref and T_D_ref already worked this way.
+        self.T_ref = 298.15               # temperature of the rate constant
+                                          # and the solubility [K]
+        self.T_default = 285.0            # temperature the model starts at
+                                          # [K], an ordinary temperate 11.85 C
         # The soluble phase is PLAGIOCLASE -- oligoclase, the An10-30 the
         # feldspar of a granite usually is. Not because it is the most
         # abundant phase (by the IUGS definition granite is 10-65 % of its
@@ -901,7 +912,7 @@ class Weathering(object):
         self.driver = "dissolution"
 
         # ---- state
-        self.T = self.T_ref               # temperature [K]
+        self.T = self.T_default           # temperature [K]
         self.t = 0.0                      # model time [s]
         self._tort = None                 # link tortuosity, refreshed with
                                           # the head; see solve_flow

@@ -742,8 +742,10 @@ def test_pore_volumes_on_oxygen_is_the_iron_divided_by_four_and_by_the_solubilit
     assert m.oxygen_pore_volumes == pytest.approx(0.25 * iron / m.C_O2, rel=1e-12)
     assert m.oxygen_pore_volumes == pytest.approx(678.1, rel=1e-3)
     # The comparison design 08 rests on. NOT 15x: that figure was computed
-    # with Fletcher's f_FeO = 0.05, which the same document rejects.
-    assert m.silica_pore_volumes / m.oxygen_pore_volumes == pytest.approx(70.4, rel=1e-2)
+    # with Fletcher's f_FeO = 0.05, which the same document rejects. It was
+    # 70.4 until design 12 moved T_ref to where the data are: silica now
+    # carries its 12 C solubility and oxygen always did, so the gap widens.
+    assert m.silica_pore_volumes / m.oxygen_pore_volumes == pytest.approx(129.9, rel=1e-2)
 
 
 def test_the_front_ceiling_is_the_flux_over_pore_volumes():
@@ -761,8 +763,10 @@ def test_the_front_ceiling_is_the_flux_over_pore_volumes():
         m.rainfall / m.oxygen_pore_volumes, rel=1e-12)
     per_Myr = m.oxidation_front_ceiling * YEAR * 1e6
     assert per_Myr == pytest.approx(442.4, rel=1e-3)
+    # 3.41, not the 6.28 of before design 12: the silica budget is taken at
+    # 12 C now rather than at the 25 C of its sources.
     assert (m.rainfall / m.silica_pore_volumes * YEAR * 1e6
-            == pytest.approx(6.28, rel=1e-2))
+            == pytest.approx(3.41, rel=1e-2))
 
 
 def test_the_reactive_surface_area_is_six_phi_over_d():
@@ -818,7 +822,9 @@ def test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length():
     assert deep.regime == "saturation-limited"
 
     # ...and the ratio of the two, which no grid can change.
-    assert m.oxidation_length / m.saturation_length == pytest.approx(289.0,
+    # 145, not 289: saturation_length doubled when design 12 put the silica
+    # chemistry at 12 C; the oxidation length has no Arrhenius term to move.
+    assert m.oxidation_length / m.saturation_length == pytest.approx(145.4,
                                                                     rel=1e-2)
 
     # Warming deepens the penetration, because diffusivity rises with it and
