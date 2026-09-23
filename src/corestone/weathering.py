@@ -741,12 +741,12 @@ class Weathering(object):
         # where through-diffusion experiments give D_eff/D_0 of 1e-4 to 1e-5,
         # a tortuosity nearer 1e4.
         #
-        # KNOWN INCONSISTENCY, stated rather than hidden: the conductivity
-        # evolves with M and this does not. Dissolving rock opens porosity to
-        # diffusion exactly as it opens it to flow, so a full treatment would
-        # interpolate tortuosity between the two ends the way
-        # link_conductivity interpolates k. Fresh rock therefore diffuses far
-        # too freely here, which flatters the early rind.
+        # This DOES evolve with M, the way the conductivity does: see
+        # link_tortuosity, which interpolates tortuosity_fresh^M *
+        # tortuosity_weathered^(1 - M). Dissolving rock opens porosity to
+        # diffusion exactly as it opens it to flow. (This comment used to
+        # declare the opposite as a known inconsistency; the inconsistency was
+        # fixed and the comment was not.)
         # Tortuosity is the cost of the detour. A molecule diffusing through
         # rock cannot travel in a straight line: it follows the pore network
         # around every grain, so it covers far more distance than the
