@@ -40,6 +40,7 @@ from bokeh.plotting import figure
 
 from artesian.live import animator, reset_button, responsive
 
+from corestone.contour import contour_segments
 from corestone import (FractureNetwork, Weathering, orthogonal_grid,
                        tiling_angles, tiling_spacings, YEAR)
 
@@ -403,6 +404,17 @@ angle = pn.widgets.DiscreteSlider(
 # It needs the ponding boundary to mean anything. Without it the model forces
 # the full rainfall through intact granite, which demands a hydraulic gradient
 # of 23 and reports 67 m of head at the land surface.
+#: WHERE THE WATER STILL HAS CAPACITY. Draws Da = 1, the line either side of
+#: which the two Damkohler limits sit: inside it water crosses a joint spacing
+#: barely touched, outside it saturates before it gets there.
+#:
+#: Off by default, and not because it is expensive. At t = 0 the line lies on
+#: the joints and says nothing the joint traces do not -- it earns its place
+#: only once weathering has opened the matrix and it starts to migrate out
+#: into the rock. Showing it first would teach that it is a decoration.
+show_da = pn.widgets.Checkbox(
+    name="Show where water still has capacity (Da = 1)", value=False)
+
 NO_JOINTS = float("inf")
 
 spacing = pn.widgets.DiscreteSlider(
@@ -619,10 +631,39 @@ def _wide(field):
     return field
 
 
+def _da_line():
+    """
+    Put the Da = 1 line into its sources, or clear it.
+
+    Contoured on log10(Da) at zero rather than on Da at one. Da spans four and
+    a half orders of magnitude across a jointed section, and interpolating a
+    quantity like that linearly between two samples puts the crossing in the
+    wrong place -- between 0.1 and 4000 the halfway point is not 1. Measured,
+    the two agree to about 3 mm on a 3 m section here, so this is the
+    principled choice rather than a visible one, and it costs nothing.
+
+    Cleared when there are no joints. Da is a length over a length and the
+    length that belongs on top is the joint spacing; without joints there is
+    no such length, and any number put there would be invented.
+    """
+    empty = {"x0": [], "y0": [], "x1": [], "y1": []}
+    if not show_da.value or not np.isfinite(spacing.value):
+        for src in (da_left, da_right):
+            src.data = dict(empty)
+        return
+    m = sim["model"]
+    da = m.damkohler_field(spacing.value)
+    with np.errstate(divide="ignore"):
+        x0, z0, x1, z1 = contour_segments(np.log10(da), 0.0, m.dx, m.dx)
+    for src in (da_left, da_right):
+        src.data = {"x0": x0, "y0": z0, "x1": x1, "y1": z1}
+
+
 def _redraw():
     m = sim["model"]
     speed.data = {"image": [_wide(_speed_field(m))]}
     dissolved.data = {"image": [_wide(m.dissolved_fraction)]}
+    _da_line()
     fig_left.title.text = "How fast the water is moving"
     fig_right.title.text = "What is left of the rock"
     # Time and a mean, and nothing that needs a threshold. This used to read
@@ -651,6 +692,9 @@ speed = ColumnDataSource(data={"image": [np.zeros((2, 2))]})
 dissolved = ColumnDataSource(data={"image": [np.zeros((2, 2))]})
 joints_left = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 joints_right = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
+#: The Da = 1 line, one source per figure like the joints above.
+da_left = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
+da_right = ColumnDataSource(data={"x0": [], "y0": [], "x1": [], "y1": []})
 
 
 def _panel(source, joints, palette, label, labels, low=0.0, high=1.0,
@@ -715,6 +759,18 @@ fig_right, bar_right = _panel(
     dissolved, joints_right, Oranges256[::-1],
     EXTENT_LABEL["dissolution"], {0.0: "none", 1.0: "all"})
 
+# The Da = 1 line goes on both maps, drawn twice: a pale wide stroke under a
+# dark dashed one. A single colour cannot read against both a blue ramp and an
+# orange one, and this is the usual cartographic answer to that.
+da_renderers = []
+for _fig, _src in ((fig_left, da_left), (fig_right, da_right)):
+    da_renderers.append(_fig.segment("x0", "y0", "x1", "y1", source=_src,
+                                     color="#ffffff", line_width=3.5,
+                                     alpha=0.85, visible=False))
+    da_renderers.append(_fig.segment("x0", "y0", "x1", "y1", source=_src,
+                                     color="#111111", line_width=1.5,
+                                     line_dash="dashed", visible=False))
+
 #: The two figures, named so :func:`show_result` can put them in their
 #: loading state while it computes.
 figures = pn.Row(fig_left, fig_right, sizing_mode="stretch_width",
@@ -755,6 +811,36 @@ def _resnap_spacing(a=None):
 
 
 angle.param.watch(lambda event: _resnap_spacing(event.new), "value")
+
+
+def _sync_da(event=None):
+    """
+    Show or hide the Da = 1 line, and keep it honest about joints.
+
+    The line is only redrawn here, never recomputed on a timer: the field it
+    contours changes when the rock does, and _redraw already runs then.
+    Toggling it off empties the sources too, so a stale line cannot survive a
+    parameter change while hidden and reappear wrong.
+    """
+    on = bool(show_da.value) and np.isfinite(spacing.value)
+    for r in da_renderers:
+        r.visible = on
+    if sim.get("model") is not None:
+        _da_line()
+
+
+show_da.param.watch(_sync_da, "value")
+# Without joints there is no spacing to build Da on, so the box says why it is
+# not available rather than silently drawing nothing.
+def _da_available(event=None):
+    ok = np.isfinite(spacing.value)
+    show_da.disabled = not ok
+    show_da.name = ("Show where water still has capacity (Da = 1)" if ok
+                    else "Da = 1 needs joints to set a spacing")
+    _sync_da()
+
+
+spacing.param.watch(_da_available, "value")
 
 
 @pn.depends(cell.param.value, watch=True)
@@ -805,6 +891,10 @@ pn.Column(
            driver, pn.Spacer(sizing_mode="stretch_width"),
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     pn.Row(angle, spacing, rainfall, temperature, cell,
+           sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
+    # An overlay, not a parameter, so it sits below the sliders and against
+    # the figures it draws on rather than among the things that change the run.
+    pn.Row(show_da, pn.Spacer(sizing_mode="stretch_width"),
            sizing_mode="stretch_width", max_width=DESIGN_WIDTH),
     figures,
     # Centred, not jammed left. The cap means the app can be narrower than the
