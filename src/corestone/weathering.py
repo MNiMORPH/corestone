@@ -1289,9 +1289,20 @@ class Weathering(object):
         return -slope * self.R_gas
 
     @property
-    def damkohler(self):
+    def section_damkohler(self):
         """
-        Section depth divided by the saturation length [-].
+        Section depth divided by the mean-flux length, for whichever reaction
+        is driving [-].
+
+        NOT "the" Damkohler number, and named so it cannot be mistaken for
+        one. Da is a field -- see :meth:`damkohler_field` -- and this is one
+        particular reduction of it: the whole section over one length formed
+        at the MEAN infiltration through fresh rock. The two can disagree in
+        direction. Oxidising at 1 m spacing this reads 0.023, reaction-limited,
+        while the field's median reads 12.4, saturation-limited; both are true
+        and they answer different questions. A parcel crossing the section at
+        the mean flux barely loses its oxygen, and the little water actually
+        present in the matrix has its oxygen consumed within centimetres.
 
         The dimensionless group that decides which of the two limits this
         model is in, and therefore what the pictures mean. It counts the
@@ -1329,23 +1340,24 @@ class Weathering(object):
         and the ratio of the JOINT SPACING to the saturation length is what
         decides whether a block interior can be sheltered at all.
         """
+        if self.driver == "oxidation":
+            return self.oxidation_damkohler
         return self.network.nz * self.network.dx / self.saturation_length
 
     @property
     def regime(self):
         """
-        Name of the limit the DRIVING reaction is in; see :attr:`damkohler`
+        Name of the limit the DRIVING reaction is in; see :attr:`section_damkohler`
         and :attr:`oxidation_damkohler`.
 
-        It used to read :attr:`damkohler` whatever the driver, so under
+        It used to read :attr:`section_damkohler` whatever the driver, so under
         oxidation it reported "saturation-limited" -- the dissolution answer
         -- when the oxidation Damkohler is 0.023 and the section is firmly
         reaction-limited. The report happened to print it under the
         dissolution heading, so nothing visible was wrong; anything asking the
         model directly got the wrong word.
         """
-        da = (self.oxidation_damkohler if self.driver == "oxidation"
-              else self.damkohler)
+        da = self.section_damkohler
         if da > 3.0:
             return "saturation-limited"
         if da < 1.0 / 3.0:
@@ -1764,7 +1776,7 @@ class Weathering(object):
             "  saturation length       %8.3f m     L_ref * C_eq-factor / "
             "k-factor" % float(np.mean(self.saturation_length)),
             "  Damkohler (section)     %8.2f       %s"
-            % (float(np.mean(self.damkohler)), self.regime),
+            % (self.section_damkohler, self.regime),
             "  front ceiling           %8.2f m/Myr (field: 4-7 m/Myr)"
             % (self.rainfall / self.silica_pore_volumes * YEAR * 1e6),
             "",
@@ -1891,7 +1903,7 @@ class Weathering(object):
         """
         The Damkohler number cell by cell: ``length / local_saturation_length``.
 
-        Distinct from the scalar :attr:`damkohler`, which divides the SECTION
+        Distinct from the scalar :attr:`section_damkohler`, which divides the SECTION
         DEPTH by one saturation length and is therefore a single number for a
         choice of how much rock to draw. This is the field, and the length on
         top is one the rock sets.

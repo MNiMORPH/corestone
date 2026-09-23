@@ -813,7 +813,7 @@ def test_the_oxygen_penetration_depth_is_the_reaction_diffusion_length():
     deep.set_rainfall(0.30 / YEAR)
     deep.set_temperature(11.85 + 273.15)
     deep.initialize()
-    assert deep.damkohler > 3.0                    # saturation-limited
+    assert deep.section_damkohler > 3.0                    # saturation-limited
     assert deep.oxidation_damkohler < 1.0 / 3.0    # reaction-limited
     assert deep.regime == "saturation-limited"
 

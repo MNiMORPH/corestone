@@ -77,7 +77,7 @@ def test_the_temperature_dependence_does_not_depend_on_the_calibration():
 def test_the_damkohler_number_counts_e_foldings_across_the_section():
     m = model()
     depth = m.network.nz * m.network.dx
-    assert float(np.mean(m.damkohler)) == pytest.approx(
+    assert m.section_damkohler == pytest.approx(
         depth / float(np.mean(m.saturation_length)), rel=1e-12)
 
 
@@ -99,7 +99,7 @@ def test_the_regime_belongs_to_the_SECTION_and_not_to_the_model():
             sets=orthogonal_grid(0.5), rng=np.random.default_rng(0))
         m = Weathering(net)
         m.set_rainfall(0.30 / YEAR); m.set_temperature(285.0); m.initialize()
-        return float(np.mean(m.damkohler)), m.regime
+        return m.section_damkohler, m.regime
 
     da3, regime3 = da(60)                       # the exercise's 3 m section
     da1, regime1 = da(20)                       # 1 m of the same rock
@@ -115,7 +115,7 @@ def test_the_regime_belongs_to_the_SECTION_and_not_to_the_model():
 def test_warming_pushes_further_into_the_transport_limit():
     """Only because E_a exceeds delta_H_r here. It is not a general truth
     about weathering; see the reversal test above."""
-    cold, warm = model(0.0).damkohler, model(30.0).damkohler
+    cold, warm = model(0.0).section_damkohler, model(30.0).section_damkohler
     assert warm > cold
 
 
@@ -229,8 +229,8 @@ def test_the_two_drivers_disagree_about_whether_warm_means_weathered():
 
 def test_the_regime_names_the_limit_of_the_DRIVING_reaction():
     """
-    The bug this exists for. ``regime`` read ``damkohler`` whatever the driver,
-    and ``damkohler`` is built from the SATURATION length -- the dissolution
+    The bug this exists for. ``regime`` read ``section_damkohler`` whatever the driver,
+    and ``section_damkohler`` is built from the SATURATION length -- the dissolution
     one. So under oxidation it answered "saturation-limited" for a section
     whose oxidation Damkohler is 0.023, which is firmly reaction-limited.
 
@@ -247,7 +247,7 @@ def test_the_regime_names_the_limit_of_the_DRIVING_reaction():
     m.initialize()
 
     m.set_driver("dissolution")
-    assert m.damkohler > 3.0
+    assert m.section_damkohler > 3.0
     assert m.regime == "saturation-limited"
 
     m.set_driver("oxidation")
