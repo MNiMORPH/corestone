@@ -22,7 +22,7 @@ The soluble phase is plagioclase, and the ceiling on the solute is quartz
 saturation. Working in normalised concentration ``omega = C / C_eq`` removes the
 need to assert a solubility. The scale it sets is the **saturation length**
 
-    saturation_length = q * C_eq / (k(T) * A)
+    saturation_length = q * C_eq / k(T)
 
 the e-folding length of the approach to saturation -- *not* a distance at which
 equilibrium is reached, because there is no equilibrium here. ``omega`` approaches
@@ -1003,7 +1003,7 @@ class Weathering(object):
         The e-folding length of the approach to saturation [m], for water at
         the mean infiltration rate through fresh rock.
 
-            saturation_length = q * C_eq / (k(T) * A)
+            saturation_length = q * C_eq / k(T)
 
         **Not** a distance at which equilibrium is reached. There is no
         equilibrium: ``omega`` approaches 1 asymptotically, and after n of these

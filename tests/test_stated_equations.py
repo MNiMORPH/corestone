@@ -163,7 +163,7 @@ def test_forward_euler_would_fail_the_invariance_the_exponential_passes():
 
 def test_the_saturation_length_is_proportional_to_the_local_flux():
     """
-        saturation_length = q * C_eq / (k(T) * A)
+        saturation_length = q * C_eq / k(T)
 
     Proportional to q. Fast water in a joint travels far before it saturates;
     slow water in the matrix saturates almost at once.
@@ -176,7 +176,7 @@ def test_the_saturation_length_is_proportional_to_the_local_flux():
 
 def test_the_saturation_length_scales_as_C_eq_over_k_not_as_one_over_k():
     """
-        saturation_length = q * C_eq / (k(T) * A)
+        saturation_length = q * C_eq / k(T)
 
     Both k and C_eq depend on temperature, so the exponent is (E_a - dH_r),
     not E_a. Treating C_eq as constant was the second half of the temperature

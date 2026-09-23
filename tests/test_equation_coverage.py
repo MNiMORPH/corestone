@@ -48,7 +48,7 @@ LEDGER = {
     "REACTANT -- it is consumed until there is none left.":
         "test_the_reaction_rate_per_unit_volume_does_not_depend_on_the_flux",
 
-    "saturation_length = q * C_eq / (k(T) * A)":
+    "saturation_length = q * C_eq / k(T)":
         "test_the_saturation_length_is_proportional_to_the_local_flux",
 
     "div(q omega) - div(D grad omega) + r omega = S, S = r dissolving, S = 0 oxidising "
