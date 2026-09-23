@@ -1887,6 +1887,30 @@ class Weathering(object):
         setting."""
         return self.pore_volumes_ref / self.solubility_factor
 
+    def damkohler_field(self, length):
+        """
+        The Damkohler number cell by cell: ``length / local_saturation_length``.
+
+        Distinct from the scalar :attr:`damkohler`, which divides the SECTION
+        DEPTH by one saturation length and is therefore a single number for a
+        choice of how much rock to draw. This is the field, and the length on
+        top is one the rock sets.
+
+        ``length`` is the distance the answer is about, and it has to be one
+        the ROCK sets -- the joint spacing, normally, being how far water
+        travels between entering a joint and reaching the block it has to
+        attack. A section depth would work arithmetically and mean nothing:
+        it is how much rock you chose to draw, and the number would move with
+        that choice while the granite stayed put.
+
+        Above 1 the water saturates before it has crossed ``length``, so the
+        rock beyond is sheltered; below 1 it crosses barely touched. Both are
+        present at once here, because ``L = q / (dM/dt)`` inherits the flow
+        field and the joints made that uneven by orders of magnitude.
+        """
+        L = self.local_saturation_length()
+        return float(length) / np.maximum(L, 1e-300)
+
     def local_saturation_length(self):
         """The saturation length cell by cell [m]: ``q / r``."""
         r = self.reaction_rate
