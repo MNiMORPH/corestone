@@ -3,10 +3,24 @@
 Written 2026-09-23, before any code change, in answer to Andy's remark that
 *"quartz/silica should always be saturated in water, I think"*.
 
-**He is right, and the consequence is worse than the sloppy sentence it started
-from. `C_eq` is quartz saturation. Natural waters run 2-4x ABOVE quartz
-saturation. So `1 - C/C_eq` is not approximately zero at the far end of a flow
-path -- it is NEGATIVE, everywhere, in the real system the model is about.**
+**He is right. `C_eq` is quartz saturation, and natural waters carry 2-4x more
+silica than that. The model's ceiling therefore sits BELOW where real water
+actually sits, so the model needs 2-4x more water to strip a volume of rock
+than nature does, and weathers that much too slowly.**
+
+**Two things this is NOT, both of which I said before checking (2026-09-23):**
+
+*It is not about quartz weathering.* Quartz is inert here and that is intended.
+The issue is that quartz's SOLUBILITY is doing a second job -- it is the number
+at which PLAGIOCLASE stops. Those are separate roles and only the second is
+wrong.
+
+*The driving force does not go negative inside the model.* `omega = C/C_eq`
+runs 0 to 1 by construction; rain enters at 0 and approaches 1 asymptotically.
+The negative numbers in section 2 are what you get feeding MEASURED water into
+the model's formula. They say the ceiling is set too low, not that the model
+computes something negative. I wrote the stronger claim first and it was
+wrong.
 
 Nothing is changed yet. `C_eq` is calibrated and every timescale hangs off it,
 so the decision is Andy's and it is recorded here rather than acted on.
@@ -33,9 +47,31 @@ Recomputed in session on 2026-09-23 from the concentrations below, not relayed:
 | amorphous silica (upper limit) | 116 mg/L | 1931 uM | 19.3 | -18.3 |
 
 Quartz solubility at 25 C is 6.0 mg/L SiO2 = 100 uM, which is the 1.0e-4
-mol/kg already in the file. The driving force does not approach zero; it goes
-through it and out the other side. In most implementations that clamps
-weathering to zero or flips its sign.
+mol/kg already in the file. Read correctly, the table says: real water holds
+2-4x more silica per volume than this model lets its water hold.
+
+## 2a. What that costs, and the awkward part
+
+`pore_volumes = N_0 / C_eq`, so a ceiling set low makes the water requirement
+high in exact proportion:
+
+| ceiling | C_eq | pore_volumes | front | vs now |
+|---|---|---|---|---|
+| quartz (current) | 100 uM | 47 740 | 0.81 m/Myr | -- |
+| Hem surface median | 233 uM | 20 489 | 1.89 m/Myr | 2.33x |
+| Hem groundwater median | 283 uM | 16 869 | 2.29 m/Myr | 2.83x |
+| granitic groundwater | 416 uM | 11 476 | 3.37 m/Myr | 4.16x |
+
+**The awkward part.** This model is already known to run slow: 0.81 m/Myr
+against Panola at 7 and Davis Run at 4, i.e. **4.9x to 8.6x too slow**. The
+ceiling would account for most of that gap on its own.
+
+But the page already attributes the whole gap to REACTIVE SURFACE AREA -- the
+geometric 900 m2/m3 of 2 mm grains against a BET area orders larger. **These are
+two candidate explanations for one discrepancy, and they are not independent.
+Fixing both overshoots.** Whichever is adopted, the other's claim on the gap has
+to be withdrawn in the same edit, or the page will be explaining the same factor
+twice.
 
 ## 3. Why plagioclase weathers anyway
 
